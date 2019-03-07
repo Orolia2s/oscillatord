@@ -2,6 +2,7 @@
 #define LOG_H_
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #define ERR "<3>"
 #define WARN "<4>"
