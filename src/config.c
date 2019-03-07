@@ -54,7 +54,7 @@ const char *config_get(const struct config *config, const char *key)
 	return envz_get(config->argz, config->len, key);
 }
 
-void ae_config_cleanup(struct config *config)
+void config_cleanup(struct config *config)
 {
 	if (config->argz != NULL)
 		free(config->argz);
