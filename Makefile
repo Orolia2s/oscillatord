@@ -12,7 +12,7 @@ warnings := -Wall \
 all: $(NAME)
 
 $(NAME): $(src_files)
-	$(CC) $^ -o $@ $(CFLAGS) $(warnings) -lm
+	$(CC) $^ -o $@ $(CFLAGS) $(warnings) -lm -loscillator-disciplining
 
 clean:
 	rm -f $(NAME)
