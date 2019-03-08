@@ -12,6 +12,7 @@
 #include <time.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <signal.h>
 
 #include <error.h>
 
@@ -34,6 +35,18 @@
 static void dummy_print_progname(void)
 {
 	fprintf(stderr, ERR);
+}
+
+static volatile int loop = true;
+
+static void signal_handler(int signum)
+{
+	info("Caught signal %s.\n", strsignal(signum));
+	if (!loop) {
+		err("Signalled twice, brutal exit.\n");
+		exit(EXIT_FAILURE);
+	}
+	loop = false;
 }
 
 int main (int argc, char *argv[])
@@ -92,7 +105,10 @@ int main (int argc, char *argv[])
 	if (sret == -1)
 		error(EXIT_FAILURE, errno, "write");
 
-	while (true) {
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
+
+	while (loop) {
 		FD_ZERO(&rfds);
 		FD_SET(fd, &rfds);
 
