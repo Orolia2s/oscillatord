@@ -31,7 +31,7 @@ static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
-	info("%s(%s, %u)\n", __func__, oscillator->name, value);
+	debug("%s(%s, %u)\n", __func__, oscillator->name, value);
 
 	buf[0] = RAKON_CMD_SET_DAC;
 	buf[1] = (value & 0x0F0000) >> 16;
@@ -66,7 +66,7 @@ static int rakon_oscillator_get_dac(struct oscillator *oscillator,
 		return ret;
 	}
 
-	info("%s(%s) = %u\n", __func__, oscillator->name, *value);
+	debug("%s(%s) = %u\n", __func__, oscillator->name, *value);
 
 	return 0;
 }
@@ -77,7 +77,7 @@ static int rakon_oscillator_save(struct oscillator *oscillator)
 	struct rakon_oscillator *rakon;
 	int ret;
 
-	info("%s(%s)\n", __func__, oscillator->name);
+	debug("%s(%s)\n", __func__, oscillator->name);
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
@@ -107,7 +107,7 @@ static int rakon_oscillator_get_temp(struct oscillator *oscillator,
 		return ret;
 	}
 
-	info("%s(%s) = %"PRIu16"\n", __func__, oscillator->name, *temp);
+	debug("%s(%s) = %"PRIu16"\n", __func__, oscillator->name, *temp);
 
 	return 0;
 }
