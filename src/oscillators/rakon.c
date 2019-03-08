@@ -169,8 +169,8 @@ static struct oscillator *rakon_oscillator_new(const struct config *config)
 	oscillator->get_temp = rakon_oscillator_get_temp;
 	oscillator->factory_name = FACTORY_NAME;
 
-	info("Instantiated " FACTORY_NAME " oscillator on i2c number %" PRIu8
-			" and i2c address %" PRIu8 "\n", i2c_num, i2c_addr);
+	info("instantiated " FACTORY_NAME " oscillator on i2c number %" PRIu8
+			" and i2c address %#" PRIx8 "\n", i2c_num, i2c_addr);
 
 	return oscillator;
 error:
