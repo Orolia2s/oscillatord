@@ -31,6 +31,11 @@
 #define LOOP_TIMEOUT 4
 #define NS_IN_SECOND 1000000000l
 
+static void dummy_print_progname(void)
+{
+	fprintf(stderr, ERR);
+}
+
 int main (int argc, char *argv[])
 {
 	fd_set rfds;
@@ -48,24 +53,27 @@ int main (int argc, char *argv[])
 	struct __attribute__((cleanup(oscillator_factory_destroy)))
 			oscillator *oscillator = NULL;
 
+	/* remove the line startup in error() calls */
+	error_print_progname = dummy_print_progname;
+
 	if (argc != 2)
 		error(EXIT_FAILURE, 0, "usage: %s pps_device_path", argv[0]);
 	path = argv[1];
 
 	ret = config_init(&config, path);
 	if (ret != 0)
-		error(EXIT_FAILURE, -ret, ERR "config_init(%s)", path);
+		error(EXIT_FAILURE, -ret, "config_init(%s)", path);
 
 	device = config_get(&config, "pps-device");
 	if (device == NULL)
-		error(EXIT_FAILURE, errno, ERR "PPS device not defined in "
+		error(EXIT_FAILURE, errno, "PPS device not defined in "
 				"config %s", path);
-	printf("PPS device %s\n", device);
+	info("PPS device %s\n", device);
 
 	oscillator = oscillator_factory_new(&config);
 	if (oscillator == NULL)
-		error(EXIT_FAILURE, errno, ERR "oscillator_factory_new");
-	printf("oscillator model %s\n", oscillator->factory_name);
+		error(EXIT_FAILURE, errno, "oscillator_factory_new");
+	info("oscillator model %s\n", oscillator->factory_name);
 
 	fd = open(device, O_RDWR);
 	if (fd == -1)
@@ -120,13 +128,11 @@ int main (int argc, char *argv[])
 		if (ret < 0)
 			error(EXIT_FAILURE, -ret, "od_process");
 
-		printf("input:"
-				"\tphase_error = %ld.%09ld\n"
-				"\tvalid = %s\n",
+		debug("input: phase_error = %ld.%09ld, valid = %s\n",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
 				input.valid ? "true" : "false");
-		printf("output: setpoint = %"PRIu32"\n", output.setpoint);
+		debug("output: setpoint = %"PRIu32"\n", output.setpoint);
 		ret = oscillator_set_dac(oscillator, output.setpoint);
 		if (ret < 0)
 			error(EXIT_FAILURE, -ret, "oscillator_set_dac");

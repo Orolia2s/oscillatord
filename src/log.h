@@ -12,11 +12,11 @@
 #define err(...) log(ERR __VA_ARGS__)
 #define warn(...) log(WARN __VA_ARGS__)
 #define info(...) log(INFO __VA_ARGS__)
-#ifdef FPTD_DEBUG
+#ifdef OD_DEBUG
 #define debug(...) log(DEBUG __VA_ARGS__)
-#else /* FPTD_DEBUG */
+#else /* OD_DEBUG */
 #define debug(...) do { } while (0)
-#endif /* FPTD_DEBUG */
+#endif /* OD_DEBUG */
 
 #define perr(f, e) err("%s: %s", f, strerror(abs(e)))
 
