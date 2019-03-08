@@ -141,6 +141,8 @@ int main (int argc, char *argv[])
 			__attribute__ ((fallthrough));
 
 		case -1:
+			if (errno == EINTR)
+				continue;
 			error(EXIT_FAILURE, errno, "select");
 		}
 
