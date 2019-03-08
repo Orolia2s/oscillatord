@@ -21,6 +21,7 @@
 #include "oscillator.h"
 #include "oscillator_factory.h"
 #include "config.h"
+#include "utils.h"
 
 /*
  * The driver has a watchdog which resets the 1PPS device if no interrupt has
@@ -30,15 +31,6 @@
 #define LOOP_TIMEOUT 4
 #define NS_IN_SECOND 1000000000l
 
-static void cleanup_fd(int *fd)
-{
-	if (fd == NULL)
-		return;
-
-	close(*fd);
-	*fd = -1;
-}
-
 int main (int argc, char *argv[])
 {
 	fd_set rfds;
@@ -46,7 +38,7 @@ int main (int argc, char *argv[])
 	struct od_input input;
 	struct od_output output;
 	int ret;
-	int __attribute__((cleanup(cleanup_fd))) fd = -1;
+	int __attribute__((cleanup(fd_cleanup))) fd = -1;
 	struct timeval tv;
 	ssize_t sret;
 	int32_t phase_error;

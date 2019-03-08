@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -21,3 +23,11 @@ void string_cleanup(char **s)
 	*s = NULL;
 }
 
+void fd_cleanup(int *fd)
+{
+	if (fd == NULL)
+		return;
+
+	close(*fd);
+	*fd = -1;
+}

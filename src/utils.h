@@ -11,5 +11,6 @@
 
 void file_cleanup(FILE **f);
 void string_cleanup(char **s);
+void fd_cleanup(int *fd);
 
 #endif /* UTILS_H_ */
