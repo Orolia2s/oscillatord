@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include <argz.h>
 #include <envz.h>
@@ -53,6 +54,27 @@ const char *config_get(const struct config *config, const char *key)
 {
 	return envz_get(config->argz, config->len, key);
 }
+
+int config_get_uint8_t(const struct config *config, const char *key)
+{
+	const char *str_value;
+	char *endptr;
+	unsigned long value;
+
+	str_value = config_get(config, key);
+	if (str_value == NULL)
+		return errno != 0 ? -errno : -ESRCH;
+
+	value = strtoul(str_value, &endptr, 0);
+	if (*str_value == '\0' || *endptr != '\0')
+		return -EINVAL;
+
+	if (value > UINT8_MAX)
+		return -ERANGE;
+
+	return value;
+}
+
 
 void config_cleanup(struct config *config)
 {
