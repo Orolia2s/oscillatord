@@ -16,6 +16,8 @@
 
 #include <error.h>
 
+#include <tsync.h>
+
 #include <oscillator-disciplining/oscillator-disciplining.h>
 
 #include "log.h"
@@ -65,6 +67,12 @@ int main (int argc, char *argv[])
 	const char *path;
 	struct __attribute__((cleanup(oscillator_factory_destroy)))
 			oscillator *oscillator = NULL;
+	TSYNC_BoardHandle hnd;
+	TSYNC_ERROR tsync_error;
+	int _;
+	const char *tsync_device;
+	int pps_valid;
+	int gps_index;
 
 	/* remove the line startup in error() calls */
 	error_print_progname = dummy_print_progname;
@@ -82,6 +90,18 @@ int main (int argc, char *argv[])
 		error(EXIT_FAILURE, errno, "PPS device not defined in "
 				"config %s", path);
 	info("PPS device %s\n", device);
+
+	tsync_device = config_get(&config, "tsync-device");
+	if (tsync_device == NULL)
+		error(EXIT_FAILURE, errno, "tsync-device not defined in "
+				"config %s", path);
+	info("tsync device %s\n", tsync_device);
+
+	gps_index = config_get_uint8_t(&config, "gps-index");
+	if (gps_index < 0)
+		error(EXIT_FAILURE, errno, "gps-index not defined in config %s",
+				path);
+	info("GPS index %d\n", gps_index);
 
 	oscillator = oscillator_factory_new(&config);
 	if (oscillator == NULL)
@@ -132,13 +152,25 @@ int main (int argc, char *argv[])
 			error(EXIT_FAILURE, errno, "read");
 		}
 
+		tsync_error = TSYNC_open(&hnd, tsync_device);
+		if (tsync_error != TSYNC_SUCCESS)
+			error(EXIT_FAILURE, 0, "TSYNC_open: %d", tsync_error);
+
+		tsync_error = TSYNC_GR_getValidity(hnd, gps_index, &_, &pps_valid);
+		if (tsync_error != TSYNC_SUCCESS)
+			error(EXIT_FAILURE, 0, "TSYNC_GR_getValidity: %d",
+					tsync_error);
+
+		tsync_error = TSYNC_close(hnd);
+		if (tsync_error != TSYNC_SUCCESS)
+			error(EXIT_FAILURE, 0, "TSYNC_close: %d", tsync_error);
+
 		input = (struct od_input) {
 			.phase_error = (struct timespec) {
 				.tv_sec = phase_error / NS_IN_SECOND,
 				.tv_nsec = phase_error % NS_IN_SECOND,
 			},
-			/* TODO hardcoded until we can get the GNSS status */
-			.valid = true,
+			.valid = pps_valid,
 		};
 		ret = od_process(od, &input, &output);
 		if (ret < 0)
