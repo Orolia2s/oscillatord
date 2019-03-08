@@ -87,7 +87,7 @@ int main (int argc, char *argv[])
 
 	device = config_get(&config, "pps-device");
 	if (device == NULL)
-		error(EXIT_FAILURE, errno, "PPS device not defined in "
+		error(EXIT_FAILURE, errno, "pps-device not defined in "
 				"config %s", path);
 	info("PPS device %s\n", device);
 
@@ -124,6 +124,7 @@ int main (int argc, char *argv[])
 	sret = write(fd, &phase_error, sizeof(phase_error));
 	if (sret == -1)
 		error(EXIT_FAILURE, errno, "write");
+	info("applied an initial offset correction of %"PRIi32"ns\n", phase_error);
 
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
@@ -178,7 +179,7 @@ int main (int argc, char *argv[])
 		if (ret < 0)
 			error(EXIT_FAILURE, -ret, "od_process");
 
-		debug("input: phase_error = %ld.%09ld, valid = %s\n",
+		debug("input: phase_error = (%lds, %09ldns), valid = %s\n",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
 				input.valid ? "true" : "false");
