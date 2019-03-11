@@ -14,6 +14,8 @@
 #define RAKON_CMD_SET_DAC 0xc0
 #define RAKON_CMD_GET_DAC 0xc1
 #define RAKON_CMD_SAVE 0xc2
+#define RAKON_SETPOINT_MIN 31500
+#define RAKON_SETPOINT_MAX 1016052
 
 struct rakon_oscillator {
 	struct oscillator oscillator;
@@ -28,6 +30,12 @@ static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 	uint8_t buf[4];
 	struct rakon_oscillator *rakon;
 	int ret;
+
+	if (value < RAKON_SETPOINT_MIN || value > RAKON_SETPOINT_MAX) {
+		warn("dac value %u ignored, not in [%d, %d]\n", value,
+				RAKON_SETPOINT_MIN, RAKON_SETPOINT_MAX);
+		return 0;
+	}
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
