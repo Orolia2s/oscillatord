@@ -51,7 +51,7 @@ static void signal_handler(int signum)
 	loop = false;
 }
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	fd_set rfds;
 	struct __attribute__((cleanup(od_destroy)))od *od = NULL;
@@ -124,7 +124,8 @@ int main (int argc, char *argv[])
 	sret = write(fd, &phase_error, sizeof(phase_error));
 	if (sret == -1)
 		error(EXIT_FAILURE, errno, "write");
-	info("applied an initial offset correction of %"PRIi32"ns\n", phase_error);
+	info("applied an initial offset correction of %"PRIi32"ns\n",
+			phase_error);
 
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
@@ -157,16 +158,19 @@ int main (int argc, char *argv[])
 
 		tsync_error = TSYNC_open(&hnd, tsync_device);
 		if (tsync_error != TSYNC_SUCCESS)
-			error(EXIT_FAILURE, 0, "TSYNC_open: %d", tsync_error);
+			error(EXIT_FAILURE, 0, "TSYNC_open: %s",
+					tsync_strerror(tsync_error));
 
-		tsync_error = TSYNC_GR_getValidity(hnd, gps_index, &_, &pps_valid);
+		tsync_error = TSYNC_GR_getValidity(hnd, gps_index, &_,
+				&pps_valid);
 		if (tsync_error != TSYNC_SUCCESS)
-			error(EXIT_FAILURE, 0, "TSYNC_GR_getValidity: %d",
-					tsync_error);
+			error(EXIT_FAILURE, 0, "TSYNC_GR_getValidity: %s",
+					tsync_strerror(tsync_error));
 
 		tsync_error = TSYNC_close(hnd);
 		if (tsync_error != TSYNC_SUCCESS)
-			error(EXIT_FAILURE, 0, "TSYNC_close: %d", tsync_error);
+			error(EXIT_FAILURE, 0, "TSYNC_close: %s",
+					tsync_strerror(tsync_error));
 
 		input = (struct od_input) {
 			.phase_error = (struct timespec) {
