@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include <spi2c.h>
 
@@ -20,6 +21,7 @@
 struct rakon_oscillator {
 	struct oscillator oscillator;
 	struct i2cdev *i2c;
+	unsigned value;
 };
 
 static unsigned rakon_oscillator_index;
@@ -30,6 +32,7 @@ static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 	uint8_t buf[4];
 	struct rakon_oscillator *rakon;
 	int ret;
+	bool skipped;
 
 	if (value < RAKON_SETPOINT_MIN || value > RAKON_SETPOINT_MAX) {
 		warn("dac value %u ignored, not in [%d, %d]\n", value,
@@ -39,7 +42,11 @@ static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
-	debug("%s(%s, %u)\n", __func__, oscillator->name, value);
+	skipped = value == rakon->value;
+	debug("%s(%s, %u)%s\n", __func__, oscillator->name, value,
+			skipped ? " skipped" : "");
+	if (skipped)
+		return 0;
 
 	buf[0] = RAKON_CMD_SET_DAC;
 	buf[1] = (value & 0x0F0000) >> 16;
@@ -51,6 +58,7 @@ static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 		err("failed i2c transfer : %m\n");
 		return ret;
 	}
+	rakon->value = value;
 
 	return 0;
 }
