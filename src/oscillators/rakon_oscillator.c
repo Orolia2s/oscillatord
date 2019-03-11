@@ -82,6 +82,8 @@ static int rakon_oscillator_get_dac(struct oscillator *oscillator,
 		return ret;
 	}
 
+	*value = (buf[0] & 0x0F) << 16 | buf[1] << 8 | buf[2];
+
 	debug("%s(%s) = %u\n", __func__, oscillator->name, *value);
 
 	return 0;
