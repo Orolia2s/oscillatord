@@ -118,6 +118,7 @@ static int rakon_oscillator_get_temp(struct oscillator *oscillator,
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
+	*temp = 0;
 	ret = i2c_transfer(rakon->i2c, NULL, 0, (uint8_t *)temp, sizeof(*temp));
 	if (ret != 0) {
 		ret = -errno;
@@ -125,6 +126,7 @@ static int rakon_oscillator_get_temp(struct oscillator *oscillator,
 		return ret;
 	}
 
+	*temp = be16toh(*temp);
 	debug("%s(%s) = %"PRIu16"\n", __func__, oscillator->name, *temp);
 
 	return 0;
