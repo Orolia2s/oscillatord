@@ -123,8 +123,13 @@ int main(int argc, char *argv[])
 	ptspair_raw(&pts, PTSPAIR_FOO);
 	ptspair_raw(&pts, PTSPAIR_BAR);
 	cleanup();
-	info("Launch oscillatord using %s as its pps-device\n",
-			ptspair_get_path(&pts, PTSPAIR_BAR));
+	/* will be read by the sim_oscillator in oscillatord */
+	printf("%s", ptspair_get_path(&pts, PTSPAIR_BAR));
+	/*
+	 * close stdout, we have nothing more to say on it plus it guarantees
+	 * that reading in it will end
+	 */
+	fclose(stdout);
 
 	ret = mkfifo(CONTROL_FIFO_PATH, 0600);
 	if (ret == -1)

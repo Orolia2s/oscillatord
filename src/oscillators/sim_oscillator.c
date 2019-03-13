@@ -5,6 +5,7 @@
 #include <fcntl.h>
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -18,16 +19,16 @@
 #include "../utils.h"
 
 #define FACTORY_NAME "sim"
-#define SIM_CMD_SET_DAC 0xc0
-#define SIM_CMD_GET_DAC 0xc1
-#define SIM_CMD_SAVE 0xc2
 #define SIM_SETPOINT_MIN 31500
 #define SIM_SETPOINT_MAX 1016052
+#define SIM_MAX_PTS_PATH_LEN 0x400
 
 struct sim_oscillator {
 	struct oscillator oscillator;
+	FILE *simulator_process;
 	int control_fifo;
 	unsigned value;
+	char pps_pts[SIM_MAX_PTS_PATH_LEN];
 };
 
 static unsigned sim_oscillator_index;
@@ -95,14 +96,18 @@ static int sim_oscillator_get_temp(struct oscillator *oscillator,
 static void sim_oscillator_destroy(struct oscillator **oscillator)
 {
 	struct oscillator *o;
-	struct sim_oscillator *r;
+	struct sim_oscillator *s;
 
 	if (oscillator == NULL || *oscillator == NULL)
 		return;
 
 	o = *oscillator;
-	r = container_of(o, struct sim_oscillator, oscillator);
-	fd_cleanup(&r->control_fifo);
+	s = container_of(o, struct sim_oscillator, oscillator);
+	fd_cleanup(&s->control_fifo);
+	if (s->simulator_process != NULL) {
+		pclose(s->simulator_process);
+		s->simulator_process = NULL;
+	}
 	memset(o, 0, sizeof(*o));
 	free(o);
 	*oscillator = NULL;
@@ -114,6 +119,7 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	int ret;
 	struct oscillator *oscillator;
 	const char *control_fifo;
+	const char *cret;
 
 	sim = calloc(1, sizeof(*sim));
 	if (sim == NULL)
@@ -121,6 +127,13 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	oscillator = &sim->oscillator;
 	sim->control_fifo = -1;
 
+	info("launching the simulator process\n");
+	sim->simulator_process = popen("oscillator_sim", "re");
+	if (sim->simulator_process == NULL) {
+		ret = -errno;
+		err("popen: %m\n");
+		goto error;
+	}
 	control_fifo = config_get(config, "control-fifo");
 	if (control_fifo == NULL) {
 		ret = -errno;
@@ -128,10 +141,12 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 		goto error;
 	}
 	info("opening fifo %s\n", control_fifo);
-	sim->control_fifo = open(control_fifo, O_WRONLY);
+	do {
+		sim->control_fifo = open(control_fifo, O_WRONLY);
+	} while (sim->control_fifo == -1 && errno == ENOENT);
 	if (sim->control_fifo == -1) {
 		ret = -errno;
-		err("open(%s): %m", control_fifo);
+		err("open(%s): %m\n", control_fifo);
 		goto error;
 	}
 	snprintf(oscillator->name, OSCILLATOR_NAME_LENGTH, FACTORY_NAME "-%d",
@@ -141,6 +156,22 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	oscillator->save = sim_oscillator_save;
 	oscillator->get_temp = sim_oscillator_get_temp;
 	oscillator->factory_name = FACTORY_NAME;
+
+	debug("reading pts name\n");
+	cret = fgets(sim->pps_pts, SIM_MAX_PTS_PATH_LEN,
+			sim->simulator_process);
+	if (cret == NULL) {
+		ret = -EIO;
+		err("fgets error\n");
+		goto error;
+	}
+	debug("pts name is %s\n", sim->pps_pts);
+
+	ret = config_set(config, "pps-device", sim->pps_pts);
+	if (ret < 0) {
+		err("config_set: %s\n", strerror(-ret));
+		goto error;
+	}
 
 	info("instantiated " FACTORY_NAME " oscillator, control fifo: %s\n",
 			control_fifo);
