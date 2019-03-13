@@ -13,6 +13,8 @@
 
 #include <spi2c.h>
 
+#include "sim_oscillator.h"
+
 #include "../oscillator.h"
 #include "../oscillator_factory.h"
 #include "../config.h"
@@ -119,7 +121,6 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	struct sim_oscillator *sim;
 	int ret;
 	struct oscillator *oscillator;
-	const char *control_fifo;
 	const char *simulation_period;
 	const char *cret;
 	char __attribute__((cleanup(string_cleanup))) *simulator_command = NULL;
@@ -151,19 +152,13 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 		err("popen: %m\n");
 		goto error;
 	}
-	control_fifo = config_get(config, "control-fifo");
-	if (control_fifo == NULL) {
-		ret = -errno;
-		err("control-fifo config key must be provided\n");
-		goto error;
-	}
-	info("opening fifo %s\n", control_fifo);
+	info("opening fifo\n");
 	do {
-		sim->control_fifo = open(control_fifo, O_WRONLY);
+		sim->control_fifo = open(CONTROL_FIFO_PATH, O_WRONLY);
 	} while (sim->control_fifo == -1 && errno == ENOENT);
 	if (sim->control_fifo == -1) {
 		ret = -errno;
-		err("open(%s): %m\n", control_fifo);
+		err("open(" CONTROL_FIFO_PATH "): %m\n");
 		goto error;
 	}
 	snprintf(oscillator->name, OSCILLATOR_NAME_LENGTH, FACTORY_NAME "-%d",
@@ -190,8 +185,7 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 		goto error;
 	}
 
-	info("instantiated " FACTORY_NAME " oscillator, control fifo: %s\n",
-			control_fifo);
+	info("instantiated " FACTORY_NAME " oscillator\n");
 
 	return oscillator;
 error:

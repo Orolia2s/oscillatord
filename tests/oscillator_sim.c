@@ -21,6 +21,7 @@
 
 #include "../src/log.h"
 #include "../src/utils.h"
+#include "../src/oscillators/sim_oscillator.h"
 
 /* simulation parameters */
 #define SETPOINT_MIN 31500
@@ -32,8 +33,6 @@
 #define INITIAL_ERROR_AMPLITUDE_NS 10000000
 
 #define SETPOINT_AMPLITUDE ((SETPOINT_MAX - SETPOINT_MIN) + 1)
-
-#define CONTROL_FIFO_PATH "oscillator_sim.control"
 
 static void dummy_print_progname(void)
 {
