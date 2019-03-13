@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
 	bool opposite_phase_error;
 	const char *value;
 	int sign;
+	unsigned turns;
 
 	/* remove the line startup in error() calls */
 	error_print_progname = dummy_print_progname;
@@ -86,6 +87,13 @@ int main(int argc, char *argv[])
 	ret = config_init(&config, path);
 	if (ret != 0)
 		error(EXIT_FAILURE, -ret, "config_init(%s)", path);
+
+	value = config_get(&config, "turns");
+	if (value != NULL) {
+		turns = atoll(value);
+	} else {
+		turns = 0;
+	}
 
 	oscillator = oscillator_factory_new(&config);
 	if (oscillator == NULL)
@@ -137,7 +145,8 @@ int main(int argc, char *argv[])
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
-	while (loop) {
+	do {
+		turns--;
 		FD_ZERO(&rfds);
 		FD_SET(fd, &rfds);
 
@@ -198,8 +207,8 @@ int main(int argc, char *argv[])
 		ret = oscillator_set_dac(oscillator, output.setpoint);
 		if (ret < 0)
 			error(EXIT_FAILURE, -ret, "oscillator_set_dac");
+	} while (loop && turns != 1);
 
-	}
 
 	od_destroy(&od);
 
