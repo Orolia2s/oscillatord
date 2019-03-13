@@ -148,7 +148,7 @@ static void rakon_oscillator_destroy(struct oscillator **oscillator)
 	*oscillator = NULL;
 }
 
-static struct oscillator *rakon_oscillator_new(const struct config *config)
+static struct oscillator *rakon_oscillator_new(struct config *config)
 {
 	struct rakon_oscillator *rakon;
 	int ret;

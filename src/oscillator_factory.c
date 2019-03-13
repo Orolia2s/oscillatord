@@ -27,7 +27,7 @@ static const struct oscillator_factory *oscillator_factory_get_by_name(
 	return NULL;
 }
 
-struct oscillator *oscillator_factory_new(const struct config *config)
+struct oscillator *oscillator_factory_new(struct config *config)
 {
 	int ret;
 	const char *name;

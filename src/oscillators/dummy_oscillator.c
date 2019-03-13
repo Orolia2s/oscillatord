@@ -46,7 +46,7 @@ static int dummy_oscillator_get_temp(struct oscillator *oscillator,
 	return 0;
 }
 
-static struct oscillator *dummy_oscillator_new(const struct config *config)
+static struct oscillator *dummy_oscillator_new(struct config *config)
 {
 	struct oscillator *oscillator;
 

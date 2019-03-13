@@ -1,4 +1,3 @@
-/* socat -d -d pty,raw,echo=0 pty,raw,echo=0 */
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -109,7 +108,7 @@ static void sim_oscillator_destroy(struct oscillator **oscillator)
 	*oscillator = NULL;
 }
 
-static struct oscillator *sim_oscillator_new(const struct config *config)
+static struct oscillator *sim_oscillator_new(struct config *config)
 {
 	struct sim_oscillator *sim;
 	int ret;

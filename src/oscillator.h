@@ -13,7 +13,7 @@
 
 struct oscillator;
 
-typedef struct oscillator *(*oscillator_new_cb)(const struct config *config);
+typedef struct oscillator *(*oscillator_new_cb)(struct config *config);
 typedef int (*oscillator_set_dac_cb)(struct oscillator *oscillator,
 		unsigned value);
 typedef int (*oscillator_get_dac_cb)(struct oscillator *oscillator,

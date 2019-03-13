@@ -9,7 +9,7 @@ struct oscillator_factory {
 	oscillator_destroy_cb destroy;
 };
 
-struct oscillator *oscillator_factory_new(const struct config *config);
+struct oscillator *oscillator_factory_new(struct config *config);
 int oscillator_factory_register(const struct oscillator_factory *factory);
 void oscillator_factory_destroy(struct oscillator **oscillator);
 

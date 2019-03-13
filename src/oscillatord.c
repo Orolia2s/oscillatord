@@ -88,6 +88,11 @@ int main(int argc, char *argv[])
 	if (ret != 0)
 		error(EXIT_FAILURE, -ret, "config_init(%s)", path);
 
+	oscillator = oscillator_factory_new(&config);
+	if (oscillator == NULL)
+		error(EXIT_FAILURE, errno, "oscillator_factory_new");
+	info("oscillator model %s\n", oscillator->factory_name);
+
 	device = config_get(&config, "pps-device");
 	if (device == NULL)
 		error(EXIT_FAILURE, errno, "pps-device not defined in "
@@ -105,11 +110,6 @@ int main(int argc, char *argv[])
 		error(EXIT_FAILURE, errno, "gps-index not defined in config %s",
 				path);
 	info("GPS index %d\n", gps_index);
-
-	oscillator = oscillator_factory_new(&config);
-	if (oscillator == NULL)
-		error(EXIT_FAILURE, errno, "oscillator_factory_new");
-	info("oscillator model %s\n", oscillator->factory_name);
 
 	fd = open(device, O_RDWR);
 	if (fd == -1)
