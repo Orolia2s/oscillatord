@@ -1,4 +1,4 @@
-set(LIBRARY_NAME tsync_stub)
+set(LIBRARY_NAME osc_sim_stubs)
 file(GLOB SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.[ch])
 set(SOURCES ${SOURCES})
 add_library(${LIBRARY_NAME} SHARED ${SOURCES})

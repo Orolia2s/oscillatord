@@ -1,7 +1,8 @@
+#include "tsync.h"
+
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "tsync.h"
 
 TSYNC_ERROR TSYNC_open(TSYNC_BoardHandle* hnd, const char *deviceName)
 {

@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <inttypes.h>
 
+#define NS_IN_SECOND 1000000000l
+
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \
 	const typeof(((type *)0)->member)*__mptr = (ptr); \

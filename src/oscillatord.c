@@ -32,7 +32,6 @@
  * means that even the watchdog couldn't "repair" the 1PPS device.
  */
 #define LOOP_TIMEOUT 4
-#define NS_IN_SECOND 1000000000l
 
 static void dummy_print_progname(void)
 {

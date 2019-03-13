@@ -1,5 +1,5 @@
-#ifndef TESTS_TSYNC_STUB_TSYNC_H_
-#define TESTS_TSYNC_STUB_TSYNC_H_
+#ifndef TESTS_LIB_OSC_SIM_STUBS__TSYNC_H_
+#define TESTS_LIB_OSC_SIM_STUBS__TSYNC_H_
 
 typedef void *TSYNC_BoardHandle;
 typedef enum TSYNC_ERROR {
@@ -10,4 +10,4 @@ TSYNC_ERROR TSYNC_GR_getValidity(TSYNC_BoardHandle hnd, unsigned int nInstance,
 		int *bTimeValid, int *bPpsValid);
 TSYNC_ERROR TSYNC_close(TSYNC_BoardHandle hnd);
 
-#endif /* TESTS_TSYNC_STUB_TSYNC_H_ */
+#endif /* TESTS_LIB_OSC_SIM_STUBS__TSYNC_H_ */

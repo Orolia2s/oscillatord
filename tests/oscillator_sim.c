@@ -20,6 +20,7 @@
 #include "ptspair.h"
 
 #include "../src/log.h"
+#include "../src/utils.h"
 
 /* simulation parameters */
 #define SETPOINT_MIN 31500
@@ -102,6 +103,7 @@ int main(int argc, char *argv[])
 	const char *phase_error_pts;
 	struct ptspair __attribute__((cleanup(ptspair_clean)))pts;
 	int pts_fd;
+	long long period;
 
 	/* must be done early because of the attribute cleanup */
 	memset(&pts, 0, sizeof(pts));
@@ -112,8 +114,11 @@ int main(int argc, char *argv[])
 	error_print_progname = dummy_print_progname;
 
 	prog_name = basename(argv[0]);
-	if (argc != 1)
-		error(EXIT_FAILURE, 0, "%s", prog_name);
+	if (argc != 2)
+		error(EXIT_FAILURE, 0, "%s simulation_period_in_ns", prog_name);
+
+	period = atoll(argv[1]);
+	info("simulation period is %lldns\n", period);
 
 	ret = ptspair_init(&pts);
 	if (ret < 0)
@@ -148,8 +153,8 @@ int main(int argc, char *argv[])
 	if (tfd == -1)
 		error(EXIT_FAILURE, errno, "timerfd_create");
 
-	its.it_value.tv_sec = its.it_interval.tv_sec = 1;
-	its.it_value.tv_nsec = its.it_interval.tv_nsec = 0;
+	its.it_value.tv_sec = its.it_interval.tv_sec = period / NS_IN_SECOND;
+	its.it_value.tv_nsec = its.it_interval.tv_nsec = period % NS_IN_SECOND;
 	flags = 0;
 	ret = timerfd_settime(tfd, flags, &its, NULL);
 	if (ret == -1)

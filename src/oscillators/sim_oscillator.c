@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -119,7 +120,23 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	int ret;
 	struct oscillator *oscillator;
 	const char *control_fifo;
+	const char *simulation_period;
 	const char *cret;
+	char __attribute__((cleanup(string_cleanup))) *simulator_command = NULL;
+
+	/* TODO implement a config_get ull ? */
+	simulation_period = config_get(config, "simulation-period");
+	if (simulation_period == NULL) {
+		info("simulation period defaults to 1s\n");
+		simulation_period = "1000000000";
+	}
+	ret = asprintf(&simulator_command, "oscillator_sim %s",
+			simulation_period);
+	if (ret < 0) {
+		err("asprintf error\n");
+		errno = ENOMEM;
+		return NULL;
+	}
 
 	sim = calloc(1, sizeof(*sim));
 	if (sim == NULL)
@@ -128,7 +145,7 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	sim->control_fifo = -1;
 
 	info("launching the simulator process\n");
-	sim->simulator_process = popen("oscillator_sim", "re");
+	sim->simulator_process = popen(simulator_command, "re");
 	if (sim->simulator_process == NULL) {
 		ret = -errno;
 		err("popen: %m\n");
