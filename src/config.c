@@ -55,6 +55,11 @@ const char *config_get(const struct config *config, const char *key)
 	return envz_get(config->argz, config->len, key);
 }
 
+int config_set(struct config *config, const char *key, const char *value)
+{
+	return -envz_add(&config->argz, &config->len, key, value);
+}
+
 int config_get_uint8_t(const struct config *config, const char *key)
 {
 	const char *str_value;
