@@ -28,7 +28,7 @@
 /* offset to apply at maximum at each turn in ns */
 #define TREND_OFFSET_NS 10
 /* maximum absolute value of the error offset to add at each turn */
-#define ERROR_AMPLITUDE_NS 100
+#define ERROR_AMPLITUDE_NS 5
 #define INITIAL_ERROR_AMPLITUDE_NS 10000000
 
 #define SETPOINT_AMPLITUDE ((SETPOINT_MAX - SETPOINT_MIN) + 1)
