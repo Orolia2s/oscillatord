@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 	int _;
 	const char *tsync_device;
 	int pps_valid;
-	int gps_index;
+	int gnss_device_index;
 	bool opposite_phase_error;
 	const char *value;
 	int sign;
@@ -112,11 +112,11 @@ int main(int argc, char *argv[])
 				"config %s", path);
 	info("tsync device %s\n", tsync_device);
 
-	gps_index = config_get_uint8_t(&config, "gps-index");
-	if (gps_index < 0)
-		error(EXIT_FAILURE, errno, "gps-index not defined in config %s",
+	gnss_device_index = config_get_uint8_t(&config, "device-index");
+	if (gnss_device_index < 0)
+		error(EXIT_FAILURE, errno, "device-index not defined in config %s",
 				path);
-	info("GPS index %d\n", gps_index);
+	info("GPS index %d\n", gnss_device_index);
 
 	fd = open(device, O_RDWR);
 	if (fd == -1)
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 			error(EXIT_FAILURE, 0, "TSYNC_open: %s",
 					tsync_strerror(tsync_error));
 
-		tsync_error = TSYNC_GR_getValidity(hnd, gps_index, &_,
+		tsync_error = TSYNC_GR_getValidity(hnd, gnss_device_index, &_,
 				&pps_valid);
 		if (tsync_error != TSYNC_SUCCESS)
 			error(EXIT_FAILURE, 0, "TSYNC_GR_getValidity: %s",
