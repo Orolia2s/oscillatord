@@ -1,0 +1,11 @@
+[Unit]
+Description=Daemon responsible of disciplining an oscillator based on a 1pps phase error device.
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+ExecStart=/usr/bin/oscillatord /etc/oscillatord.conf
+
+[Install]
+WantedBy=multi-user.target
