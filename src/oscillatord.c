@@ -73,6 +73,9 @@ int main(int argc, char *argv[])
 	const char *tsync_device;
 	int pps_valid;
 	int gps_index;
+	bool opposite_phase_error;
+	const char *value;
+	int sign;
 
 	/* remove the line startup in error() calls */
 	error_print_progname = dummy_print_progname;
@@ -127,6 +130,11 @@ int main(int argc, char *argv[])
 	info("applied an initial offset correction of %"PRIi32"ns\n",
 			phase_error);
 
+	value = config_get(&config, "opposite-phase-error");
+	opposite_phase_error = value != NULL && strcmp(value, "true") == 0;
+	sign = opposite_phase_error ? -1 : 1;
+	if (opposite_phase_error)
+		info("taking the opposite of the phase error reported\n");
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
@@ -174,8 +182,8 @@ int main(int argc, char *argv[])
 
 		input = (struct od_input) {
 			.phase_error = (struct timespec) {
-				.tv_sec = phase_error / NS_IN_SECOND,
-				.tv_nsec = phase_error % NS_IN_SECOND,
+				.tv_sec = sign * phase_error / NS_IN_SECOND,
+				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			},
 			.valid = pps_valid,
 		};
