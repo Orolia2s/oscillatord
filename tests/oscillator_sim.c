@@ -17,6 +17,8 @@
 
 #include <error.h>
 
+#include "ptspair.h"
+
 #include "../src/log.h"
 
 /* simulation parameters */
@@ -95,10 +97,14 @@ int main(int argc, char *argv[])
 	int32_t phase_offset;
 	uint32_t setpoint;
 	time_t seed;
-	int control_fifo;
+	int control_fifo_fd;
 	int phase_error_fd;
 	const char *phase_error_pts;
+	struct ptspair __attribute__((cleanup(ptspair_clean)))pts;
+	int pts_fd;
 
+	/* must be done early because of the attribute cleanup */
+	memset(&pts, 0, sizeof(pts));
 	seed = time(NULL);
 	srand(seed);
 
@@ -106,28 +112,36 @@ int main(int argc, char *argv[])
 	error_print_progname = dummy_print_progname;
 
 	prog_name = basename(argv[0]);
-	if (argc != 2)
-		error(EXIT_FAILURE, 0, "%s phase_error_pts", prog_name);
-	phase_error_pts = argv[1];
+	if (argc != 1)
+		error(EXIT_FAILURE, 0, "%s", prog_name);
 
+	ret = ptspair_init(&pts);
+	if (ret < 0)
+		error(EXIT_FAILURE, -ret, "ptspair_init");
+	pts_fd = ptspair_get_fd(&pts);
+	phase_error_pts = ptspair_get_path(&pts, PTSPAIR_FOO);
+	ptspair_raw(&pts, PTSPAIR_FOO);
+	ptspair_raw(&pts, PTSPAIR_BAR);
 	cleanup();
+	info("Launch oscillatord using %s as its pps-device\n",
+			ptspair_get_path(&pts, PTSPAIR_BAR));
+
 	ret = mkfifo(CONTROL_FIFO_PATH, 0600);
 	if (ret == -1)
 		error(EXIT_FAILURE, errno, "mkfifo(%s)", CONTROL_FIFO_PATH);
 	atexit(cleanup);
-	control_fifo = open(CONTROL_FIFO_PATH, O_RDONLY);
-	if (control_fifo == -1)
+	control_fifo_fd = open(CONTROL_FIFO_PATH, O_RDONLY);
+	if (control_fifo_fd == -1)
 		error(EXIT_FAILURE, errno, "open(%s)", CONTROL_FIFO_PATH);
 
 	phase_error_fd = open(phase_error_pts, O_RDWR);
 	if (phase_error_fd == -1)
 		error(EXIT_FAILURE, errno, "open(%s)", phase_error_pts);
 
+	/* must be last because used as the first argument of select() */
 	tfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
 	if (tfd == -1)
 		error(EXIT_FAILURE, errno, "timerfd_create");
-
-	debug("control_fifo %d, tfd %d\n", control_fifo, tfd);
 
 	its.it_value.tv_sec = its.it_interval.tv_sec = 1;
 	its.it_value.tv_nsec = its.it_interval.tv_nsec = 0;
@@ -156,8 +170,9 @@ int main(int argc, char *argv[])
 		memset(&tv, 0, sizeof(tv));
 		tv.tv_sec = 2;
 		FD_ZERO(&readfds);
-		FD_SET(control_fifo, &readfds);
+		FD_SET(control_fifo_fd, &readfds);
 		FD_SET(phase_error_fd, &readfds);
+		FD_SET(pts_fd, &readfds);
 		FD_SET(tfd, &readfds);
 		ret = select(tfd + 1, &readfds, NULL, NULL, &tv);
 		if (ret == -1) {
@@ -170,7 +185,7 @@ int main(int argc, char *argv[])
 			continue;
 		if (FD_ISSET(tfd, &readfds)) {
 			sret = read(tfd, &expired, sizeof(expired));
-			if (sret < 0)
+			if (sret < 0 && ret != -EINTR)
 				error(EXIT_FAILURE, errno, "read");
 			phase_error += compute_delta(setpoint);
 			debug("phase error: %"PRIi32"\n", phase_error);
@@ -182,11 +197,11 @@ int main(int argc, char *argv[])
 					error(EXIT_FAILURE, errno, "write");
 			}
 		}
-		if (FD_ISSET(control_fifo, &readfds)) {
-			sret = read(control_fifo, &setpoint, sizeof(setpoint));
+		if (FD_ISSET(control_fifo_fd, &readfds)) {
+			sret = read(control_fifo_fd, &setpoint, sizeof(setpoint));
 			if (sret < 0)
 				error(EXIT_FAILURE, errno, "read");
-			if (sret == 0) {
+			if (sret == 0 && ret != -EINTR) {
 				info("Peer closed the control fifo\n");
 				break;
 			}
@@ -200,6 +215,12 @@ int main(int argc, char *argv[])
 			debug("applying phase offset: %"PRIi32"\n",
 					phase_offset);
 			phase_error += phase_offset;
+		}
+		if (FD_ISSET(pts_fd, &readfds)) {
+			ret = ptspair_process_events(&pts);
+			if (ret < 0 && ret != -EINTR)
+				error(EXIT_FAILURE, -ret,
+						"ptspair_process_events");
 		}
 
 		usleep(100000);
