@@ -30,18 +30,17 @@ struct sim_oscillator {
 	struct oscillator oscillator;
 	FILE *simulator_process;
 	int control_fifo;
-	unsigned value;
 	char pps_pts[SIM_MAX_PTS_PATH_LEN];
+	uint32_t value;
 };
 
 static unsigned sim_oscillator_index;
 
 static int sim_oscillator_set_dac(struct oscillator *oscillator,
-		unsigned value)
+		uint32_t value)
 {
 	struct sim_oscillator *sim;
 	ssize_t sret;
-	bool skipped;
 
 	if (value < SIM_SETPOINT_MIN || value > SIM_SETPOINT_MAX) {
 		warn("dac value %u ignored, not in [%d, %d]\n", value,
@@ -51,30 +50,25 @@ static int sim_oscillator_set_dac(struct oscillator *oscillator,
 
 	sim = container_of(oscillator, struct sim_oscillator, oscillator);
 
-	skipped = value == sim->value;
-	debug("%s(%s, %u)%s\n", __func__, oscillator->name, value,
-			skipped ? " skipped" : "");
-	if (skipped)
-		return 0;
+	debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
 
 	sret = write(sim->control_fifo, &value, sizeof(value));
 	if (sret == -1)
 		return -errno;
 	sim->value = value;
 
-
 	return 0;
 }
 
 static int sim_oscillator_get_dac(struct oscillator *oscillator,
-		unsigned *value)
+		uint32_t *value)
 {
 	struct sim_oscillator *sim;
 
 	sim = container_of(oscillator, struct sim_oscillator, oscillator);
 
 	*value = sim->value;
-	debug("%s(%s) = %u\n", __func__, oscillator->name, *value);
+	debug("%s(%s) = %" PRIu32 "\n", __func__, oscillator->name, *value);
 
 	return 0;
 }

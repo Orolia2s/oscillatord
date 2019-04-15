@@ -11,20 +11,20 @@
 static unsigned dummy_oscillator_index;
 
 static int dummy_oscillator_set_dac(struct oscillator *oscillator,
-		unsigned value)
+		uint32_t value)
 {
-	info("%s(%p, %u)\n", __func__, oscillator, value);
+	info("%s(%p, %" PRIu32 ")\n", __func__, oscillator, value);
 
 	return 0;
 }
 
 static int dummy_oscillator_get_dac(struct oscillator *oscillator,
-		unsigned *value)
+		uint32_t *value)
 {
 	*value = (rand() % (OSCILLATOR_DAC_MAX - OSCILLATOR_DAC_MIN)) +
 			OSCILLATOR_DAC_MIN;
 
-	info("%s(%p, %u)\n", __func__, oscillator, *value);
+	info("%s(%p, %" PRIu32 ")\n", __func__, oscillator, *value);
 
 	return 0;
 }

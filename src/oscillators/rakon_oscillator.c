@@ -12,79 +12,76 @@
 #include "../utils.h"
 
 #define FACTORY_NAME "rakon"
-#define RAKON_CMD_SET_DAC 0xc0
-#define RAKON_CMD_GET_DAC 0xc1
+#define RAKON_CMD_READ_TEMP 0x3e
+#define RAKON_CMD_GET_DAC 0x41
+#define RAKON_CMD_PROD_ID 0x50
+#define RAKON_CMD_READ_FW_REV 0x51
+#define RAKON_CMD_SET_DAC 0xA0
 #define RAKON_CMD_SAVE 0xc2
-#define RAKON_SETPOINT_MIN 31500
-#define RAKON_SETPOINT_MAX 1016052
+#define RAKON_SETPOINT_MAX 1000000
 
 struct rakon_oscillator {
 	struct oscillator oscillator;
 	struct i2cdev *i2c;
-	unsigned value;
 };
 
 static unsigned rakon_oscillator_index;
 
 static int rakon_oscillator_set_dac(struct oscillator *oscillator,
-		unsigned value)
+		uint32_t value)
 {
-	uint8_t buf[4];
 	struct rakon_oscillator *rakon;
 	int ret;
-	bool skipped;
+	struct __attribute__((packed)){
+		uint8_t cmd;
+		uint32_t value;
+	} buf;
+	uint32_t val_be;
 
-	if (value < RAKON_SETPOINT_MIN || value > RAKON_SETPOINT_MAX) {
-		warn("dac value %u ignored, not in [%d, %d]\n", value,
-				RAKON_SETPOINT_MIN, RAKON_SETPOINT_MAX);
+	if (value > RAKON_SETPOINT_MAX) {
+		warn("dac value %" PRIu32 " ignored, not in [0, %d]\n", value,
+				RAKON_SETPOINT_MAX);
 		return 0;
 	}
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
-	skipped = value == rakon->value;
-	debug("%s(%s, %u)%s\n", __func__, oscillator->name, value,
-			skipped ? " skipped" : "");
-	if (skipped)
-		return 0;
+	debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
 
-	buf[0] = RAKON_CMD_SET_DAC;
-	buf[1] = (value & 0x0F0000) >> 16;
-	buf[2] = (value & 0xFF00) >> 8;
-	buf[3] = value & 0xFF;
-	ret = i2c_transfer(rakon->i2c, buf, sizeof(buf), NULL, 0);
+	buf.cmd = RAKON_CMD_SET_DAC;
+	val_be = htobe32(value);
+	memcpy(&buf.value, &val_be, sizeof(buf.value));
+	ret = i2c_transfer(rakon->i2c, (uint8_t *)&buf, sizeof(buf), NULL, 0);
 	if (ret != 0) {
 		ret = -errno;
 		err("failed i2c transfer : %m\n");
 		return ret;
 	}
-	rakon->value = value;
 
 	return 0;
 }
 
 static int rakon_oscillator_get_dac(struct oscillator *oscillator,
-		unsigned *value)
+		uint32_t *value)
 {
 	uint8_t tx_val;
-	uint8_t buf[3];
 	struct rakon_oscillator *rakon;
 	int ret;
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
+	*value = 0;
 	tx_val = RAKON_CMD_GET_DAC;
-	ret = i2c_transfer(rakon->i2c, &tx_val, sizeof(tx_val), buf,
-			sizeof(buf));
+	ret = i2c_transfer(rakon->i2c, &tx_val, sizeof(tx_val),
+			(uint8_t *)&value, sizeof(value));
 	if (ret != 0) {
 		ret = -errno;
 		err("failed i2c transfer : %m\n");
 		return ret;
 	}
 
-	*value = (buf[0] & 0x0F) << 16 | buf[1] << 8 | buf[2];
-
-	debug("%s(%s) = %u\n", __func__, oscillator->name, *value);
+	*value = be32toh(*value) & 0xfffff;
+	debug("%s(%s) = %" PRIu32 "\n", __func__, oscillator->name, *value);
 
 	return 0;
 }
@@ -113,13 +110,16 @@ static int rakon_oscillator_save(struct oscillator *oscillator)
 static int rakon_oscillator_get_temp(struct oscillator *oscillator,
 		uint16_t *temp)
 {
+	uint8_t tx_val;
 	struct rakon_oscillator *rakon;
 	int ret;
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
+	tx_val = RAKON_CMD_READ_TEMP;
 	*temp = 0;
-	ret = i2c_transfer(rakon->i2c, NULL, 0, (uint8_t *)temp, sizeof(*temp));
+	ret = i2c_transfer(rakon->i2c, &tx_val, sizeof(tx_val),
+			   (uint8_t *)temp, sizeof(*temp));
 	if (ret != 0) {
 		ret = -errno;
 		err("failed i2c transfer : %m\n");

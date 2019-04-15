@@ -15,9 +15,9 @@ struct oscillator;
 
 typedef struct oscillator *(*oscillator_new_cb)(struct config *config);
 typedef int (*oscillator_set_dac_cb)(struct oscillator *oscillator,
-		unsigned value);
+		uint32_t value);
 typedef int (*oscillator_get_dac_cb)(struct oscillator *oscillator,
-		unsigned *value);
+		uint32_t *value);
 typedef int (*oscillator_save_cb)(struct oscillator *oscillator);
 typedef int (*oscillator_get_temp_cb)(struct oscillator *oscillator,
 		uint16_t *temp);
@@ -32,8 +32,8 @@ struct oscillator {
 	const char *factory_name;
 };
 
-int oscillator_set_dac(struct oscillator *oscillator, unsigned value);
-int oscillator_get_dac(struct oscillator *oscillator, unsigned *value);
+int oscillator_set_dac(struct oscillator *oscillator, uint32_t value);
+int oscillator_get_dac(struct oscillator *oscillator, uint32_t *value);
 int oscillator_save(struct oscillator *oscillator);
 int oscillator_get_temp(struct oscillator *oscillator, uint16_t *temp);
 

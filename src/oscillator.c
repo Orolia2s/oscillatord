@@ -2,7 +2,7 @@
 
 #include "oscillator.h"
 
-int oscillator_set_dac(struct oscillator *oscillator, unsigned value)
+int oscillator_set_dac(struct oscillator *oscillator, uint32_t value)
 {
 	if (oscillator == NULL)
 		return -EINVAL;
@@ -10,7 +10,7 @@ int oscillator_set_dac(struct oscillator *oscillator, unsigned value)
 	return oscillator->set_dac(oscillator, value);
 }
 
-int oscillator_get_dac(struct oscillator *oscillator, unsigned *value)
+int oscillator_get_dac(struct oscillator *oscillator, uint32_t *value)
 {
 	if (oscillator == NULL || value == NULL)
 		return -EINVAL;
