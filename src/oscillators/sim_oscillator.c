@@ -115,18 +115,10 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	struct sim_oscillator *sim;
 	int ret;
 	struct oscillator *oscillator;
-	const char *simulation_period;
 	const char *cret;
 	char __attribute__((cleanup(string_cleanup))) *simulator_command = NULL;
 
-	/* TODO implement a config_get ull ? */
-	simulation_period = config_get(config, "simulation-period");
-	if (simulation_period == NULL) {
-		info("simulation period defaults to 1s\n");
-		simulation_period = "1000000000";
-	}
-	ret = asprintf(&simulator_command, "oscillator_sim %s",
-			simulation_period);
+	ret = asprintf(&simulator_command, "oscillator_sim %s", config->path);
 	if (ret < 0) {
 		err("asprintf error\n");
 		errno = ENOMEM;

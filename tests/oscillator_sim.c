@@ -20,6 +20,7 @@
 #include "ptspair.h"
 
 #include "../src/log.h"
+#include "../src/config.h"
 #include "../src/utils.h"
 #include "../src/oscillators/sim_oscillator.h"
 
@@ -103,6 +104,9 @@ int main(int argc, char *argv[])
 	struct ptspair __attribute__((cleanup(ptspair_clean)))pts;
 	int pts_fd;
 	long long period;
+	const char *path;
+	const char *period_str;
+	struct config config;
 
 	/* must be done early because of the attribute cleanup */
 	memset(&pts, 0, sizeof(pts));
@@ -114,9 +118,16 @@ int main(int argc, char *argv[])
 
 	prog_name = basename(argv[0]);
 	if (argc != 2)
-		error(EXIT_FAILURE, 0, "%s simulation_period_in_ns", prog_name);
+		error(EXIT_FAILURE, 0, "%s config_file_path", prog_name);
+	path = argv[1];
 
-	period = atoll(argv[1]);
+	ret = config_init(&config, path);
+	if (ret != 0)
+		error(EXIT_FAILURE, -ret, "config_init(%s)", path);
+
+	/* TODO implement a config_get ull ? */
+	period_str = config_get(&config, "simulation-period");
+	period = atoll(period_str ? : "1000000000");
 	info("simulation period is %lldns\n", period);
 
 	ret = ptspair_init(&pts);
