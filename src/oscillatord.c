@@ -117,8 +117,8 @@ int main(int argc, char *argv[])
 
 	gnss_device_index = config_get_uint8_t(&config, "device-index");
 	if (gnss_device_index < 0)
-		error(EXIT_FAILURE, errno, "device-index not defined in config %s",
-				path);
+		error(EXIT_FAILURE, errno, "device-index not defined in config "
+				"%s", path);
 	info("GPS index %d\n", gnss_device_index);
 
 	fd = open(device, O_RDWR);
