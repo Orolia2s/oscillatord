@@ -125,6 +125,9 @@ int main(int argc, char *argv[])
 	if (ret != 0)
 		error(EXIT_FAILURE, -ret, "config_init(%s)", path);
 
+	log_enable_debug(config_get_bool_default(&config, "enable-debug",
+			false));
+
 	/* TODO implement a config_get ull ? */
 	period_str = config_get(&config, "simulation-period");
 	period = atoll(period_str ? : "1000000000");
