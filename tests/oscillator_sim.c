@@ -140,7 +140,6 @@ int main(int argc, char *argv[])
 	phase_error_pts = ptspair_get_path(&pts, PTSPAIR_FOO);
 	ptspair_raw(&pts, PTSPAIR_FOO);
 	ptspair_raw(&pts, PTSPAIR_BAR);
-	cleanup();
 	/* will be read by the sim_oscillator in oscillatord */
 	printf("%s", ptspair_get_path(&pts, PTSPAIR_BAR));
 	/*

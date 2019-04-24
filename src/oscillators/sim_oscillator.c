@@ -132,6 +132,7 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	sim->control_fifo = -1;
 
 	info("launching the simulator process\n");
+	unlink(CONTROL_FIFO_PATH);
 	sim->simulator_process = popen(simulator_command, "re");
 	if (sim->simulator_process == NULL) {
 		ret = -errno;
