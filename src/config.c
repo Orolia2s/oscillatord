@@ -55,6 +55,23 @@ const char *config_get(const struct config *config, const char *key)
 	return envz_get(config->argz, config->len, key);
 }
 
+bool config_get_bool_default(const struct config *config, const char *key,
+		bool default_value)
+{
+	const char *value;
+
+	value = config_get(config, key);
+	if (value == NULL)
+		return default_value;
+
+	if (strcmp(value, "true") == 0)
+		return true;
+	if (strcmp(value, "false") == 0)
+		return false;
+
+	return default_value;
+}
+
 int config_set(struct config *config, const char *key, const char *value)
 {
 	return -envz_add(&config->argz, &config->len, key, value);

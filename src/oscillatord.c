@@ -137,8 +137,8 @@ int main(int argc, char *argv[])
 	info("applied an initial offset correction of %"PRIi32"ns\n",
 			phase_error);
 
-	value = config_get(&config, "opposite-phase-error");
-	opposite_phase_error = value != NULL && strcmp(value, "true") == 0;
+	opposite_phase_error = config_get_bool_default(&config,
+			"opposite-phase-error", false);
 	sign = opposite_phase_error ? -1 : 1;
 	if (opposite_phase_error)
 		info("taking the opposite of the phase error reported\n");
