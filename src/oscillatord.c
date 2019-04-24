@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 	error_print_progname = dummy_print_progname;
 
 	if (argc != 2)
-		error(EXIT_FAILURE, 0, "usage: %s pps_device_path", argv[0]);
+		error(EXIT_FAILURE, 0, "usage: %s config_file_path", argv[0]);
 	path = argv[1];
 
 	ret = config_init(&config, path);
