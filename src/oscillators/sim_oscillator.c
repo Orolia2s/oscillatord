@@ -15,11 +15,12 @@
 
 #include "sim_oscillator.h"
 
+#include "config.h"
+#include "log.h"
+#include "utils.h"
+
 #include "../oscillator.h"
 #include "../oscillator_factory.h"
-#include "../config.h"
-#include "../log.h"
-#include "../utils.h"
 
 #define FACTORY_NAME "sim"
 #define SIM_SETPOINT_MIN 31500

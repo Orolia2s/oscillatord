@@ -1,6 +1,8 @@
 file(GLOB_RECURSE SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.[ch])
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+file(GLOB COMMON_SOURCES ${PROJECT_SOURCE_DIR}/common/*.[ch])
+add_executable(${PROJECT_NAME} ${SOURCES} ${COMMON_SOURCES})
+
 target_link_libraries(${PROJECT_NAME} PRIVATE m
                       ${oscillator-disciplining_LIBRARIES}
                       ${spi2c_LIBRARIES}

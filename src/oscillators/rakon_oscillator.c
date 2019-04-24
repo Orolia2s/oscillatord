@@ -5,11 +5,12 @@
 
 #include <spi2c.h>
 
+#include "config.h"
+#include "log.h"
+#include "utils.h"
+
 #include "../oscillator.h"
 #include "../oscillator_factory.h"
-#include "../config.h"
-#include "../log.h"
-#include "../utils.h"
 
 #define FACTORY_NAME "rakon"
 #define RAKON_CMD_READ_TEMP 0x3e

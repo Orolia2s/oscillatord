@@ -19,9 +19,10 @@
 
 #include "ptspair.h"
 
-#include "../src/log.h"
-#include "../src/config.h"
-#include "../src/utils.h"
+#include "log.h"
+#include "config.h"
+#include "utils.h"
+
 #include "../src/oscillators/sim_oscillator.h"
 
 /* simulation parameters */

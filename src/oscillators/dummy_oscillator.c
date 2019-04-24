@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "config.h"
+#include "log.h"
+
 #include "../oscillator.h"
 #include "../oscillator_factory.h"
-#include "../config.h"
-#include "../log.h"
 
 #define FACTORY_NAME "dummy"
 
