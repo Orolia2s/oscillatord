@@ -11,6 +11,8 @@ struct config {
 
 int config_init(struct config *config, const char *path);
 const char *config_get(const struct config *config, const char *key);
+const char *config_get_default(const struct config *config, const char *key,
+		const char *default_value);
 bool config_get_bool_default(const struct config *config, const char *key,
 		bool default_value);
 int config_set(struct config *config, const char *key, const char *value);

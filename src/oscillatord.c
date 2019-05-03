@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
 	const char *device;
 	struct config config;
 	const char *path;
+	const char *libod_conf_path;
 	struct __attribute__((cleanup(oscillator_factory_destroy)))
 			oscillator *oscillator = NULL;
 	TSYNC_BoardHandle hnd;
@@ -76,6 +77,7 @@ int main(int argc, char *argv[])
 	const char *value;
 	int sign;
 	unsigned turns;
+	char err_msg[OD_ERR_MSG_LEN];
 
 	/* remove the line startup in error() calls */
 	error_print_progname = dummy_print_progname;
@@ -125,9 +127,11 @@ int main(int argc, char *argv[])
 	if (fd == -1)
 		error(EXIT_FAILURE, errno, "open(%s)", device);
 
-	od = od_new(CLOCK_MONOTONIC);
+	libod_conf_path = config_get_default(&config, "libod-config-path",
+			path);
+	od = od_new_from_config(libod_conf_path, err_msg);
 	if (od == NULL)
-		error(EXIT_FAILURE, errno, "od_new");
+		error(EXIT_FAILURE, errno, "od_new %s", err_msg);
 
 	/* correct the phase error by applying an opposite offset */
 	sret = read(fd, &phase_error, sizeof(phase_error));
