@@ -65,7 +65,15 @@ considered as part of, respectively, the **key** or the **value**.
 reported by the 1PPS phase error device, will be fed into
 **liboscillator-discpining**.
 Any other value means **false**.
-**Optional**, defaults to **false**
+**Optional**, defaults to **false**.
+* **libod-config-path**: Path to the liboscillator-disciplining configuration
+file.
+If not set, then the current config file will be used by
+liboscillator-disciplining, which will only use its own config keys and ignore
+those of escillatord.
+Please refer to the liboscillatord-documentation for information on the valid
+config keys.
+**Optional**, unset by default.
 
 ### Rakon-specific configuration keys
 
