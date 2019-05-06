@@ -23,8 +23,7 @@
 #include "../oscillator_factory.h"
 
 #define FACTORY_NAME "sim"
-#define SIM_SETPOINT_MIN 31500
-#define SIM_SETPOINT_MAX 1016052
+#define SIM_SETPOINT_MAX 1000000
 #define SIM_MAX_PTS_PATH_LEN 0x400
 
 struct sim_oscillator {
@@ -43,9 +42,9 @@ static int sim_oscillator_set_dac(struct oscillator *oscillator,
 	struct sim_oscillator *sim;
 	ssize_t sret;
 
-	if (value < SIM_SETPOINT_MIN || value > SIM_SETPOINT_MAX) {
-		warn("dac value %u ignored, not in [%d, %d]\n", value,
-				SIM_SETPOINT_MIN, SIM_SETPOINT_MAX);
+	if (value > SIM_SETPOINT_MAX) {
+		warn("dac value %u ignored, not in [0, %d]\n", value,
+				SIM_SETPOINT_MAX);
 		return 0;
 	}
 
