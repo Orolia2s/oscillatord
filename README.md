@@ -74,6 +74,8 @@ those of escillatord.
 Please refer to the liboscillatord-documentation for information on the valid
 config keys.
 **Optional**, unset by default.
+* **enable-debug**: enables the **debug** level of logging.
+**Optional**, defaults to **false**.
 
 ### Rakon-specific configuration keys
 
