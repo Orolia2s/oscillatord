@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <errno.h>
+#include <limits.h>
 
 #include "config.h"
 #include "log.h"
@@ -8,6 +9,7 @@
 #include "../oscillator_factory.h"
 
 #define FACTORY_NAME "dummy"
+#define DUMMY_SETPOINT_MAX UINT_MAX
 
 static unsigned dummy_oscillator_index;
 
@@ -76,6 +78,7 @@ static const struct oscillator_factory dummy_oscillator_factory = {
 			.get_dac = dummy_oscillator_get_dac,
 			.save = dummy_oscillator_save,
 			.get_temp = dummy_oscillator_get_temp,
+			.dac_max = DUMMY_SETPOINT_MAX,
 	},
 	.new = dummy_oscillator_new,
 	.destroy = dummy_oscillator_destroy,

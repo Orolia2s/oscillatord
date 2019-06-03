@@ -39,12 +39,6 @@ static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 	} buf;
 	uint32_t val_be;
 
-	if (value > RAKON_SETPOINT_MAX) {
-		warn("dac value %" PRIu32 " ignored, not in [0, %d]\n", value,
-				RAKON_SETPOINT_MAX);
-		return 0;
-	}
-
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
 	debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
@@ -203,6 +197,7 @@ static const struct oscillator_factory rakon_oscillator_factory = {
 			.get_dac = rakon_oscillator_get_dac,
 			.save = rakon_oscillator_save,
 			.get_temp = rakon_oscillator_get_temp,
+			.dac_max = RAKON_SETPOINT_MAX,
 	},
 	.new = rakon_oscillator_new,
 	.destroy = rakon_oscillator_destroy,

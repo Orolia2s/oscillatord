@@ -29,6 +29,7 @@ struct oscillator_class {
 	oscillator_get_dac_cb get_dac;
 	oscillator_save_cb save;
 	oscillator_get_temp_cb get_temp;
+	unsigned dac_max;
 };
 
 struct oscillator {

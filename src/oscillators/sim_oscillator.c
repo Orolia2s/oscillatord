@@ -42,12 +42,6 @@ static int sim_oscillator_set_dac(struct oscillator *oscillator,
 	struct sim_oscillator *sim;
 	ssize_t sret;
 
-	if (value > SIM_SETPOINT_MAX) {
-		warn("dac value %u ignored, not in [0, %d]\n", value,
-				SIM_SETPOINT_MAX);
-		return 0;
-	}
-
 	sim = container_of(oscillator, struct sim_oscillator, oscillator);
 
 	debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
@@ -184,6 +178,7 @@ static const struct oscillator_factory sim_oscillator_factory = {
 			.get_dac = sim_oscillator_get_dac,
 			.save = sim_oscillator_save,
 			.get_temp = sim_oscillator_get_temp,
+			.dac_max = SIM_SETPOINT_MAX,
 	},
 	.new = sim_oscillator_new,
 	.destroy = sim_oscillator_destroy,

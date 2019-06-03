@@ -4,8 +4,16 @@
 
 int oscillator_set_dac(struct oscillator *oscillator, uint32_t value)
 {
+	unsigned dac_max;
+
 	if (oscillator == NULL)
 		return -EINVAL;
+
+	dac_max = oscillator->class->dac_max;
+	if (value > dac_max) {
+		warn("dac value %u clipped to %d\n", value, dac_max);
+		value = dac_max;
+	}
 
 	return oscillator->class->set_dac(oscillator, value);
 }
