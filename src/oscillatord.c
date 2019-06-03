@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 	int sign;
 	unsigned turns;
 	char err_msg[OD_ERR_MSG_LEN];
+	uint16_t temperature;
 
 	/* remove the line startup in error() calls */
 	error_print_progname = dummy_print_progname;
@@ -178,6 +179,9 @@ int main(int argc, char *argv[])
 
 			error(EXIT_FAILURE, errno, "read");
 		}
+		ret = oscillator_get_temp(oscillator, &temperature);
+		if (ret < 0)
+			error(0, -ret, "oscillator_get_temp");
 
 		tsync_error = TSYNC_open(&hnd, tsync_device);
 		if (tsync_error != TSYNC_SUCCESS)
@@ -201,6 +205,7 @@ int main(int argc, char *argv[])
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			},
 			.valid = pps_valid,
+			.temperature = temperature,
 		};
 		ret = od_process(od, &input, &output);
 		if (ret < 0)
