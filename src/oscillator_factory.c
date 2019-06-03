@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #include "oscillator_factory.h"
 #include "config.h"
@@ -19,7 +20,7 @@ static const struct oscillator_factory *oscillator_factory_get_by_name(
 	unsigned i;
 
 	for (i = 0; i < factories_nb; i++)
-		if (strcmp(name, factories[i]->name) == 0)
+		if (strcmp(name, factories[i]->class.name) == 0)
 			return factories[i];
 
 	errno = ENOENT;
@@ -57,8 +58,22 @@ struct oscillator *oscillator_factory_new(struct config *config)
 static bool oscillator_factory_is_valid(const struct oscillator_factory *factory)
 {
 	return factory != NULL && factory->destroy != NULL &&
-			factory->name != NULL && *factory->name != '\0' &&
+			factory->class.name != NULL &&
+			*factory->class.name != '\0' &&
 			factory->new != NULL;
+}
+
+void oscillator_factory_init(const char *factory_name,
+		struct oscillator *oscillator, const char *fmt, ...)
+{
+	va_list args;
+	const struct oscillator_factory *factory;
+
+	factory = oscillator_factory_get_by_name(factory_name);
+	oscillator->class = &factory->class;
+	va_start(args, fmt);
+	vsnprintf(oscillator->name, OSCILLATOR_NAME_LENGTH, fmt, args);
+	va_end(args);
 }
 
 int oscillator_factory_register(const struct oscillator_factory *factory)
@@ -66,7 +81,7 @@ int oscillator_factory_register(const struct oscillator_factory *factory)
 	if (!oscillator_factory_is_valid(factory))
 		return -EINVAL;
 
-	debug("%s(%s)\n", __func__, factory->name);
+	debug("%s(%s)\n", __func__, factory->class.name);
 
 	if (factories_nb == MAX_OSCILLATOR_FACTORIES) {
 		err("no room left for factories, see "
@@ -85,7 +100,7 @@ void oscillator_factory_destroy(struct oscillator **oscillator)
 
 	if (oscillator == NULL || *oscillator == NULL)
 		return;
-	factory = oscillator_factory_get_by_name((*oscillator)->factory_name);
+	factory = oscillator_factory_get_by_name((*oscillator)->class->name);
 	if (factory == NULL)
 		return;
 

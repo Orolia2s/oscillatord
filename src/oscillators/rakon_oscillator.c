@@ -182,13 +182,9 @@ static struct oscillator *rakon_oscillator_new(struct config *config)
 		goto error;
 	}
 
-	snprintf(oscillator->name, OSCILLATOR_NAME_LENGTH, FACTORY_NAME "-%d",
+	oscillator_factory_init(FACTORY_NAME, oscillator, FACTORY_NAME "-%d",
 			rakon_oscillator_index);
-	oscillator->set_dac = rakon_oscillator_set_dac;
-	oscillator->get_dac = rakon_oscillator_get_dac;
-	oscillator->save = rakon_oscillator_save;
-	oscillator->get_temp = rakon_oscillator_get_temp;
-	oscillator->factory_name = FACTORY_NAME;
+	rakon_oscillator_index++;
 
 	info("instantiated " FACTORY_NAME " oscillator on i2c number %" PRIu8
 			" and i2c address %#" PRIx8 "\n", i2c_num, i2c_addr);
@@ -201,7 +197,13 @@ error:
 }
 
 static const struct oscillator_factory rakon_oscillator_factory = {
-	.name = FACTORY_NAME,
+	.class = {
+			.name = FACTORY_NAME,
+			.set_dac = rakon_oscillator_set_dac,
+			.get_dac = rakon_oscillator_get_dac,
+			.save = rakon_oscillator_save,
+			.get_temp = rakon_oscillator_get_temp,
+	},
 	.new = rakon_oscillator_new,
 	.destroy = rakon_oscillator_destroy,
 };

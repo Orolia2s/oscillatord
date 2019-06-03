@@ -148,13 +148,9 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 		err("open(" CONTROL_FIFO_PATH "): %m\n");
 		goto error;
 	}
-	snprintf(oscillator->name, OSCILLATOR_NAME_LENGTH, FACTORY_NAME "-%d",
+	oscillator_factory_init(FACTORY_NAME, oscillator, FACTORY_NAME "-%d",
 			sim_oscillator_index);
-	oscillator->set_dac = sim_oscillator_set_dac;
-	oscillator->get_dac = sim_oscillator_get_dac;
-	oscillator->save = sim_oscillator_save;
-	oscillator->get_temp = sim_oscillator_get_temp;
-	oscillator->factory_name = FACTORY_NAME;
+
 
 	debug("reading pts name\n");
 	cret = fgets(sim->pps_pts, SIM_MAX_PTS_PATH_LEN,
@@ -182,7 +178,13 @@ error:
 }
 
 static const struct oscillator_factory sim_oscillator_factory = {
-	.name = FACTORY_NAME,
+	.class = {
+			.name = FACTORY_NAME,
+			.set_dac = sim_oscillator_set_dac,
+			.get_dac = sim_oscillator_get_dac,
+			.save = sim_oscillator_save,
+			.get_temp = sim_oscillator_get_temp,
+	},
 	.new = sim_oscillator_new,
 	.destroy = sim_oscillator_destroy,
 };

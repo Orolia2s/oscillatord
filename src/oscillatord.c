@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 	oscillator = oscillator_factory_new(&config);
 	if (oscillator == NULL)
 		error(EXIT_FAILURE, errno, "oscillator_factory_new");
-	info("oscillator model %s\n", oscillator->factory_name);
+	info("oscillator model %s\n", oscillator->class->name);
 
 	device = config_get(&config, "pps-device");
 	if (device == NULL)

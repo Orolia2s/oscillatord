@@ -55,14 +55,9 @@ static struct oscillator *dummy_oscillator_new(struct config *config)
 	if (oscillator == NULL)
 		return NULL;
 
-	snprintf(oscillator->name, OSCILLATOR_NAME_LENGTH, FACTORY_NAME "-%d",
+	oscillator_factory_init(FACTORY_NAME, oscillator, FACTORY_NAME "-%d",
 			dummy_oscillator_index);
 	dummy_oscillator_index++;
-	oscillator->set_dac = dummy_oscillator_set_dac;
-	oscillator->get_dac = dummy_oscillator_get_dac;
-	oscillator->save = dummy_oscillator_save;
-	oscillator->get_temp = dummy_oscillator_get_temp;
-	oscillator->factory_name = FACTORY_NAME;
 
 	return oscillator;
 }
@@ -75,7 +70,13 @@ static void dummy_oscillator_destroy(struct oscillator **oscillator)
 }
 
 static const struct oscillator_factory dummy_oscillator_factory = {
-	.name = FACTORY_NAME,
+	.class = {
+			.name = FACTORY_NAME,
+			.set_dac = dummy_oscillator_set_dac,
+			.get_dac = dummy_oscillator_get_dac,
+			.save = dummy_oscillator_save,
+			.get_temp = dummy_oscillator_get_temp,
+	},
 	.new = dummy_oscillator_new,
 	.destroy = dummy_oscillator_destroy,
 };

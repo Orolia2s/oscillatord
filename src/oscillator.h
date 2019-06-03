@@ -23,13 +23,17 @@ typedef int (*oscillator_get_temp_cb)(struct oscillator *oscillator,
 		uint16_t *temp);
 typedef void (*oscillator_destroy_cb)(struct oscillator **oscillator);
 
-struct oscillator {
-	char name[OSCILLATOR_NAME_LENGTH];
+struct oscillator_class {
+	const char *name;
 	oscillator_set_dac_cb set_dac;
 	oscillator_get_dac_cb get_dac;
 	oscillator_save_cb save;
 	oscillator_get_temp_cb get_temp;
-	const char *factory_name;
+};
+
+struct oscillator {
+	char name[OSCILLATOR_NAME_LENGTH];
+	const struct oscillator_class *class;
 };
 
 int oscillator_set_dac(struct oscillator *oscillator, uint32_t value);
