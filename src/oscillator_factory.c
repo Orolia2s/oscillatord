@@ -74,6 +74,8 @@ void oscillator_factory_init(const char *factory_name,
 	va_start(args, fmt);
 	vsnprintf(oscillator->name, OSCILLATOR_NAME_LENGTH, fmt, args);
 	va_end(args);
+	oscillator->dac_max = 0;
+	oscillator->dac_max = UINT32_MAX;
 }
 
 int oscillator_factory_register(const struct oscillator_factory *factory)

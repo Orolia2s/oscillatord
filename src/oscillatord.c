@@ -133,6 +133,8 @@ int main(int argc, char *argv[])
 	od = od_new_from_config(libod_conf_path, err_msg);
 	if (od == NULL)
 		error(EXIT_FAILURE, errno, "od_new %s", err_msg);
+	oscillator_set_dac_min(oscillator, od_get_dac_min(od));
+	oscillator_set_dac_max(oscillator, od_get_dac_max(od));
 
 	/* correct the phase error by applying an opposite offset */
 	sret = read(fd, &phase_error, sizeof(phase_error));

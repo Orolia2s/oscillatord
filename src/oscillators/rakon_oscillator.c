@@ -19,6 +19,7 @@
 #define RAKON_CMD_READ_FW_REV 0x51
 #define RAKON_CMD_SET_DAC 0xA0
 #define RAKON_CMD_SAVE 0xc2
+#define RAKON_SETPOINT_MIN 0
 #define RAKON_SETPOINT_MAX 1000000
 
 struct rakon_oscillator {
@@ -197,6 +198,7 @@ static const struct oscillator_factory rakon_oscillator_factory = {
 			.get_dac = rakon_oscillator_get_dac,
 			.save = rakon_oscillator_save,
 			.get_temp = rakon_oscillator_get_temp,
+			.dac_min = RAKON_SETPOINT_MIN,
 			.dac_max = RAKON_SETPOINT_MAX,
 	},
 	.new = rakon_oscillator_new,

@@ -9,7 +9,9 @@
 #include "../oscillator_factory.h"
 
 #define FACTORY_NAME "dummy"
-#define DUMMY_SETPOINT_MAX UINT_MAX
+
+#define DUMMY_SETPOINT_MIN 31500
+#define DUMMY_SETPOINT_MAX 1016052
 
 static unsigned dummy_oscillator_index;
 
@@ -24,8 +26,8 @@ static int dummy_oscillator_set_dac(struct oscillator *oscillator,
 static int dummy_oscillator_get_dac(struct oscillator *oscillator,
 		uint32_t *value)
 {
-	*value = (rand() % (OSCILLATOR_DAC_MAX - OSCILLATOR_DAC_MIN)) +
-			OSCILLATOR_DAC_MIN;
+	*value = (rand() % (DUMMY_SETPOINT_MAX - DUMMY_SETPOINT_MIN)) +
+			DUMMY_SETPOINT_MIN;
 
 	info("%s(%p, %" PRIu32 ")\n", __func__, oscillator, *value);
 
@@ -78,6 +80,7 @@ static const struct oscillator_factory dummy_oscillator_factory = {
 			.get_dac = dummy_oscillator_get_dac,
 			.save = dummy_oscillator_save,
 			.get_temp = dummy_oscillator_get_temp,
+			.dac_min = DUMMY_SETPOINT_MIN,
 			.dac_max = DUMMY_SETPOINT_MAX,
 	},
 	.new = dummy_oscillator_new,

@@ -23,6 +23,7 @@
 #include "../oscillator_factory.h"
 
 #define FACTORY_NAME "sim"
+#define SIM_SETPOINT_MIN 0
 #define SIM_SETPOINT_MAX 1000000
 #define SIM_MAX_PTS_PATH_LEN 0x400
 
@@ -58,6 +59,7 @@ static int sim_oscillator_get_dac(struct oscillator *oscillator,
 		uint32_t *value)
 {
 	struct sim_oscillator *sim;
+	int b;
 
 	sim = container_of(oscillator, struct sim_oscillator, oscillator);
 
@@ -178,6 +180,7 @@ static const struct oscillator_factory sim_oscillator_factory = {
 			.get_dac = sim_oscillator_get_dac,
 			.save = sim_oscillator_save,
 			.get_temp = sim_oscillator_get_temp,
+			.dac_min = SIM_SETPOINT_MIN,
 			.dac_max = SIM_SETPOINT_MAX,
 	},
 	.new = sim_oscillator_new,
