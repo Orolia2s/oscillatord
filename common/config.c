@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #include <argz.h>
 #include <envz.h>
@@ -87,7 +88,8 @@ int config_set(struct config *config, const char *key, const char *value)
 	return -envz_add(&config->argz, &config->len, key, value);
 }
 
-int config_get_uint8_t(const struct config *config, const char *key)
+/* Get a number between 0 and (2**31)-1 */
+long config_get_unsigned_number(const struct config *config, const char *key)
 {
 	const char *str_value;
 	char *endptr;
@@ -101,6 +103,18 @@ int config_get_uint8_t(const struct config *config, const char *key)
 	if (*str_value == '\0' || *endptr != '\0')
 		return -EINVAL;
 
+	if (value > LONG_MAX)
+		return -ERANGE;
+
+	return value;
+}
+
+int config_get_uint8_t(const struct config* config, const char *key)
+{
+
+	long value;
+
+	value = config_get_unsigned_number(config, key);
 	if (value > UINT8_MAX)
 		return -ERANGE;
 
