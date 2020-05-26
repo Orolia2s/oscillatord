@@ -19,6 +19,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(oscillator-disciplining REQUIRED liboscillator-disciplining)
 pkg_check_modules(spi2c REQUIRED libspi2c)
 pkg_check_modules(tsync REQUIRED libtsync)
+pkg_check_modules(tsyncpci REQUIRED tsyncpci)
 pkg_check_modules(SYSTEMD systemd REQUIRED)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/)
@@ -26,6 +27,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common/)
 include_directories(${oscillator-disciplining_INCLUDE_DIRS})
 include_directories(${spi2c_INCLUDE_DIRS})
 include_directories(${tsync_INCLUDE_DIRS})
+include_directories(${tsyncpci_INCLUDE_DIRS})
 
 add_definitions("
     -O3
