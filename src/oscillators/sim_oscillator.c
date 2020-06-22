@@ -59,7 +59,6 @@ static int sim_oscillator_get_dac(struct oscillator *oscillator,
 		uint32_t *value)
 {
 	struct sim_oscillator *sim;
-	int b;
 
 	sim = container_of(oscillator, struct sim_oscillator, oscillator);
 
