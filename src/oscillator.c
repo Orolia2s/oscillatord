@@ -1,5 +1,6 @@
 #include <errno.h>
 
+#include "log.h"
 #include "oscillator.h"
 
 int oscillator_set_dac_min(struct oscillator *oscillator, uint32_t dac_min)
