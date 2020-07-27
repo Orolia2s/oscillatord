@@ -44,6 +44,8 @@ int oscillator_get_dac(struct oscillator *oscillator, uint32_t *value)
 {
 	if (oscillator == NULL || value == NULL)
 		return -EINVAL;
+	if (oscillator->class->get_dac == NULL)
+		return -ENOSYS;
 
 	return oscillator->class->get_dac(oscillator, value);
 }
@@ -52,6 +54,8 @@ int oscillator_save(struct oscillator *oscillator)
 {
 	if (oscillator == NULL)
 		return -EINVAL;
+	if (oscillator->class->save == NULL)
+		return -ENOSYS;
 
 	return oscillator->class->save(oscillator);
 }
@@ -60,6 +64,8 @@ int oscillator_get_temp(struct oscillator *oscillator, uint16_t *temp)
 {
 	if (oscillator == NULL || temp == NULL)
 		return -EINVAL;
+	if (oscillator->class->get_temp == NULL)
+		return -ENOSYS;
 
 	return oscillator->class->get_temp(oscillator, temp);
 }
