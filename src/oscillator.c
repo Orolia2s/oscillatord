@@ -8,6 +8,8 @@ int oscillator_set_dac_min(struct oscillator *oscillator, uint32_t dac_min)
 		return -EINVAL;
 
 	oscillator->dac_min = dac_min;
+
+	return 0;
 }
 
 int oscillator_set_dac_max(struct oscillator *oscillator, uint32_t dac_max)
@@ -16,6 +18,8 @@ int oscillator_set_dac_max(struct oscillator *oscillator, uint32_t dac_max)
 		return -EINVAL;
 
 	oscillator->dac_min = dac_max;
+
+	return 0;
 }
 
 int oscillator_set_dac(struct oscillator *o, uint32_t value)
