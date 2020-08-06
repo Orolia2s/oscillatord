@@ -11,6 +11,11 @@ STRING(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" VERSION_PATCH "${PACKAG
 set(PACKAGE_NAME "lib${PROJECT_NAME}")
 set(PACKAGE_DESCRIPTION_SUMMARY "Oscillator disciplining daemon.")
 
+if (NOT TSYNC_HW STREQUAL NIOS AND NOT TSYNC_HW STREQUAL COLDFIRE)
+    message(FATAL_ERROR "tsync hardware TSYNC_HW must be either NIOS or COLDFIRE.")
+endif ()
+add_definitions("-D${TSYNC_HW}")
+
 project(${PROJECT_NAME})
 include(GNUInstallDirs)
 
