@@ -6,6 +6,6 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${COMMON_SOURCES})
 target_link_libraries(${PROJECT_NAME} PRIVATE
                       ${oscillator-disciplining_LIBRARIES}
                       ${spi2c_LIBRARIES}
-                      ${tsync_LIBRARIES})
+                      ${gps_LIBRARIES})
 
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

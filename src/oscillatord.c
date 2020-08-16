@@ -16,13 +16,12 @@
 
 #include <error.h>
 
-#include <tsync.h>
-
 #include <oscillator-disciplining/oscillator-disciplining.h>
 
 #include "log.h"
 #include "oscillator.h"
 #include "oscillator_factory.h"
+#include "gnss.h"
 #include "config.h"
 #include "utils.h"
 
@@ -54,10 +53,10 @@ int main(int argc, char *argv[])
 {
 	fd_set rfds;
 	struct __attribute__((cleanup(od_destroy)))od *od = NULL;
+	int __attribute__((cleanup(fd_cleanup))) fd = -1;
 	struct od_input input;
 	struct od_output output;
 	int ret;
-	int __attribute__((cleanup(fd_cleanup))) fd = -1;
 	struct timeval tv;
 	ssize_t sret;
 	int32_t phase_error;
@@ -67,18 +66,14 @@ int main(int argc, char *argv[])
 	const char *libod_conf_path;
 	struct __attribute__((cleanup(oscillator_factory_destroy)))
 			oscillator *oscillator = NULL;
-	TSYNC_BoardHandle hnd;
-	TSYNC_ERROR tsync_error;
-	int _;
-	const char *tsync_device;
 	int pps_valid;
-	int gnss_device_index;
 	bool opposite_phase_error;
 	const char *value;
 	int sign;
 	unsigned turns;
 	char err_msg[OD_ERR_MSG_LEN];
 	uint16_t temperature;
+	__attribute__((cleanup(gnss_cleanup))) struct gnss gnss = {0};
 
 	/* remove the line startup in error() calls */
 	error_print_progname = dummy_print_progname;
@@ -112,18 +107,6 @@ int main(int argc, char *argv[])
 				"config %s", path);
 	info("PPS device %s\n", device);
 
-	tsync_device = config_get(&config, "tsync-device");
-	if (tsync_device == NULL)
-		error(EXIT_FAILURE, errno, "tsync-device not defined in "
-				"config %s", path);
-	info("tsync device %s\n", tsync_device);
-
-	gnss_device_index = config_get_uint8_t(&config, "device-index");
-	if (gnss_device_index < 0)
-		error(EXIT_FAILURE, errno, "device-index not defined in config "
-				"%s", path);
-	info("GPS index %d\n", gnss_device_index);
-
 	fd = open(device, O_RDWR);
 	if (fd == -1)
 		error(EXIT_FAILURE, errno, "open(%s)", device);
@@ -152,6 +135,11 @@ int main(int argc, char *argv[])
 	sign = opposite_phase_error ? -1 : 1;
 	if (opposite_phase_error)
 		info("taking the opposite of the phase error reported\n");
+
+	ret = gnss_init(&config, &gnss);
+	if (ret < 0)
+		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
+
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
@@ -182,24 +170,27 @@ int main(int argc, char *argv[])
 			error(EXIT_FAILURE, errno, "read");
 		}
 		ret = oscillator_get_temp(oscillator, &temperature);
-		if (ret < 0)
+		if (ret == -ENOSYS)
+			temperature = 0;
+		else if (ret < 0)
 			error(0, -ret, "oscillator_get_temp");
 
-		tsync_error = TSYNC_open(&hnd, tsync_device);
-		if (tsync_error != TSYNC_SUCCESS)
-			error(EXIT_FAILURE, 0, "TSYNC_open: %s",
-					tsync_strerror(tsync_error));
+		ret = gnss_get_data(&gnss);
+		pps_valid = false;
 
-		tsync_error = TSYNC_GR_getValidity(hnd, gnss_device_index, &_,
-				&pps_valid);
-		if (tsync_error != TSYNC_SUCCESS)
-			error(EXIT_FAILURE, 0, "TSYNC_GR_getValidity: %s",
-					tsync_strerror(tsync_error));
-
-		tsync_error = TSYNC_close(hnd);
-		if (tsync_error != TSYNC_SUCCESS)
-			error(EXIT_FAILURE, 0, "TSYNC_close: %s",
-					tsync_strerror(tsync_error));
+		switch (ret) {
+		case GNSS_INVALID:
+		case GNSS_WAITING:
+			pps_valid = false;
+			break;
+		case GNSS_VALID:
+			pps_valid = true;
+			break;
+		case GNSS_ERROR:
+			error(EXIT_FAILURE, errno,
+			      "Error polling receiver data");
+			break;
+		}
 
 		input = (struct od_input) {
 			.phase_error = (struct timespec) {
@@ -208,15 +199,17 @@ int main(int argc, char *argv[])
 			},
 			.valid = pps_valid,
 			.temperature = temperature,
+			.qErr = gnss.data.qErr,
 		};
 		ret = od_process(od, &input, &output);
 		if (ret < 0)
 			error(EXIT_FAILURE, -ret, "od_process");
 
-		debug("input: phase_error = (%lds, %09ldns), valid = %s\n",
+		debug("input: phase_error = (%lds, %09ldns), valid = %s, qErr = %d\n",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
-				input.valid ? "true" : "false");
+				input.valid ? "true" : "false",
+				input.qErr);
 		debug("output: setpoint = %"PRIu32"\n", output.setpoint);
 		ret = oscillator_set_dac(oscillator, output.setpoint);
 		if (ret < 0)

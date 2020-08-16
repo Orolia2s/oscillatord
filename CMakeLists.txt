@@ -11,11 +11,6 @@ STRING(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" VERSION_PATCH "${PACKAG
 set(PACKAGE_NAME "lib${PROJECT_NAME}")
 set(PACKAGE_DESCRIPTION_SUMMARY "Oscillator disciplining daemon.")
 
-if (NOT TSYNC_HW STREQUAL NIOS AND NOT TSYNC_HW STREQUAL COLDFIRE)
-    message(FATAL_ERROR "tsync hardware TSYNC_HW must be either NIOS or COLDFIRE.")
-endif ()
-add_definitions("-D${TSYNC_HW}")
-
 project(${PROJECT_NAME})
 include(GNUInstallDirs)
 
@@ -23,16 +18,14 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(oscillator-disciplining REQUIRED liboscillator-disciplining)
 pkg_check_modules(spi2c REQUIRED libspi2c)
-pkg_check_modules(tsync REQUIRED libtsync)
-pkg_check_modules(tsyncpci REQUIRED tsyncpci)
 pkg_check_modules(SYSTEMD systemd REQUIRED)
+pkg_check_modules(gps REQUIRED libgps)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common/)
 include_directories(${oscillator-disciplining_INCLUDE_DIRS})
 include_directories(${spi2c_INCLUDE_DIRS})
-include_directories(${tsync_INCLUDE_DIRS})
-include_directories(${tsyncpci_INCLUDE_DIRS})
+include_directories(${gps_INCLUDE_DIRS})
 
 add_definitions("
     -O3
