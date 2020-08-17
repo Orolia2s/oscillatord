@@ -31,7 +31,8 @@ It's value must contain a valid path to where the CSV data must be saved.
 
 ## Oscillators supported
 
-* **rakon** is the only real oscillator supported at the moment.
+* **rakon**
+* **morion**
 * **dummy** is a dummy oscillator, faking the control commands sent to the
 oscillator, it is intended for oscillatord debugging purpose.
 Note that it uses the 1pps and tsync devices anyway.
@@ -57,10 +58,12 @@ considered as part of, respectively, the **key** or the **value**.
 **Required**.
 * **pps-device**: path to the 1PPS phase error device.
 **Required**.
-* **tsync-device**: path to the tsync device.
+* **gnss-device-tty**: path to the device tty (e.g /dev/ttyS2)
 **Required**.
-* **device-index**: index of the GNSS tsync device to use.
-**Required**.
+* **gpsd-addr**: address of gpsd daemon
+**Required**
+* **gpsd-port**: port of gpsd daemon
+**Required**
 * **opposite-phase-error**: if **true**, the opposite of the phase error
 reported by the 1PPS phase error device, will be fed into
 **liboscillator-discpining**.
@@ -82,6 +85,18 @@ config keys.
 * **rakon-i2c-num**: index of the i2c device to use.
 **Required**.
 * **rakon-i2c-addr**: i2c address used by the rakon to communicate.
+**Required**.
+
+### Morion-specific configuration keys
+
+We use a spi bus to control the DAC of the morion
+The device path is /dev/spidev{**morion-spi-num**}.{**morion-spi-sub**}
+
+* **morion-spi-num**
+**Required**.
+* **morion-spi-sub**
+**Required**.
+* **morion-spi-speed**: speed of the spi bus
 **Required**.
 
 ### Sim-specific configuration keys
@@ -154,3 +169,4 @@ In order to check the code is conformant, please execute:
 
 [dmnd_1pps]: https://bitbucket.org/spectracom/dmnd-1pps-phase-module/src/master/
 [liboscillator-disciplining]: https://bitbucket.org/spectracom/disciplining-lqr/src/master/
+
