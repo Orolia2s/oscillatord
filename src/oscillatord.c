@@ -49,6 +49,22 @@ static void signal_handler(int signum)
 	loop = false;
 }
 
+static int apply_phase_offset(int fd, const char *device_name,
+				  int32_t phase_error)
+{
+	int ret;
+
+	ret = write(fd, &phase_error, sizeof(phase_error));
+	if (ret == -1) {
+		err("Can't write %s ", device_name);
+		return -errno;
+	}
+	info("%s: applied a phase offset correction of %"PRIi32"ns\n",
+			device_name, phase_error);
+
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	fd_set rfds;
@@ -74,6 +90,7 @@ int main(int argc, char *argv[])
 	char err_msg[OD_ERR_MSG_LEN];
 	uint16_t temperature;
 	__attribute__((cleanup(gnss_cleanup))) struct gnss gnss = {0};
+	bool ignore_next_irq = false;
 
 	/* remove the line startup in error() calls */
 	error_print_progname = dummy_print_progname;
@@ -119,17 +136,6 @@ int main(int argc, char *argv[])
 	oscillator_set_dac_min(oscillator, od_get_dac_min(od));
 	oscillator_set_dac_max(oscillator, od_get_dac_max(od));
 
-	/* correct the phase error by applying an opposite offset */
-	sret = read(fd, &phase_error, sizeof(phase_error));
-	if (sret == -1)
-		error(EXIT_FAILURE, errno, "read");
-	phase_error = -phase_error;
-	sret = write(fd, &phase_error, sizeof(phase_error));
-	if (sret == -1)
-		error(EXIT_FAILURE, errno, "write");
-	info("applied an initial offset correction of %"PRIi32"ns\n",
-			phase_error);
-
 	opposite_phase_error = config_get_bool_default(&config,
 			"opposite-phase-error", false);
 	sign = opposite_phase_error ? -1 : 1;
@@ -169,11 +175,18 @@ int main(int argc, char *argv[])
 
 			error(EXIT_FAILURE, errno, "read");
 		}
+
+		if (ignore_next_irq) {
+			debug("ignoring 1 input due to phase jump\n");
+			ignore_next_irq = false;
+			continue;
+		}
+
 		ret = oscillator_get_temp(oscillator, &temperature);
 		if (ret == -ENOSYS)
 			temperature = 0;
 		else if (ret < 0)
-			error(0, -ret, "oscillator_get_temp");
+			error(EXIT_FAILURE, -ret, "oscillator_get_temp");
 
 		ret = gnss_get_data(&gnss);
 		pps_valid = false;
@@ -205,17 +218,32 @@ int main(int argc, char *argv[])
 		if (ret < 0)
 			error(EXIT_FAILURE, -ret, "od_process");
 
-		debug("input: phase_error = (%lds, %09ldns), valid = %s, qErr = %d\n",
+		debug("input: phase_error = (%lds, %09ldns),"
+		      "valid = %s, qErr = %d\n",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
 				input.valid ? "true" : "false",
 				input.qErr);
-		debug("output: setpoint = %"PRIu32"\n", output.setpoint);
-		ret = oscillator_set_dac(oscillator, output.setpoint);
-		if (ret < 0)
-			error(EXIT_FAILURE, -ret, "oscillator_set_dac");
-	} while (loop && turns != 1);
 
+		debug("output: setpoint = %"PRIu32", "
+		      "activate_phase_ctrl = %s, "
+		      "value_phase_ctrl = %"PRIi32"ns\n",
+				output.setpoint,
+				output.activate_phase_ctrl ? "True" : "False",
+				output.value_phase_ctrl);
+
+		if (output.activate_phase_ctrl) {
+			ret = apply_phase_offset(fd, device,
+						 -output.value_phase_ctrl);
+			if (ret < 0)
+				error(EXIT_FAILURE, -ret, "apply_phase_offset");
+			ignore_next_irq = true;
+		} else {
+			ret = oscillator_set_dac(oscillator, output.setpoint);
+			if (ret < 0)
+				error(EXIT_FAILURE, -ret, "oscillator_set_dac");
+		}
+	} while (loop && turns != 1);
 
 	od_destroy(&od);
 
