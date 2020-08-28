@@ -142,6 +142,15 @@ Then a small random noise is added to the phase error.
     └── tests                  : code of the oscillator simulator
         └── lib_osc_sim_stubs  : code of the lib_osc_sim_stubs library
 
+### Coding style
+
+This project follows the linux kernel coding style everywhere relevant.
+In order to check the code is conformant, please execute:
+
+    for f in $(find . -name '*.c' -o -name '*.h')
+        do ../linux/scripts/checkpatch.pl $f
+    done
+
 
 [dmnd_1pps]: https://bitbucket.org/spectracom/dmnd-1pps-phase-module/src/master/
 [liboscillator-disciplining]: https://bitbucket.org/spectracom/disciplining-lqr/src/master/
