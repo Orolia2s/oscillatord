@@ -10,7 +10,7 @@ struct oscillator_factory {
 };
 
 struct oscillator *oscillator_factory_new(struct config *config);
-__attribute__((format(printf, 3, 4)))
+__attribute__((__format__(printf, 3, 4)))
 void oscillator_factory_init(const char *factory_name,
 		struct oscillator *oscillator, const char *fmt, ...);
 int oscillator_factory_register(const struct oscillator_factory *factory);

@@ -83,7 +83,8 @@ PTSPAIR_API const char *ptspair_get_path(const struct ptspair *ptspair,
 PTSPAIR_API int ptspair_get_writer_fd(const struct ptspair *ptspair,
 		enum pts_index pts_index);
 PTSPAIR_API int ptspair_raw(struct ptspair *ptspair, enum pts_index pts_index);
-PTSPAIR_API int ptspair_cooked(struct ptspair *ptspair, enum pts_index pts_index);
+PTSPAIR_API int ptspair_cooked(struct ptspair *ptspair,
+			       enum pts_index pts_index);
 PTSPAIR_API int ptspair_get_fd(const struct ptspair *ptspair);
 PTSPAIR_API int ptspair_process_events(struct ptspair *ptspair);
 PTSPAIR_API void ptspair_clean(struct ptspair *ptspair);

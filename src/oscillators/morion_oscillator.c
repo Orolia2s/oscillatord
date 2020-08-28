@@ -118,7 +118,8 @@ static struct oscillator *morion_oscillator_new(struct config *config)
 			morion_oscillator_index);
 	morion_oscillator_index++;
 
-	info("instantiated " FACTORY_NAME " oscillator on spidev%" PRIu8 ".%" PRIu8, spi_num, spi_sub);
+	info("instantiated " FACTORY_NAME " oscillator on spidev%"
+	     PRIu8 ".%" PRIu8, spi_num, spi_sub);
 
 	return oscillator;
 error:

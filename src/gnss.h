@@ -12,8 +12,7 @@ enum gnss_state {
 	GNSS_ERROR,
 };
 
-struct gnss
-{
+struct gnss {
 	bool session_open;
 	struct gps_data_t data;
 };

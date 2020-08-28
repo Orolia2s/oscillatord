@@ -11,13 +11,13 @@
 #define MAX_OSCILLATOR_FACTORIES 5
 #endif
 
-static const struct oscillator_factory * factories[MAX_OSCILLATOR_FACTORIES];
-static unsigned factories_nb;
+static const struct oscillator_factory *factories[MAX_OSCILLATOR_FACTORIES];
+static unsigned int factories_nb;
 
 static const struct oscillator_factory *oscillator_factory_get_by_name(
 		const char *name)
 {
-	unsigned i;
+	unsigned int i;
 
 	for (i = 0; i < factories_nb; i++)
 		if (strcmp(name, factories[i]->class.name) == 0)
@@ -55,7 +55,8 @@ struct oscillator *oscillator_factory_new(struct config *config)
 	return factory->new(config);
 }
 
-static bool oscillator_factory_is_valid(const struct oscillator_factory *factory)
+static bool oscillator_factory_is_valid
+	(const struct oscillator_factory *factory)
 {
 	return factory != NULL && factory->destroy != NULL &&
 			factory->class.name != NULL &&

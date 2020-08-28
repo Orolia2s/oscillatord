@@ -201,8 +201,7 @@ int main(int argc, char *argv[])
 		if (ret == -1) {
 			if (errno == EINTR && !loop)
 				break;
-			else
-				error(EXIT_FAILURE, errno, "select");
+			error(EXIT_FAILURE, errno, "select");
 		}
 		if (ret == 0) /* timeout */
 			continue;
@@ -221,7 +220,8 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (FD_ISSET(control_fifo_fd, &readfds)) {
-			sret = read(control_fifo_fd, &setpoint, sizeof(setpoint));
+			sret = read(control_fifo_fd, &setpoint,
+				    sizeof(setpoint));
 			if (sret < 0)
 				error(EXIT_FAILURE, errno, "read");
 			if (sret == 0 && ret != -EINTR) {

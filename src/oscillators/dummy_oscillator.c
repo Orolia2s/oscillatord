@@ -13,7 +13,7 @@
 #define DUMMY_SETPOINT_MIN 31500
 #define DUMMY_SETPOINT_MAX 1016052
 
-static unsigned dummy_oscillator_index;
+static unsigned int dummy_oscillator_index;
 
 static int dummy_oscillator_set_dac(struct oscillator *oscillator,
 		uint32_t value)

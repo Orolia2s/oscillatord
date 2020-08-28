@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 	bool opposite_phase_error;
 	const char *value;
 	int sign;
-	unsigned turns;
+	unsigned int turns;
 	char err_msg[OD_ERR_MSG_LEN];
 	uint16_t temperature;
 
@@ -108,11 +108,7 @@ int main(int argc, char *argv[])
 			false));
 
 	value = config_get(&config, "turns");
-	if (value != NULL) {
-		turns = atoll(value);
-	} else {
-		turns = 0;
-	}
+	turns = (value != NULL) ? atoll(value) : 0;
 
 	oscillator = oscillator_factory_new(&config);
 	if (oscillator == NULL)

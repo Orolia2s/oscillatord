@@ -22,22 +22,28 @@
 #define RAKON_SETPOINT_MIN 0
 #define RAKON_SETPOINT_MAX 1000000
 
+#ifndef __packed
+#define __packed __attribute__((__packed__))
+#endif
+
 struct rakon_oscillator {
 	struct oscillator oscillator;
 	struct i2cdev *i2c;
 };
 
-static unsigned rakon_oscillator_index;
+struct rakon_payload {
+	uint8_t cmd;
+	uint32_t value;
+} __packed;
+
+static unsigned int rakon_oscillator_index;
 
 static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 		uint32_t value)
 {
 	struct rakon_oscillator *rakon;
+	struct rakon_payload buf = {0};
 	int ret;
-	struct __attribute__((packed)){
-		uint8_t cmd;
-		uint32_t value;
-	} buf;
 	uint32_t val_be;
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);

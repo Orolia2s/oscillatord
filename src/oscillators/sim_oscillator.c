@@ -35,7 +35,7 @@ struct sim_oscillator {
 	uint32_t value;
 };
 
-static unsigned sim_oscillator_index;
+static unsigned int sim_oscillator_index;
 
 static int sim_oscillator_set_dac(struct oscillator *oscillator,
 		uint32_t value)

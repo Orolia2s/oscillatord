@@ -21,7 +21,7 @@ extern bool log_debug_enabled;
 #define debug(...) do { \
 	if (log_debug_enabled) \
 		log(DEBUG __VA_ARGS__); \
-} while (0);
+} while (0)
 
 #define perr(f, e) err("%s: %s", f, strerror(abs(e)))
 
@@ -29,7 +29,8 @@ extern bool log_debug_enabled;
 	int __old_errno = errno; \
 	fprintf(stderr, __VA_ARGS__); \
 	errno = __old_errno; \
-} while (0);
+} while (0)
+
 void log_enable_debug(bool enable_debug);
 
 #endif /* LOG_H_ */
