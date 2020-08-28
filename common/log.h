@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #define ERR "<3>"
 #define WARN "<4>"
@@ -12,6 +13,7 @@
 
 extern bool log_debug_enabled;
 
+/* all those logging functions preserve the value of errno */
 #define err(...) log(ERR __VA_ARGS__)
 #define warn(...) log(WARN __VA_ARGS__)
 #define info(...) log(INFO __VA_ARGS__)
@@ -22,7 +24,11 @@ extern bool log_debug_enabled;
 
 #define perr(f, e) err("%s: %s", f, strerror(abs(e)))
 
-#define log(...) fprintf(stderr, __VA_ARGS__)
+#define log(...) do { \
+	int __old_errno = errno; \
+	fprintf(stderr, __VA_ARGS__); \
+	errno = __old_errno; \
+} while (0);
 void log_enable_debug(bool enable_debug);
 
 #endif /* LOG_H_ */
