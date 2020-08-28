@@ -33,6 +33,7 @@ add_definitions("
     -Wextra
     -Wformat=2
     -Wunused-variable
+    -Wunused-function
     -Wold-style-definition
     -Wstrict-prototypes
     -Wno-unused-parameter
