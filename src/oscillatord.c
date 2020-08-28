@@ -68,8 +68,6 @@ static int apply_phase_offset(int fd, const char *device_name,
 int main(int argc, char *argv[])
 {
 	fd_set rfds;
-	struct __attribute__((cleanup(od_destroy)))od *od = NULL;
-	int __attribute__((cleanup(fd_cleanup))) fd = -1;
 	struct od_input input;
 	struct od_output output;
 	int ret;
@@ -80,8 +78,6 @@ int main(int argc, char *argv[])
 	struct config config;
 	const char *path;
 	const char *libod_conf_path;
-	struct __attribute__((cleanup(oscillator_factory_destroy)))
-			oscillator *oscillator = NULL;
 	int pps_valid;
 	bool opposite_phase_error;
 	const char *value;
@@ -89,6 +85,11 @@ int main(int argc, char *argv[])
 	unsigned turns;
 	char err_msg[OD_ERR_MSG_LEN];
 	uint16_t temperature;
+
+	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
+	__attribute__((cleanup(fd_cleanup))) int fd = -1;
+	__attribute__((cleanup(oscillator_factory_destroy)))
+			struct oscillator *oscillator = NULL;
 	__attribute__((cleanup(gnss_cleanup))) struct gnss gnss = {0};
 	bool ignore_next_irq = false;
 

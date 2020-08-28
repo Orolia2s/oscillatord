@@ -111,7 +111,8 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	int ret;
 	struct oscillator *oscillator;
 	const char *cret;
-	char __attribute__((cleanup(string_cleanup))) *simulator_command = NULL;
+
+	__attribute__((cleanup(string_cleanup))) char *simulator_command = NULL;
 
 	ret = asprintf(&simulator_command, "oscillator_sim %s", config->path);
 	if (ret < 0) {

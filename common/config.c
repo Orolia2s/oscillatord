@@ -13,10 +13,11 @@
 int config_init(struct config *config, const char *path)
 {
 	int ret;
-	char __attribute__((cleanup(string_cleanup)))*string = NULL;
-	FILE __attribute__((cleanup(file_cleanup)))*f = NULL;
 	long size;
 	size_t sret;
+
+	__attribute__((cleanup(file_cleanup))) FILE *f = NULL;
+	__attribute__((cleanup(string_cleanup))) char *string = NULL;
 
 	memset(config, 0, sizeof(*config));
 
@@ -109,7 +110,7 @@ long config_get_unsigned_number(const struct config *config, const char *key)
 	return value;
 }
 
-int config_get_uint8_t(const struct config* config, const char *key)
+int config_get_uint8_t(const struct config *config, const char *key)
 {
 
 	long value;
