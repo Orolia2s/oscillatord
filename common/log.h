@@ -23,7 +23,7 @@ extern bool log_debug_enabled;
 		log(DEBUG __VA_ARGS__); \
 } while (0)
 
-#define perr(f, e) err("%s: %s", f, strerror(abs(e)))
+#define perr(f, e) err("%s: %s\n", f, strerror(abs(e)))
 
 #define log(...) do { \
 	int __old_errno = errno; \
