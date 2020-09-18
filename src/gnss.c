@@ -78,7 +78,12 @@ enum gnss_state gnss_get_data(struct gnss *gnss)
 	}
 
 	if (gps_read(&gnss->data, NULL, 0) == -1) {
-		perr("gps_read", errno);
+		if (errno == 0)
+			err("gps_read: the socket to the daemon has closed or"
+					" the shared-memory segment was"
+					" unavailable\n");
+		else
+			perr("gps_read", errno);
 		return GNSS_ERROR;
 	}
 
