@@ -6,18 +6,23 @@
 #include "gnss.h"
 
 
-#define TIMEOUT_MSEC 1
+#define TIMEOUT_USEC 1000
 
 
 static bool gnss_data_valid(const struct gnss *gnss)
 {
-	if (!gnss->data.set) {
+	if (!(gnss->data.set & PACKET_SET)) {
 		debug("gps data not set\n");
 		return false;
 	}
 
 	if (gnss->data.fix.status < STATUS_FIX) {
 		debug("No gps fix\n");
+		return false;
+	}
+
+	if (gnss->data.fix.mode < MODE_3D) {
+		debug("Fix mode < 3D\n");
 		return false;
 	}
 
@@ -72,24 +77,30 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 
 enum gnss_state gnss_get_data(struct gnss *gnss)
 {
-	if (!gps_waiting(&gnss->data, TIMEOUT_MSEC)) {
-		debug("Waiting on gnss data\n");
-		return GNSS_WAITING;
+
+	bool valid = false;
+
+	while (true) {
+		if (!gps_waiting(&gnss->data, TIMEOUT_USEC)) {
+			if (errno != 0) {
+				perr("gps_waiting", errno);
+				return GNSS_ERROR;
+			}
+			return valid ? GNSS_VALID : GNSS_INVALID;
+		}
+
+		if (gps_read(&gnss->data, NULL, 0) == -1) {
+			if (errno == 0)
+				err("gps_read: the socket to the daemon"
+					" has closed or the shared-memory"
+					" segment was unavailable\n");
+			else
+				perr("gps_read", errno);
+			return GNSS_ERROR;
+		}
+
+		valid = gnss_data_valid(gnss);
 	}
-
-	if (gps_read(&gnss->data, NULL, 0) == -1) {
-		if (errno == 0)
-			err("gps_read: the socket to the daemon has closed or"
-					" the shared-memory segment was"
-					" unavailable\n");
-		else
-			perr("gps_read", errno);
-		return GNSS_ERROR;
-	}
-
-	if (!gnss_data_valid(gnss))
-		return GNSS_INVALID;
-
 	return GNSS_VALID;
 }
 
