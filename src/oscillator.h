@@ -4,28 +4,31 @@
 
 #include "config.h"
 
+#include <oscillator-disciplining/oscillator-disciplining.h>
+
 #ifndef OSCILLATOR_NAME_LENGTH
 #define OSCILLATOR_NAME_LENGTH 50
 #endif
 
 struct oscillator;
+struct oscillator_ctrl;
 
 typedef struct oscillator *(*oscillator_new_cb)(struct config *config);
-typedef int (*oscillator_set_dac_cb)(struct oscillator *oscillator,
-		uint32_t value);
-typedef int (*oscillator_get_dac_cb)(struct oscillator *oscillator,
-		uint32_t *value);
+typedef int (*oscillator_get_ctrl_cb)(struct oscillator *oscillator,
+		struct oscillator_ctrl *ctrl);
 typedef int (*oscillator_save_cb)(struct oscillator *oscillator);
 typedef int (*oscillator_get_temp_cb)(struct oscillator *oscillator,
 		uint16_t *temp);
+typedef int (*oscillator_apply_output_cb)(struct oscillator *oscillator,
+		struct od_output *output);
 typedef void (*oscillator_destroy_cb)(struct oscillator **oscillator);
 
 struct oscillator_class {
 	const char *name;
-	oscillator_set_dac_cb set_dac;
-	oscillator_get_dac_cb get_dac;
+	oscillator_get_ctrl_cb get_ctrl;
 	oscillator_save_cb save;
 	oscillator_get_temp_cb get_temp;
+	oscillator_apply_output_cb apply_output;
 	/* default values use if per-instance ones haven't been set */
 	uint32_t dac_max;
 	uint32_t dac_min;
@@ -40,11 +43,20 @@ struct oscillator {
 	uint32_t dac_max;
 };
 
+/* Control values for the different oscillators */
+struct oscillator_ctrl {
+	/* Used for dummy, morion, rakon and sim */
+	uint32_t dac;
+	/* Used for mRO50 */
+	uint32_t fine_ctrl;
+	uint32_t coarse_ctrl;
+};
+
 int oscillator_set_dac_min(struct oscillator *oscillator, uint32_t dac_min);
 int oscillator_set_dac_max(struct oscillator *oscillator, uint32_t dac_max);
-int oscillator_set_dac(struct oscillator *oscillator, uint32_t value);
-int oscillator_get_dac(struct oscillator *oscillator, uint32_t *value);
+int oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl);
 int oscillator_save(struct oscillator *oscillator);
 int oscillator_get_temp(struct oscillator *oscillator, uint16_t *temp);
+int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output);
 
 #endif /* SRC_OSCILLATOR_H_ */

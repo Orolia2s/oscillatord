@@ -23,36 +23,14 @@ int oscillator_set_dac_max(struct oscillator *oscillator, uint32_t dac_max)
 	return 0;
 }
 
-int oscillator_set_dac(struct oscillator *o, uint32_t value)
+int oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl)
 {
-	uint32_t dac_max;
-	uint32_t dac_min;
-
-	if (o == NULL)
+	if (oscillator == NULL || ctrl == NULL)
 		return -EINVAL;
-
-	dac_max = o->dac_max == 0 ? o->class->dac_max : o->dac_max;
-	if (value > dac_max) {
-		warn("dac value %u too high, clipped to %d\n", value, dac_max);
-		value = dac_max;
-	}
-	dac_min = o->dac_min == UINT32_MAX ? o->class->dac_min : o->dac_min;
-	if (value > dac_max) {
-		warn("dac value %u too low, clipped to %d\n", value, dac_min);
-		value = dac_min;
-	}
-
-	return o->class->set_dac(o, value);
-}
-
-int oscillator_get_dac(struct oscillator *oscillator, uint32_t *value)
-{
-	if (oscillator == NULL || value == NULL)
-		return -EINVAL;
-	if (oscillator->class->get_dac == NULL)
+	if (oscillator->class->get_ctrl == NULL)
 		return -ENOSYS;
 
-	return oscillator->class->get_dac(oscillator, value);
+	return oscillator->class->get_ctrl(oscillator, ctrl);
 }
 
 int oscillator_save(struct oscillator *oscillator)
@@ -73,5 +51,14 @@ int oscillator_get_temp(struct oscillator *oscillator, uint16_t *temp)
 		return -ENOSYS;
 
 	return oscillator->class->get_temp(oscillator, temp);
+}
+
+int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output) {
+	if (oscillator == NULL || output == NULL)
+		return -EINVAL;
+	if (oscillator->class->apply_output == NULL)
+		return -ENOSYS;
+
+	return oscillator->class->apply_output(oscillator, output);
 }
 

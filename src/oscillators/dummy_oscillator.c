@@ -34,6 +34,12 @@ static int dummy_oscillator_get_dac(struct oscillator *oscillator,
 	return 0;
 }
 
+static int dummy_oscillator_get_ctrl(struct oscillator *oscillator,
+		struct oscillator_ctrl *ctrl)
+{
+	return dummy_oscillator_get_dac(oscillator, &ctrl->dac);
+}
+
 static int dummy_oscillator_save(struct oscillator *oscillator)
 {
 	info("%s(%p)\n", __func__, oscillator);
@@ -49,6 +55,10 @@ static int dummy_oscillator_get_temp(struct oscillator *oscillator,
 	info("%s(%p, %u)\n", __func__, oscillator, *temp);
 
 	return 0;
+}
+
+static int dummy_oscillator_apply_output(struct oscillator *oscillator, struct od_output *output) {
+	return dummy_oscillator_set_dac(oscillator, output->setpoint);
 }
 
 static struct oscillator *dummy_oscillator_new(struct config *config)
@@ -76,10 +86,10 @@ static void dummy_oscillator_destroy(struct oscillator **oscillator)
 static const struct oscillator_factory dummy_oscillator_factory = {
 	.class = {
 			.name = FACTORY_NAME,
-			.set_dac = dummy_oscillator_set_dac,
-			.get_dac = dummy_oscillator_get_dac,
+			.get_ctrl = dummy_oscillator_get_ctrl,
 			.save = dummy_oscillator_save,
 			.get_temp = dummy_oscillator_get_temp,
+			.apply_output = dummy_oscillator_apply_output,
 			.dac_min = DUMMY_SETPOINT_MIN,
 			.dac_max = DUMMY_SETPOINT_MAX,
 	},

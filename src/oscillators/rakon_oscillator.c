@@ -88,6 +88,12 @@ static int rakon_oscillator_get_dac(struct oscillator *oscillator,
 	return 0;
 }
 
+static int rakon_oscillator_get_ctrl(struct oscillator *oscillator,
+		struct oscillator_ctrl *ctrl)
+{
+	return rakon_oscillator_get_dac(oscillator, &ctrl->dac);
+}
+
 static int rakon_oscillator_save(struct oscillator *oscillator)
 {
 	uint8_t tx_val;
@@ -132,6 +138,10 @@ static int rakon_oscillator_get_temp(struct oscillator *oscillator,
 	debug("%s(%s) = %"PRIu16"\n", __func__, oscillator->name, *temp);
 
 	return 0;
+}
+
+static int rakon_oscillator_apply_output(struct oscillator *oscillator, struct od_output *output) {
+		return rakon_oscillator_set_dac(oscillator, output->setpoint);
 }
 
 static void rakon_oscillator_destroy(struct oscillator **oscillator)
@@ -200,10 +210,10 @@ error:
 static const struct oscillator_factory rakon_oscillator_factory = {
 	.class = {
 			.name = FACTORY_NAME,
-			.set_dac = rakon_oscillator_set_dac,
-			.get_dac = rakon_oscillator_get_dac,
+			.get_ctrl = rakon_oscillator_get_ctrl,
 			.save = rakon_oscillator_save,
 			.get_temp = rakon_oscillator_get_temp,
+			.apply_output = rakon_oscillator_apply_output,
 			.dac_min = RAKON_SETPOINT_MIN,
 			.dac_max = RAKON_SETPOINT_MAX,
 	},

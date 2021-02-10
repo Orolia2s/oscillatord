@@ -65,6 +65,7 @@ static int apply_phase_offset(int fd, const char *device_name,
 	return ret;
 }
 
+
 int main(int argc, char *argv[])
 {
 	fd_set rfds;
@@ -114,6 +115,9 @@ int main(int argc, char *argv[])
 	if (oscillator == NULL)
 		error(EXIT_FAILURE, errno, "oscillator_factory_new");
 	info("oscillator model %s\n", oscillator->class->name);
+
+	struct oscillator_ctrl value_test;
+	oscillator_get_ctrl(oscillator, &value_test);
 
 	device = config_get(&config, "pps-device");
 	if (device == NULL)
@@ -230,16 +234,16 @@ int main(int argc, char *argv[])
 				output.value_phase_ctrl);
 
 		if (output.activate_phase_ctrl) {
-			ret = apply_phase_offset(fd, device,
-						 -output.value_phase_ctrl);
+			ret = apply_phase_offset(fd, device, -output.value_phase_ctrl);
 			if (ret < 0)
 				error(EXIT_FAILURE, -ret, "apply_phase_offset");
-			ignore_next_irq = true;
 		} else {
-			ret = oscillator_set_dac(oscillator, output.setpoint);
+			ret = oscillator_apply_output(oscillator, &output);
 			if (ret < 0)
-				error(EXIT_FAILURE, -ret, "oscillator_set_dac");
+				error(EXIT_FAILURE, -ret, "oscillator_apply_output");
 		}
+		if (output.activate_phase_ctrl)
+			ignore_next_irq = true;
 	} while (loop && turns != 1);
 
 	od_destroy(&od);

@@ -68,6 +68,12 @@ static int sim_oscillator_get_dac(struct oscillator *oscillator,
 	return 0;
 }
 
+static int sim_oscillator_get_ctrl(struct oscillator *oscillator,
+		struct oscillator_ctrl *ctrl)
+{
+	return sim_oscillator_get_dac(oscillator, &ctrl->dac);
+}
+
 static int sim_oscillator_save(struct oscillator *oscillator)
 {
 	debug("%s(%s)\n", __func__, oscillator->name);
@@ -84,6 +90,11 @@ static int sim_oscillator_get_temp(struct oscillator *oscillator,
 
 	return 0;
 }
+
+static int sim_oscillator_apply_output(struct oscillator *oscillator, struct od_output *output) {
+		return sim_oscillator_set_dac(oscillator, output->setpoint);
+}
+
 
 static void sim_oscillator_destroy(struct oscillator **oscillator)
 {
@@ -176,10 +187,10 @@ error:
 static const struct oscillator_factory sim_oscillator_factory = {
 	.class = {
 			.name = FACTORY_NAME,
-			.set_dac = sim_oscillator_set_dac,
-			.get_dac = sim_oscillator_get_dac,
+			.get_ctrl = sim_oscillator_get_ctrl,
 			.save = sim_oscillator_save,
 			.get_temp = sim_oscillator_get_temp,
+			.apply_output = sim_oscillator_apply_output,
 			.dac_min = SIM_SETPOINT_MIN,
 			.dac_max = SIM_SETPOINT_MAX,
 	},

@@ -53,6 +53,10 @@ static int morion_oscillator_set_dac(struct oscillator *oscillator,
 	return 0;
 }
 
+static int morion_oscillator_apply_output(struct oscillator *oscillator, struct od_output *output) {
+	return morion_oscillator_set_dac(oscillator, output->setpoint);
+}
+
 static void morion_oscillator_destroy(struct oscillator **oscillator)
 {
 	struct oscillator *o;
@@ -131,10 +135,10 @@ error:
 static const struct oscillator_factory morion_oscillator_factory = {
 	.class = {
 			.name = FACTORY_NAME,
-			.set_dac = morion_oscillator_set_dac,
-			.get_dac = NULL,
+			.get_ctrl = NULL,
 			.save = NULL,
 			.get_temp = NULL,
+			.apply_output = morion_oscillator_apply_output,
 			.dac_min = MORION_DAC_MIN,
 			.dac_max = MORION_DAC_MAX,
 	},
