@@ -62,3 +62,21 @@ int oscillator_apply_output(struct oscillator *oscillator, struct od_output *out
 	return oscillator->class->apply_output(oscillator, output);
 }
 
+struct calibration_results * oscillator_calibrate(
+	struct oscillator *oscillator,
+	struct calibration_parameters * calib_params,
+	int phase_descriptor,
+	int phase_sign)
+{
+	if (oscillator == NULL || calib_params == NULL) {
+		err("oscillator_calibrate: one input is NULL\n");
+		return NULL;
+	}
+	if (oscillator->class->calibrate == NULL) {
+		err("oscillator_calibrate: calibrate function is null in class !\n");
+		return NULL;
+	}
+
+	return oscillator->class->calibrate(oscillator, calib_params, phase_descriptor, phase_sign);
+}
+

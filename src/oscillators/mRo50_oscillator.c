@@ -200,7 +200,7 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 	struct mRo50_oscillator *mRo50;
 	int ret;
 	char command[32];
-	uint32_t phase_error;
+	int32_t phase_error;
 
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 
@@ -212,21 +212,23 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 
 	results->length = calib_params->length;
 	results->nb_calibration = calib_params->nb_calibration;
-	results->calib_results = malloc(results->length * results->nb_calibration * sizeof(struct timespec));
-	if (results->calib_results == NULL) {
+	results->measures = malloc(results->length * results->nb_calibration * sizeof(struct timespec));
+	info("Phase sign is %d\n", phase_sign);
+	if (results->measures == NULL) {
 		err("Could not allocate memory to create calibration measures\n");
 		free(results);
 		results = NULL;
 		return NULL;
 	}
-
+	info("Starting measure for calibration\n");
 	for (int i = 0; i < results->length; i ++) {
 		uint16_t ctrl_point = calib_params->ctrl_points[i];
-		ret = snprintf(command, sizeof(command), "MON_tpcbPIL_cfieldC %d\r\n", ctrl_point);
+		info("Applying fine adjustment of %d\n", ctrl_point);
+		ret = snprintf(command, sizeof(command), "MON_tpcbPIL_cfieldC %.4x\r\n", ctrl_point);
 		if (ret < 0) {
 			err("Could not prepare command request to adjust fine frequency, error %d\n", ret);
-			free(results->calib_results);
-			results->calib_results = NULL;
+			free(results->measures);
+			results->measures = NULL;
 			free(results);
 			results = NULL;
 			return NULL;
@@ -234,34 +236,38 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 		ret = write(mRo50->serial_fd, command, sizeof(command));
 		if (ret == -1) {
 			err("Could not write to serial\n");
-			free(results->calib_results);
-			results->calib_results = NULL;
+			free(results->measures);
+			results->measures = NULL;
 			free(results);
 			results = NULL;
 			return NULL;
 		} else {
 			debug("Wrote %d characters \n", ret);
 		}
-		usleep(calib_params->settling_time * 10E6);
+		sleep(calib_params->settling_time);
 
-		struct timespec *current_measures = *(results->calib_results + (i * results->nb_calibration) * sizeof(struct timespec));
+		info("Check control point is correctly set \n");
+		struct oscillator_ctrl ctrl;
+		ret = mRo50_oscillator_get_ctrl(oscillator, &ctrl);
+		if (ctrl.fine_ctrl != ctrl_point) {
+			info("ctrl measured is %d and ctrl point is %d\n", ctrl.fine_ctrl, ctrl_point);
+			err("CTRL POINTS HAS NOT BEEN SET !\n");
+		}
 
+		info("Starting phase error measures\n");
 		for (int j = 0; j < results->nb_calibration; j++) {
-			for (int k = 0; k < 5; k++) {
-				ret = read(phase_descriptor, &phase_error, sizeof(phase_error));
-				if (ret == -1) {
-					if (errno == EAGAIN || errno == EINTR)
-						continue;
-
-					error(EXIT_FAILURE, errno, "read");
-				}
-				break;
+			ret = read(phase_descriptor, &phase_error, sizeof(phase_error));
+			if (ret == -1) {
+				info("Error reading phasemeter\n");
+				error(EXIT_FAILURE, errno, "read phase descriptor");
 			}
-			*(current_measures + j * sizeof(struct timespec)) = (struct timespec) {
+
+			*(results->measures + i * results->nb_calibration + j) = (struct timespec) {
 				.tv_sec = phase_sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = phase_sign * phase_error % NS_IN_SECOND,
 			};
-			usleep(calib_params->settling_time * 10E6);
+			info("%09ldns \n", (results->measures + i * results->nb_calibration + j)->tv_nsec);
+			sleep(1);
 		}
 	}
 
@@ -274,6 +280,8 @@ static const struct oscillator_factory mRo50_oscillator_factory = {
 			.get_ctrl = mRo50_oscillator_get_ctrl,
 			.save = NULL,
 			.get_temp = NULL,
+			.apply_output = mRo50_oscillator_apply_output,
+			.calibrate = mRo50_oscillator_calibrate,
 			.dac_min = MRO50_SETPOINT_MIN,
 			.dac_max = MRO50_SETPOINT_MAX,
 	},

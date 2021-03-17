@@ -22,6 +22,8 @@ typedef int (*oscillator_get_temp_cb)(struct oscillator *oscillator,
 typedef int (*oscillator_apply_output_cb)(struct oscillator *oscillator,
 		struct od_output *output);
 typedef void (*oscillator_destroy_cb)(struct oscillator **oscillator);
+typedef struct calibration_results* (*oscillator_calibrate_cb)(struct oscillator *oscillator,
+		struct calibration_parameters *calib_params, int phase_descriptor, int phase_sign);
 
 struct oscillator_class {
 	const char *name;
@@ -29,6 +31,7 @@ struct oscillator_class {
 	oscillator_save_cb save;
 	oscillator_get_temp_cb get_temp;
 	oscillator_apply_output_cb apply_output;
+	oscillator_calibrate_cb calibrate;
 	/* default values use if per-instance ones haven't been set */
 	uint32_t dac_max;
 	uint32_t dac_min;
@@ -58,5 +61,10 @@ int oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *c
 int oscillator_save(struct oscillator *oscillator);
 int oscillator_get_temp(struct oscillator *oscillator, uint16_t *temp);
 int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output);
+struct calibration_results * oscillator_calibrate(
+	struct oscillator *oscillator,
+	struct calibration_parameters * calib_params,
+	int phase_descriptor,
+	int phase_sign);
 
 #endif /* SRC_OSCILLATOR_H_ */

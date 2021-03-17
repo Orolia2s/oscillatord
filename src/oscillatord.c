@@ -1,7 +1,6 @@
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <sys/select.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -206,44 +205,68 @@ int main(int argc, char *argv[])
 			break;
 		}
 
+		struct oscillator_ctrl ctrl_values;
+		oscillator_get_ctrl(oscillator, &ctrl_values);
+		info("Oscillator controls:\n");
+		info("fine value:%d\n", ctrl_values.fine_ctrl);
+		info("coarse value:%d\n", ctrl_values.coarse_ctrl);
+
+
+		info("Creating input structure\n");
+		info("Phase error is %d and sign is %d\n", phase_error, sign);
 		input = (struct od_input) {
 			.phase_error = (struct timespec) {
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			},
 			.valid = pps_valid,
+			.lock = true,
 			.temperature = temperature,
 			.qErr = gnss.data.qErr,
+			.fine_setpoint = ctrl_values.fine_ctrl,
+			.coarse_setpoint = ctrl_values.coarse_ctrl,
 		};
 		ret = od_process(od, &input, &output);
 		if (ret < 0)
 			error(EXIT_FAILURE, -ret, "od_process");
 
 		debug("input: phase_error = (%lds, %09ldns),"
-		      "valid = %s, qErr = %d\n",
-				input.phase_error.tv_sec,
-				input.phase_error.tv_nsec,
-				input.valid ? "true" : "false",
-				input.qErr);
+			"valid = %s, qErr = %d\n",
+			input.phase_error.tv_sec,
+			input.phase_error.tv_nsec,
+			input.valid ? "true" : "false",
+			input.qErr);
 
 		debug("output: setpoint = %"PRIu32", "
-		      "activate_phase_ctrl = %s, "
-		      "value_phase_ctrl = %"PRIi32"ns\n",
-				output.setpoint,
-				output.activate_phase_ctrl ? "True" : "False",
-				output.value_phase_ctrl);
+			"output_action = %d, "
+			"value_phase_ctrl = %"PRIi32"ns\n",
+			output.setpoint,
+			output.action,
+			output.value_phase_ctrl);
 
-		if (output.activate_phase_ctrl) {
-			ret = apply_phase_offset(fd, device, -output.value_phase_ctrl);
-			if (ret < 0)
-				error(EXIT_FAILURE, -ret, "apply_phase_offset");
+		if (output.action == PHASE_JUMP) {
+				ret = apply_phase_offset(fd, device, -output.value_phase_ctrl);
+				if (ret < 0)
+					error(EXIT_FAILURE, -ret, "apply_phase_offset");
+				ignore_next_irq = true;
+		} else if (output.action == CALIBRATE) {
+			struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
+			if (calib_params == NULL) {
+				error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
+			}
+
+			struct calibration_results *results = oscillator_calibrate(oscillator, calib_params, fd, sign);
+			if (results == NULL) {
+				error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
+			}
+			info("Calling od_calibrate\n");
+			od_calibrate(od, calib_params, results);
 		} else {
 			ret = oscillator_apply_output(oscillator, &output);
 			if (ret < 0)
 				error(EXIT_FAILURE, -ret, "oscillator_apply_output");
 		}
-		if (output.activate_phase_ctrl)
-			ignore_next_irq = true;
+		sleep(5);
 	} while (loop && turns != 1);
 
 	od_destroy(&od);
