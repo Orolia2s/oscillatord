@@ -2,7 +2,7 @@
 
 #include "log.h"
 
-bool log_debug_enabled;
+bool log_debug_enabled = false;
 
 void log_enable_debug(bool enable_debug)
 {

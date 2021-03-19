@@ -86,7 +86,7 @@ static struct oscillator *mRo50_oscillator_new(struct config *config)
 			mRo50_oscillator_index);
 	mRo50_oscillator_index++;
 
-	info("instantiated " FACTORY_NAME " oscillator \n");
+	debug("instantiated " FACTORY_NAME " oscillator \n");
 
 	return oscillator;
 error:
@@ -126,7 +126,7 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	char fine_cmd[21] = "MON_tpcbPIL_cfieldC\r\n";
 
 	memset(&read_buf, '\0', sizeof(read_buf));
-	info("Reading Coarse parameter\n");
+	debug("Reading Coarse parameter\n");
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 
 	int i = 0;
@@ -136,11 +136,11 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	} while (i < 30 && !read_ok);
 
 	unsigned long coarse = strtoul(read_buf, &ptr, 16);
-	info("Coarse is %lu\n", coarse);
+	debug("Coarse is %lu\n", coarse);
 	ctrl->coarse_ctrl = (uint32_t) coarse;
 
 	
-	info("Reading Fine parameter\n");
+	debug("Reading Fine parameter\n");
 	memset(&read_buf, '\0', sizeof(read_buf));
 	do {
 		read_ok = get_value_from_serial(mRo50->serial_fd, read_buf, sizeof(read_buf), fine_cmd, sizeof(fine_cmd));
@@ -148,7 +148,7 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	} while (i < 30 && !read_ok);
 	
 	unsigned long fine = strtoul(read_buf, &ptr, 16);
-	info("Fine is %lu\n", fine);
+	debug("Fine is %lu\n", fine);
 	ctrl->fine_ctrl = (uint32_t) fine;
 
 	return 0;
@@ -180,6 +180,7 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 		return -1;
 	}
 
+	debug("Command sent to mRO is %s\n", command);
 	ret = write(mRo50->serial_fd, command, sizeof(command));
 	if (ret == -1) {
 		err("Could not write to serial");
@@ -213,7 +214,7 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 	results->length = calib_params->length;
 	results->nb_calibration = calib_params->nb_calibration;
 	results->measures = malloc(results->length * results->nb_calibration * sizeof(struct timespec));
-	info("Phase sign is %d\n", phase_sign);
+	debug("Phase sign is %d\n", phase_sign);
 	if (results->measures == NULL) {
 		err("Could not allocate memory to create calibration measures\n");
 		free(results);
@@ -246,15 +247,15 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 		}
 		sleep(calib_params->settling_time);
 
-		info("Check control point is correctly set \n");
+		debug("Check control point is correctly set \n");
 		struct oscillator_ctrl ctrl;
 		ret = mRo50_oscillator_get_ctrl(oscillator, &ctrl);
 		if (ctrl.fine_ctrl != ctrl_point) {
-			info("ctrl measured is %d and ctrl point is %d\n", ctrl.fine_ctrl, ctrl_point);
+			debug("ctrl measured is %d and ctrl point is %d\n", ctrl.fine_ctrl, ctrl_point);
 			err("CTRL POINTS HAS NOT BEEN SET !\n");
 		}
 
-		info("Starting phase error measures\n");
+		info("Starting phase error measures %d/%d\n", i+1, results->length);
 		for (int j = 0; j < results->nb_calibration; j++) {
 			ret = read(phase_descriptor, &phase_error, sizeof(phase_error));
 			if (ret == -1) {
@@ -266,7 +267,7 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 				.tv_sec = phase_sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = phase_sign * phase_error % NS_IN_SECOND,
 			};
-			info("%09ldns \n", (results->measures + i * results->nb_calibration + j)->tv_nsec);
+			debug("%09ldns \n", (results->measures + i * results->nb_calibration + j)->tv_nsec);
 			sleep(1);
 		}
 	}
