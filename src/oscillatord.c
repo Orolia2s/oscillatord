@@ -31,6 +31,8 @@
  */
 #define LOOP_TIMEOUT 4
 
+__attribute__((cleanup(gnss_cleanup))) struct gnss gnss = {0};
+
 static void dummy_print_progname(void)
 {
 	fprintf(stderr, ERR);
@@ -90,7 +92,6 @@ int main(int argc, char *argv[])
 	__attribute__((cleanup(fd_cleanup))) int fd = -1;
 	__attribute__((cleanup(oscillator_factory_destroy)))
 			struct oscillator *oscillator = NULL;
-	__attribute__((cleanup(gnss_cleanup))) struct gnss gnss = {0};
 	bool ignore_next_irq = false;
 
 	/* remove the line startup in error() calls */
