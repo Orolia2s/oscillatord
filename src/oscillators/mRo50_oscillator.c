@@ -159,7 +159,6 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	struct mRo50_oscillator *mRo50;
 	int ret;
 	char command[32];
-	char buffer[32];
 
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 	if (output->action == ADJUST_FINE)
@@ -189,9 +188,6 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 		debug("Wrote %d characters \n", ret);
 	}
 
-	usleep(200);
-	ret = read(mRo50->serial_fd, buffer, sizeof(buffer));
-	info("Read %s after sending the command\n", buffer);
 	return 0;
 }
 
