@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			},
 			.valid = pps_valid,
-			.lock = true,
+			.lock = ctrl_values.lock,
 			.temperature = temperature,
 			.qErr = gnss.data.qErr,
 			.fine_setpoint = ctrl_values.fine_ctrl,

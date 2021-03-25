@@ -119,11 +119,13 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 {
 	struct mRo50_oscillator *mRo50;
 	char *ptr;
-	char read_buf[32];
+	char read_buf[64];
+	char status_field[5];
 	bool read_ok;
 
 	char coarse_cmd[4] = "FD\r\n";
 	char fine_cmd[21] = "MON_tpcbPIL_cfieldC\r\n";
+	char monitor_cmd[10] = "MONITOR1\r\n";
 
 	memset(&read_buf, '\0', sizeof(read_buf));
 	debug("Reading Coarse parameter\n");
@@ -142,6 +144,7 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	
 	debug("Reading Fine parameter\n");
 	memset(&read_buf, '\0', sizeof(read_buf));
+	i = 0;
 	do {
 		read_ok = get_value_from_serial(mRo50->serial_fd, read_buf, sizeof(read_buf), fine_cmd, sizeof(fine_cmd));
 		i++;
@@ -150,6 +153,21 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	unsigned long fine = strtoul(read_buf, &ptr, 16);
 	debug("Fine is %lu\n", fine);
 	ctrl->fine_ctrl = (uint32_t) fine;
+
+	debug("Reading Monitor data to fetch lock\n");
+	memset(&read_buf, '\0', sizeof(read_buf));
+	i = 0;
+	do {
+		read_ok = get_value_from_serial(mRo50->serial_fd, read_buf, sizeof(read_buf), monitor_cmd, sizeof(monitor_cmd));
+		i++;
+	} while (i < 30 && !read_ok);
+	
+	debug("Read %s when requesting monitor\n", read_buf);
+	(void) strncpy(status_field, &read_buf[56], sizeof(status_field) - 1);
+	status_field[sizeof(status_field) - 1] = '\0';
+	uint16_t status = strtol(status_field, NULL, 16);
+	ctrl->lock = status & (1 << 14);
+	debug("lock is %s \n", ctrl->lock ? "true" : "false");
 
 	return 0;
 }

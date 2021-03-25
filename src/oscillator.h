@@ -53,6 +53,7 @@ struct oscillator_ctrl {
 	/* Used for mRO50 */
 	uint32_t fine_ctrl;
 	uint32_t coarse_ctrl;
+	bool lock;
 };
 
 int oscillator_set_dac_min(struct oscillator *oscillator, uint32_t dac_min);
