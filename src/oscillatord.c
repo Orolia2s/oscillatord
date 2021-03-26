@@ -142,8 +142,6 @@ int main(int argc, char *argv[])
 
 	if (od == NULL)
 		error(EXIT_FAILURE, errno, "od_new %s", err_msg);
-	oscillator_set_dac_min(oscillator, od_get_dac_min(od));
-	oscillator_set_dac_max(oscillator, od_get_dac_max(od));
 
 
 	opposite_phase_error = config_get_bool_default(&config,
