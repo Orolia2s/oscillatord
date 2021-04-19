@@ -29,7 +29,7 @@ include_directories(${gps_INCLUDE_DIRS})
 include_directories(${ubloxcfg_INCLUDE_DIRS})
 
 add_definitions("
-    -O3
+    -O0
     -Wall
     -Wextra
     -Wformat=2

@@ -3,9 +3,7 @@ Description=Daemon responsible of disciplining an oscillator based on a 1pps pha
 
 [Service]
 Type=simple
-Restart=always
-RestartSec=1
-ExecStart=/usr/bin/oscillatord /etc/oscillatord.conf
+ExecStart=/usr/local/bin/oscillatord /etc/oscillatord.conf
 
 [Install]
 WantedBy=multi-user.target
