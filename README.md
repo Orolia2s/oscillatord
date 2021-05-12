@@ -1,5 +1,11 @@
 # oscillatord - daemon for disciplining an oscillator
 
+## Requirements
+
+* cmake
+* [libspi2c](ssh://git@bitbucket.org/spectracom/libspi2c)
+* libgps26/28
+
 ## Overview
 
 The **oscillatord** daemon, takes input from a 1pps phase error device,
