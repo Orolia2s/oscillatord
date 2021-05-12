@@ -65,7 +65,7 @@ static long compute_delta(uint32_t setpoint)
 	/* find the center of the setpoints interval */
 	int center = (SETPOINT_MIN + SETPOINT_MAX) / 2;
 	/* compute the alg. distance of the current setpoint to this center */
-	int distance = abs(setpoint - center);
+	int distance = abs((int) setpoint - center);
 	/*
 	 * base offset added is so that the maximum distance increases the
 	 * offset by TREND_OFFSET ns

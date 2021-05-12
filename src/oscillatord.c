@@ -108,11 +108,9 @@ int main(int argc, char *argv[])
 
 	log_enable_debug(config_get_bool_default(&config, "debug", false));
 
-	debug("Parsing configuration\n");
 	value = config_get(&config, "turns");
 	turns = (value != NULL) ? atoll(value) : 0;
 
-	debug("Creating oscillator oscillator_factory_new\n");
 	oscillator = oscillator_factory_new(&config);
 	if (oscillator == NULL)
 		error(EXIT_FAILURE, errno, "oscillator_factory_new");
@@ -120,9 +118,6 @@ int main(int argc, char *argv[])
 
 	struct oscillator_ctrl value_test;
 	oscillator_get_ctrl(oscillator, &value_test);
-	debug("Oscillator controls:\n");
-	debug("fine value:%d\n", value_test.fine_ctrl);
-	debug("coarse value:%d\n", value_test.coarse_ctrl);
 
 	device = config_get(&config, "pps-device");
 	if (device == NULL)
@@ -137,7 +132,6 @@ int main(int argc, char *argv[])
 	libod_conf_path = config_get_default(&config, "libod-config-path",
 		path);
 	
-	debug("Creating library context\n");
 	od = od_new_from_config(libod_conf_path, err_msg);
 
 	if (od == NULL)
@@ -147,11 +141,7 @@ int main(int argc, char *argv[])
 	opposite_phase_error = config_get_bool_default(&config,
 			"opposite-phase-error", false);
 	sign = opposite_phase_error ? -1 : 1;
-	if (opposite_phase_error)
-		info("taking the opposite of the phase error reported\n");
 
-
-	debug("INIT GNSS\n");
 	ret = gnss_init(&config, &gnss);
 	if (ret < 0)
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
@@ -159,13 +149,11 @@ int main(int argc, char *argv[])
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
-	info("Starting main loop\n");
 	do {
 		turns--;
 		FD_ZERO(&rfds);
 		FD_SET(fd, &rfds);
 
-		debug("Setting timeval and selecting fd\n");
 		tv = (struct timeval) { .tv_sec = LOOP_TIMEOUT, .tv_usec = 0 };
 		ret = select(fd + 1, &rfds, NULL, NULL, &tv);
 		switch (ret) {
@@ -180,7 +168,6 @@ int main(int argc, char *argv[])
 			error(EXIT_FAILURE, errno, "select");
 		}
 
-		debug("reading phase error \n");
 		sret = read(fd, &phase_error, sizeof(phase_error));
 		if (sret == -1) {
 			if (errno == EAGAIN || errno == EINTR)
@@ -196,7 +183,6 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		debug("Getting oscillator temperature\n");
 		ret = oscillator_get_temp(oscillator, &temperature);
 		if (ret == -ENOSYS)
 			temperature = 0;
@@ -223,13 +209,7 @@ int main(int argc, char *argv[])
 
 		struct oscillator_ctrl ctrl_values;
 		oscillator_get_ctrl(oscillator, &ctrl_values);
-		debug("Oscillator controls:\n");
-		debug("fine value:%d\n", ctrl_values.fine_ctrl);
-		debug("coarse value:%d\n", ctrl_values.coarse_ctrl);
 
-
-		debug("Creating input structure\n");
-		debug("Phase error is %d and sign is %d\n", phase_error, sign);
 		input = (struct od_input) {
 			.phase_error = (struct timespec) {
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
@@ -252,45 +232,34 @@ int main(int argc, char *argv[])
 			input.fine_setpoint,
 			input.coarse_setpoint);
 
-		debug("Calling od process !\n");
 		ret = od_process(od, &input, &output);
 		if (ret < 0)
 			error(EXIT_FAILURE, -ret, "od_process");
 
-		debug("output: setpoint = %"PRIu32", "
-			"output_action = %d, "
-			"value_phase_ctrl = %"PRIi32"ns\n",
-			output.setpoint,
-			output.action,
-			output.value_phase_ctrl);
-
 		if (output.action == ADJUST_COARSE) {
-			info("Coarse adjustment to value %d requested !\n", output.setpoint);
+			info("Coarse adjustment to value %d requested\n", output.setpoint);
 		} else if (output.action == ADJUST_FINE) {
-			info("Fine adjustement to value %d requested !\n", output.setpoint);
+			info("Fine adjustement to value %d requested\n", output.setpoint);
 		}
 
 		if (output.action == PHASE_JUMP) {
-			info("Phase jump requested \n");
+			info("Phase jump requested\n");
 				ret = apply_phase_offset(fd, device, -output.value_phase_ctrl);
 				if (ret < 0)
 					error(EXIT_FAILURE, -ret, "apply_phase_offset");
 				ignore_next_irq = true;
 		} else if (output.action == CALIBRATE) {
 			info("Calibration requested\n");
-			debug("Calling oscillator_get_calibration_parameters\n");
 			struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
 			if (calib_params == NULL) {
 				error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
 			}
-			debug("Calling oscillator_calibrate\n");
 			struct calibration_results *results = oscillator_calibrate(oscillator, calib_params, fd, sign);
 			if (results == NULL) {
 				error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
 			}
 			od_calibrate(od, calib_params, results);
 		} else {
-			debug("calling apply_output\n");
 			ret = oscillator_apply_output(oscillator, &output);
 			if (ret < 0)
 				error(EXIT_FAILURE, -ret, "oscillator_apply_output");
