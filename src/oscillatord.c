@@ -142,7 +142,8 @@ int main(int argc, char *argv[])
 			"opposite-phase-error", false);
 	sign = opposite_phase_error ? -1 : 1;
 
-	ret = gnss_init(&config, &gnss);
+	ret = gnss_init(&config, &gnss);	
+
 	if (ret < 0)
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 
@@ -196,9 +197,11 @@ int main(int argc, char *argv[])
 		switch (ret) {
 		case GNSS_INVALID:
 		case GNSS_WAITING:
+			info("GNSS is Invalid or waiting\n");
 			pps_valid = false;
 			break;
 		case GNSS_VALID:
+			info("GNSS is valid\n");
 			pps_valid = true;
 			break;
 		case GNSS_ERROR:
@@ -218,7 +221,7 @@ int main(int argc, char *argv[])
 			.valid = pps_valid,
 			.lock = ctrl_values.lock,
 			.temperature = temperature,
-			.qErr = gnss.data.qErr,
+			// .qErr = gnss.data.qErr,
 			.fine_setpoint = ctrl_values.fine_ctrl,
 			.coarse_setpoint = ctrl_values.coarse_ctrl,
 		};

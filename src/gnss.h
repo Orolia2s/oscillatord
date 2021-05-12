@@ -4,6 +4,7 @@
 #include <gps.h>
 
 #include "config.h"
+#include <ubloxcfg/ff_rx.h>
 
 enum gnss_state {
 	GNSS_VALID,
@@ -14,7 +15,9 @@ enum gnss_state {
 
 struct gnss {
 	bool session_open;
+	RX_t *rx;
 	struct gps_data_t data;
+	time_t time;
 };
 
 int gnss_init(const struct config *config, struct gnss *gnss);
