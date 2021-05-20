@@ -16,6 +16,8 @@
 #include <error.h>
 
 #include <oscillator-disciplining/oscillator-disciplining.h>
+#include <linux/ptp_clock.h>
+#include <sys/timex.h>
 
 #include "log.h"
 #include "oscillator.h"
@@ -23,6 +25,9 @@
 #include "gnss.h"
 #include "config.h"
 #include "utils.h"
+
+#define CLOCKFD 3
+#define FD_TO_CLOCKID(fd)	((clockid_t) ((((unsigned int) ~fd) << 3) | CLOCKFD))
 
 /*
  * The driver has a watchdog which resets the 1PPS device if no interrupt has
@@ -149,6 +154,32 @@ int main(int argc, char *argv[])
 
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
+
+	bool clock_set = false;
+	while(!clock_set) {
+		ret = gnss_get_data(&gnss);
+		if (ret == GNSS_VALID) {
+			/* Test open and configure PHC */
+			clockid_t clkid;
+			struct timespec ts;
+			int fd;
+
+			ts.tv_sec = gnss.time;
+			ts.tv_nsec = 0;
+
+			fd = open("/dev/ptp0", O_RDWR);
+			if (fd < 0)
+				return -1;
+
+			clkid = FD_TO_CLOCKID(fd);
+
+			ret = clock_settime(clkid, &ts);
+			if (ret == 0)
+				clock_set = true;
+		} else {
+			sleep(5);
+		}
+	}
 
 	do {
 		turns--;
