@@ -7,6 +7,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
                       ${oscillator-disciplining_LIBRARIES}
                       ${spi2c_LIBRARIES}
                       ${gps_LIBRARIES}
-		      ${ubloxcfg_LIBRARIES})
+		      ${ubloxcfg_LIBRARIES}
+		      pthread)
 
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

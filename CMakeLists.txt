@@ -11,10 +11,12 @@ STRING(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" VERSION_PATCH "${PACKAG
 set(PACKAGE_NAME "lib${PROJECT_NAME}")
 set(PACKAGE_DESCRIPTION_SUMMARY "Oscillator disciplining daemon.")
 
-project(${PROJECT_NAME})
+project(${PROJECT_NAME} C)
 include(GNUInstallDirs)
 
 find_package(PkgConfig REQUIRED)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 pkg_check_modules(oscillator-disciplining REQUIRED liboscillator-disciplining)
 pkg_check_modules(spi2c REQUIRED libspi2c)

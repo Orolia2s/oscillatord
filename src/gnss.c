@@ -12,8 +12,7 @@
 #include <ubloxcfg/ff_epoch.h>
 #include <ubloxcfg/ff_stuff.h>
 
-#define TIMEOUT_USEC 1000
-
+static void * gnss_thread(void * p_data);
 
 static bool gnss_data_valid(EPOCH_t *epoch)
 {
@@ -24,6 +23,46 @@ static bool gnss_data_valid(EPOCH_t *epoch)
 	return false;
 }
 
+static int gnss_get_fix(int fix)
+{
+	switch(fix) {
+		case EPOCH_FIX_NOFIX: return MODE_NO_FIX;
+		case EPOCH_FIX_DRONLY: return MODE_NO_FIX;
+		case EPOCH_FIX_S2D: return MODE_2D;
+		case EPOCH_FIX_S3D: return MODE_3D;
+		case EPOCH_FIX_S3D_DR: return MODE_3D;
+		case EPOCH_FIX_TIME: return MODE_NO_FIX;
+	}
+	return -1;
+}
+
+time_t gnss_get_time(EPOCH_t *epoch)
+{
+	struct tm t = {
+		// Year - 1900
+		.tm_year = epoch->year - 1900,
+		// Month, where 0 = jan. libublox starts indexing by 1
+		.tm_mon = epoch->month - 1,
+		// Day of the month
+		.tm_mday = epoch->day,
+		.tm_hour = epoch->hour,
+		.tm_min = epoch->minute,
+		.tm_sec = epoch->second,
+		// Is DST on? 1 = yes, 0 = no, -1 = unknown
+		.tm_isdst = -1
+	};
+
+	time_t time = mktime(&t);
+					/* Temporary solution to get UTC time as mktime converts
+					* considering time provided is a local time
+					*/
+# ifdef	__USE_MISC
+	time =  time + localtime(&time)->tm_gmtoff;
+# else
+	time =  time + localtime(&time)->__tm_gmtoff;
+# endif
+	return time;
+}
 
 int gnss_init(const struct config *config, struct gnss *gnss)
 {
@@ -39,99 +78,75 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 	}
 	
 	gnss->rx = rxInit(gnss_device_tty, &args);
-	if ((gnss->rx == NULL || !rxOpen(gnss->rx))) {
+	if (gnss->rx == NULL || !rxOpen(gnss->rx)) {
 		free(gnss->rx);
 		printf("rx init failed\n");
 		return -1;
 	}
 	gnss->session_open = true;
+	gnss->stop = false;
+
+	int ret = pthread_create(
+		&gnss->thread,
+		NULL,
+		gnss_thread,
+		gnss
+	);
+
 	return 0;
 }
 
-enum gnss_state gnss_get_data(struct gnss *gnss)
+struct gnss_data gnss_get_data(struct gnss *gnss)
 {
-	uint32_t nMsgs = 0;
-	int timeout_step = 0;
+	struct gnss_data data;
+	pthread_mutex_lock(&gnss->mutex_data);
+	data = gnss->data;
+	pthread_mutex_unlock(&gnss->mutex_data);
+	return data;
+}
+
+static void * gnss_thread(void * p_data)
+{
+	struct gnss *gnss = (struct gnss*) p_data;
+
 	bool valid = false;
+	bool stop;
 
 	EPOCH_t coll;
 	EPOCH_t epoch;
 	epochInit(&coll);
 
-	while (timeout_step < 2000)
+	stop = gnss->stop;
+
+	while (!stop)
 	{
 		PARSER_MSG_t *msg = rxGetNextMessage(gnss->rx);
 		if (msg != NULL)
 		{
 			if(epochCollect(&coll, msg, &epoch))
 			{
+				pthread_mutex_lock(&gnss->mutex_data);
 				if(epoch.haveFix) {
-					switch(epoch.fix) {
-						case EPOCH_FIX_NOFIX: gnss->data.fix.mode = MODE_NO_FIX; break;
-						case EPOCH_FIX_DRONLY: gnss->data.fix.mode = MODE_NO_FIX; break;
-						case EPOCH_FIX_S2D: gnss->data.fix.mode = MODE_2D; break;
-						case EPOCH_FIX_S3D: gnss->data.fix.mode = MODE_3D; break;
-						case EPOCH_FIX_S3D_DR: gnss->data.fix.mode = MODE_3D; break;
-						case EPOCH_FIX_TIME: gnss->data.fix.mode = MODE_NO_FIX; break;
-					}
-					break;
+					gnss->data.fix = gnss_get_fix(epoch.fix);
+					gnss->data.time = gnss_get_time(&epoch);
+					gnss->data.valid = gnss_data_valid(&epoch);
 				}
-				if(epoch.haveLeapSeconds) {
-					printf("Got leap seconds from GNSS, LS is %d\n", epoch.leapSeconds);
-				}
-				if(epoch.haveLeapSecondEvent) {
-					printf("Got LeapSecond event! LsChange is %d\n", epoch.lsChange);
-				}
+				pthread_mutex_unlock(&gnss->mutex_data);
 			}
 		} else {
 			usleep(5 * 1000);
-			timeout_step++;
 		}
+		pthread_mutex_lock(&gnss->mutex_data);
+		stop = gnss->stop;
+		pthread_mutex_unlock(&gnss->mutex_data);
 	}
-	printf("EPOCH data is:\n");
-	printf("Fix: %d, Fix Ok %s, LepSecKnow %s, Hours %d, Minutes %d Seconds %f\n",
-		epoch.fix,
-		epoch.fixOk ? "TRUE" : "FALSE",
-		epoch.leapSecKnown ? "TRUE" : "FALSE",
-		epoch.hour,
-		epoch.minute,
-		epoch.second
-	);
-	struct tm t = {
-		// Year - 1900
-		.tm_year = epoch.year - 1900,
-		// Month, where 0 = jan. libublox starts indexing by 1
-		.tm_mon = epoch.month - 1,
-		// Day of the month
-		.tm_mday = epoch.day,
-		.tm_hour = epoch.hour,
-		.tm_min = epoch.minute,
-		.tm_sec = epoch.second,
-		// Is DST on? 1 = yes, 0 = no, -1 = unknown
-		.tm_isdst = -1
-	};
 
-	gnss->time = mktime(&t);
-	/* Temporary solution to get UTC time as mktime converts
-	* considering time provided is a local time
-	*/
-# ifdef	__USE_MISC
-	gnss->time =  gnss->time + localtime(&gnss->time)->tm_gmtoff;
-# else
-	gnss->time =  gnss->time + localtime(&gnss->time)->__tm_gmtoff;
-# endif
-	printf("TM time is %s", asctime(&t));
-	printf("GNSS Time is now %lu\n", gnss->time);
-	valid = gnss_data_valid(&epoch);
-	return valid ? GNSS_VALID : GNSS_INVALID;
-}
-
-void gnss_cleanup(struct gnss *gnss)
-{
+	rxClose(gnss->rx);
+	
 	if (!gnss->session_open)
 		return;
 
-	debug("Closing gnss session\n");
-	rxClose(gnss->rx);
+	info("Closing gnss session\n");
 	free(gnss->rx);
+	return NULL;
 }

@@ -157,14 +157,14 @@ int main(int argc, char *argv[])
 
 	bool clock_set = false;
 	while(!clock_set) {
-		ret = gnss_get_data(&gnss);
-		if (ret == GNSS_VALID) {
+		struct gnss_data data = gnss_get_data(&gnss);
+		if (data.valid) {
 			/* Test open and configure PHC */
 			clockid_t clkid;
 			struct timespec ts;
 			int fd;
 
-			ts.tv_sec = gnss.time;
+			ts.tv_sec = data.time;
 			ts.tv_nsec = 0;
 
 			fd = open("/dev/ptp0", O_RDWR);
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 			if (ret == 0)
 				clock_set = true;
 		} else {
-			sleep(5);
+			sleep(2);
 		}
 	}
 
@@ -222,24 +222,8 @@ int main(int argc, char *argv[])
 			error(EXIT_FAILURE, -ret, "oscillator_get_temp");
 
 		debug("Getting GNSS data\n");
-		ret = gnss_get_data(&gnss);
-		pps_valid = false;
-
-		switch (ret) {
-		case GNSS_INVALID:
-		case GNSS_WAITING:
-			info("GNSS is Invalid or waiting\n");
-			pps_valid = false;
-			break;
-		case GNSS_VALID:
-			info("GNSS is valid\n");
-			pps_valid = true;
-			break;
-		case GNSS_ERROR:
-			error(EXIT_FAILURE, errno,
-			      "Error polling receiver data");
-			break;
-		}
+		struct gnss_data data = gnss_get_data(&gnss);
+		pps_valid = data.valid;
 
 		struct oscillator_ctrl ctrl_values;
 		oscillator_get_ctrl(oscillator, &ctrl_values);
@@ -300,6 +284,11 @@ int main(int argc, char *argv[])
 		}
 		sleep(5);
 	} while (loop && turns != 1);
+
+	pthread_mutex_lock(&gnss.mutex_data);
+	gnss.stop = true;
+	pthread_mutex_unlock(&gnss.mutex_data);
+	pthread_join(gnss.thread, NULL);
 
 	od_destroy(&od);
 
