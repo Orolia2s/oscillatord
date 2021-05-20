@@ -110,8 +110,16 @@ enum gnss_state gnss_get_data(struct gnss *gnss)
 		// Is DST on? 1 = yes, 0 = no, -1 = unknown
 		.tm_isdst = -1
 	};
+
 	gnss->time = mktime(&t);
-  	gnss->time =  gnss->time + localtime(&gnss->time)->tm_gmtoff;
+	/* Temporary solution to get UTC time as mktime converts
+	* considering time provided is a local time
+	*/
+# ifdef	__USE_MISC
+	gnss->time =  gnss->time + localtime(&gnss->time)->tm_gmtoff;
+# else
+	gnss->time =  gnss->time + localtime(&gnss->time)->__tm_gmtoff;
+# endif
 	printf("TM time is %s", asctime(&t));
 	printf("GNSS Time is now %lu\n", gnss->time);
 	valid = gnss_data_valid(&epoch);
