@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
+#include <error.h>
 
 #include "log.h"
 #include "config.h"
@@ -36,7 +37,7 @@ static int gnss_get_fix(int fix)
 	return -1;
 }
 
-time_t gnss_get_time(EPOCH_t *epoch)
+static time_t gnss_get_time(EPOCH_t *epoch)
 {
 	struct tm t = {
 		// Year - 1900
@@ -68,8 +69,7 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 {
 	RX_ARGS_t args = RX_ARGS_DEFAULT();
 	args.autobaud = false;
-
-	gnss->session_open = false;
+	args.detect = false;
 
 	const char *gnss_device_tty = config_get(config, "gnss-device-tty");
 	if (gnss_device_tty == NULL) {
@@ -83,7 +83,6 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 		printf("rx init failed\n");
 		return -1;
 	}
-	gnss->session_open = true;
 	gnss->stop = false;
 
 	int ret = pthread_create(
@@ -92,6 +91,13 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 		gnss_thread,
 		gnss
 	);
+
+	if (ret != 0) {
+		rxClose(gnss->rx);
+		free(gnss->rx);
+		error(EXIT_FAILURE, -ret, "gnss_init");
+		return -1;
+	}
 
 	return 0;
 }
@@ -107,13 +113,11 @@ struct gnss_data gnss_get_data(struct gnss *gnss)
 
 static void * gnss_thread(void * p_data)
 {
-	struct gnss *gnss = (struct gnss*) p_data;
-
-	bool valid = false;
-	bool stop;
-
 	EPOCH_t coll;
 	EPOCH_t epoch;
+	struct gnss *gnss = (struct gnss*) p_data;
+	bool stop;
+
 	epochInit(&coll);
 
 	stop = gnss->stop;
@@ -141,12 +145,8 @@ static void * gnss_thread(void * p_data)
 		pthread_mutex_unlock(&gnss->mutex_data);
 	}
 
+	debug("Closing gnss session\n");
 	rxClose(gnss->rx);
-	
-	if (!gnss->session_open)
-		return;
-
-	info("Closing gnss session\n");
 	free(gnss->rx);
 	return NULL;
 }

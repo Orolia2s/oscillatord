@@ -140,11 +140,13 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 	
-	if (output->action == ADJUST_FINE)
+	if (output->action == ADJUST_FINE) {
+		info("Fine adjustement to value %d requested\n", output->setpoint);
 		command = MRO50_ADJUST_FINE;
-	else if (output->action == ADJUST_COARSE)
+	} else if (output->action == ADJUST_COARSE) {
+		info("Coarse adjustment to value %d requested\n", output->setpoint);
 		command = MRO50_ADJUST_COARSE;
-	else {
+	} else {
 		err("Calling mRo50_oscillator_apply_output with action different from ADJUST_COARSE or ADJUST_FINE");
 		err("Action is %d", output->action);
 		return -1;
