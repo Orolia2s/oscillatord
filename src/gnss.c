@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <error.h>
+#include <stdlib.h>
 
 #include "log.h"
 #include "config.h"
@@ -73,7 +74,7 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 
 	const char *gnss_device_tty = config_get(config, "gnss-device-tty");
 	if (gnss_device_tty == NULL) {
-		err("device-tty not defined in config %s", config->path);
+		log_error("device-tty not defined in config %s", config->path);
 		return -1;
 	}
 	
@@ -145,7 +146,7 @@ static void * gnss_thread(void * p_data)
 		pthread_mutex_unlock(&gnss->mutex_data);
 	}
 
-	debug("Closing gnss session\n");
+	log_debug("Closing gnss session");
 	rxClose(gnss->rx);
 	free(gnss->rx);
 	return NULL;

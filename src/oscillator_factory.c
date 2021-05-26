@@ -37,7 +37,7 @@ struct oscillator *oscillator_factory_new(struct config *config)
 	name = config_get(config, "oscillator");
 	if (name == NULL) {
 		ret = errno;
-		err("Configuration \"%s\" doesn't have an oscillator entry.\n",
+		log_error("Configuration \"%s\" doesn't have an oscillator entry.",
 				config->path);
 		errno = ret;
 		return NULL;
@@ -46,7 +46,7 @@ struct oscillator *oscillator_factory_new(struct config *config)
 	factory = oscillator_factory_get_by_name(name);
 	if (factory == NULL) {
 		ret = errno;
-		err("Display type \"%s\" unknown, check configuration %s\n",
+		log_error("Display type \"%s\" unknown, check configuration %s",
 				name, config->path);
 		errno = ret;
 		return NULL;
@@ -84,11 +84,11 @@ int oscillator_factory_register(const struct oscillator_factory *factory)
 	if (!oscillator_factory_is_valid(factory))
 		return -EINVAL;
 
-	debug("%s(%s)\n", __func__, factory->class.name);
+	log_debug("%s(%s)", __func__, factory->class.name);
 
 	if (factories_nb == MAX_OSCILLATOR_FACTORIES) {
-		err("no room left for factories, see "
-				"MAX_OSCILLATOR_FACTORIES\n");
+		log_error("no room left for factories, see "
+				"MAX_OSCILLATOR_FACTORIES");
 		return -ENOMEM;
 	}
 	factories[factories_nb] = factory;

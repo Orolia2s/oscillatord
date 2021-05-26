@@ -69,11 +69,11 @@ struct calibration_results * oscillator_calibrate(
 	int phase_sign)
 {
 	if (oscillator == NULL || calib_params == NULL) {
-		err("oscillator_calibrate: one input is NULL\n");
+		log_error("oscillator_calibrate: one input is NULL");
 		return NULL;
 	}
 	if (oscillator->class->calibrate == NULL) {
-		err("oscillator_calibrate: calibrate function is null in class !\n");
+		log_error("oscillator_calibrate: calibrate function is null in class !");
 		return NULL;
 	}
 

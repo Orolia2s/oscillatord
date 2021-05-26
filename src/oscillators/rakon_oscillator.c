@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <string.h>
 #include <stdbool.h>
 
 #include <spi2c.h>
@@ -48,7 +49,7 @@ static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
-	debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
+	log_debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
 
 	buf.cmd = RAKON_CMD_SET_DAC;
 	val_be = htobe32(value);
@@ -56,7 +57,7 @@ static int rakon_oscillator_set_dac(struct oscillator *oscillator,
 	ret = i2c_transfer(rakon->i2c, (uint8_t *)&buf, sizeof(buf), NULL, 0);
 	if (ret != 0) {
 		ret = -errno;
-		err("failed i2c transfer : %m\n");
+		log_error("failed i2c transfer : %m");
 		return ret;
 	}
 
@@ -78,12 +79,12 @@ static int rakon_oscillator_get_dac(struct oscillator *oscillator,
 			(uint8_t *)&value, sizeof(value));
 	if (ret != 0) {
 		ret = -errno;
-		err("failed i2c transfer : %m\n");
+		log_error("failed i2c transfer : %m");
 		return ret;
 	}
 
 	*value = be32toh(*value) & 0xfffff;
-	debug("%s(%s) = %" PRIu32 "\n", __func__, oscillator->name, *value);
+	log_debug("%s(%s) = %" PRIu32 "\n", __func__, oscillator->name, *value);
 
 	return 0;
 }
@@ -100,7 +101,7 @@ static int rakon_oscillator_save(struct oscillator *oscillator)
 	struct rakon_oscillator *rakon;
 	int ret;
 
-	debug("%s(%s)\n", __func__, oscillator->name);
+	log_debug("%s(%s)\n", __func__, oscillator->name);
 
 	rakon = container_of(oscillator, struct rakon_oscillator, oscillator);
 
@@ -108,7 +109,7 @@ static int rakon_oscillator_save(struct oscillator *oscillator)
 	ret = i2c_transfer(rakon->i2c, &tx_val, sizeof(tx_val), NULL, 0);
 	if (ret != 0) {
 		ret = -errno;
-		err("failed i2c transfer : %m\n");
+		log_error("failed i2c transfer : %m");
 		return ret;
 	}
 
@@ -130,12 +131,12 @@ static int rakon_oscillator_get_temp(struct oscillator *oscillator,
 			   (uint8_t *)temp, sizeof(*temp));
 	if (ret != 0) {
 		ret = -errno;
-		err("failed i2c transfer : %m\n");
+		log_error("failed i2c transfer : %m");
 		return ret;
 	}
 
 	*temp = be16toh(*temp);
-	debug("%s(%s) = %"PRIu16"\n", __func__, oscillator->name, *temp);
+	log_debug("%s(%s) = %"PRIu16"\n", __func__, oscillator->name, *temp);
 
 	return 0;
 }
@@ -175,13 +176,13 @@ static struct oscillator *rakon_oscillator_new(struct config *config)
 
 	ret = config_get_uint8_t(config, "rakon-i2c-num");
 	if (ret < 0) {
-		err("rakon-i2c-num config key must be provided\n");
+		log_error("rakon-i2c-num config key must be provided");
 		goto error;
 	}
 	i2c_num = ret;
 	ret = config_get_uint8_t(config, "rakon-i2c-addr");
 	if (ret < 0) {
-		err("rakon-i2c-addr config key must be provided\n");
+		log_error("rakon-i2c-addr config key must be provided");
 		goto error;
 	}
 	i2c_addr = ret;
@@ -189,7 +190,7 @@ static struct oscillator *rakon_oscillator_new(struct config *config)
 	rakon->i2c = i2c_new(i2c_num, i2c_addr);
 	if (rakon->i2c == NULL) {
 		ret = -errno;
-		err("i2c_new: %m\n");
+		log_error("i2c_new: %m");
 		goto error;
 	}
 
@@ -197,8 +198,8 @@ static struct oscillator *rakon_oscillator_new(struct config *config)
 			rakon_oscillator_index);
 	rakon_oscillator_index++;
 
-	info("instantiated " FACTORY_NAME " oscillator on i2c number %" PRIu8
-			" and i2c address %#" PRIx8 "\n", i2c_num, i2c_addr);
+	log_info("instantiated " FACTORY_NAME " oscillator on i2c number %" PRIu8
+			" and i2c address %#" PRIx8, i2c_num, i2c_addr);
 
 	return oscillator;
 error:
@@ -227,5 +228,5 @@ static void __attribute__((constructor)) rakon_oscillator_constructor(void)
 
 	ret = oscillator_factory_register(&rakon_oscillator_factory);
 	if (ret < 0)
-		perr("oscillator_factory_register", ret);
+		log_error("oscillator_factory_register", ret);
 }

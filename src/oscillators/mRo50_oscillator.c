@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -54,7 +55,7 @@ static void mRo50_oscillator_destroy(struct oscillator **oscillator)
 	r = container_of(o, struct mRo50_oscillator, oscillator);
 	if (r->osc_fd != 0) {
 		close(r->osc_fd);
-		info("Closed oscillator's serial port\n");
+		log_info("Closed oscillator's serial port");
 	}
 	memset(o, 0, sizeof(*o));
 	free(o);
@@ -76,13 +77,13 @@ static struct oscillator *mRo50_oscillator_new(struct config *config)
 
 	osc_device_name = (char *) config_get(config, "mro50-device");
 	if (osc_device_name == NULL) {
-		err("mro50-device config key must be provided\n");
+		log_error("mro50-device config key must be provided");
 		goto error;
 	}
 	
 	fd = open(osc_device_name, O_RDWR);
 	if (fd < 0) {
-		err("Could not open mRo50 serial\n");
+		log_error("Could not open mRo50 serial\n");
 		goto error;
 	}
 	mRo50->osc_fd = fd;
@@ -91,7 +92,7 @@ static struct oscillator *mRo50_oscillator_new(struct config *config)
 			mRo50_oscillator_index);
 	mRo50_oscillator_index++;
 
-	debug("instantiated " FACTORY_NAME " oscillator \n");
+	log_debug("instantiated " FACTORY_NAME " oscillator");
 
 	return oscillator;
 error:
@@ -109,7 +110,7 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 
 	ret = ioctl(mRo50->osc_fd, MRO50_READ_COARSE, &coarse); /* ioctl call to get partition size */
 	if (ret != 0) {
-		err("Fail reading Coarse Parameters, err %d", ret);
+		log_error("Fail reading Coarse Parameters, err %d", ret);
 		return -1;
 	}
 	ctrl->coarse_ctrl = coarse;
@@ -117,14 +118,14 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	
 	ret = ioctl(mRo50->osc_fd, MRO50_READ_FINE, &fine); /* ioctl call to get partition size */
 	if (ret != 0) {
-		err("Fail reading Fine Parameters, err %d", ret);
+		log_error("Fail reading Fine Parameters, err %d", ret);
 		return -1;
 	}
 	ctrl->fine_ctrl = fine;
 
 	ret = ioctl(mRo50->osc_fd, MRO50_READ_CTRL, &ctrl_reg);
 	if (ret != 0) {
-		err("Fail reading ctrl registers, err %d", ret);
+		log_error("Fail reading ctrl registers, err %d", ret);
 		return -1;
 	}
 
@@ -141,23 +142,21 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 	
 	if (output->action == ADJUST_FINE) {
-		info("Fine adjustement to value %d requested\n", output->setpoint);
+		log_info("Fine adjustement to value %d requested", output->setpoint);
 		command = MRO50_ADJUST_FINE;
 	} else if (output->action == ADJUST_COARSE) {
-		info("Coarse adjustment to value %d requested\n", output->setpoint);
+		log_info("Coarse adjustment to value %d requested", output->setpoint);
 		command = MRO50_ADJUST_COARSE;
 	} else {
-		err("Calling mRo50_oscillator_apply_output with action different from ADJUST_COARSE or ADJUST_FINE");
-		err("Action is %d", output->action);
+		log_error("Calling mRo50_oscillator_apply_output with action different from ADJUST_COARSE or ADJUST_FINE");
+		log_error("Action is %d", output->action);
 		return -1;
 	}
 
 	ret = ioctl(mRo50->osc_fd, command, &output->setpoint);
 	if (ret != sizeof(output->setpoint)) {
-		err("Could not prepare command request to adjust fine frequency, error %d\n", ret);
+		log_error("Could not prepare command request to adjust fine frequency, error %d", ret);
 		return -1;
-	} else {
-		debug("Wrote %d characters \n", ret);
 	}
 
 	return 0;
@@ -174,7 +173,7 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 
 	struct calibration_results *results = malloc(sizeof(struct calibration_results));
 	if (results == NULL) {
-		err("Could not allocate memory to create calibration_results\n");
+		log_error("Could not allocate memory to create calibration_results");
 		return NULL;
 	}
 
@@ -182,40 +181,38 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 	results->nb_calibration = calib_params->nb_calibration;
 	results->measures = malloc(results->length * results->nb_calibration * sizeof(struct timespec));
 	if (results->measures == NULL) {
-		err("Could not allocate memory to create calibration measures\n");
+		log_error("Could not allocate memory to create calibration measures");
 		free(results);
 		results = NULL;
 		return NULL;
 	}
-	info("Starting measure for calibration\n");
+	log_info("Starting measure for calibration");
 	for (int i = 0; i < results->length; i ++) {
 		uint32_t ctrl_point = (uint32_t) calib_params->ctrl_points[i];
-		info("Applying fine adjustment of %d\n", ctrl_point);
+		log_info("Applying fine adjustment of %d", ctrl_point);
 		ret = ioctl(mRo50->osc_fd, MRO50_ADJUST_FINE, &ctrl_point);
 		if ((ret =! sizeof(ctrl_point))) {
-			err("Could not write to mRO50\n");
 			free(results->measures);
+			log_error("Could not write to mRO50");
 			results->measures = NULL;
 			free(results);
 			results = NULL;
 			return NULL;
-		} else {
-			debug("Wrote %d characters \n", ret);
 		}
 		sleep(calib_params->settling_time);
 
 		struct oscillator_ctrl ctrl;
 		ret = mRo50_oscillator_get_ctrl(oscillator, &ctrl);
 		if (ctrl.fine_ctrl != ctrl_point) {
-			info("ctrl measured is %d and ctrl point is %d\n", ctrl.fine_ctrl, ctrl_point);
-			err("CTRL POINTS HAS NOT BEEN SET !\n");
+			log_info("ctrl measured is %d and ctrl point is %d", ctrl.fine_ctrl, ctrl_point);
+			log_error("CTRL POINTS HAS NOT BEEN SET !");
 		}
 
-		info("Starting phase error measures %d/%d\n", i+1, results->length);
+		log_info("Starting phase error measures %d/%d", i+1, results->length);
 		for (int j = 0; j < results->nb_calibration; j++) {
 			ret = read(phase_descriptor, &phase_error, sizeof(phase_error));
 			if (ret == -1) {
-				info("Error reading phasemeter\n");
+				log_error("Error reading phasemeter");
 				error(EXIT_FAILURE, errno, "read phase descriptor");
 			}
 
@@ -251,5 +248,5 @@ static void __attribute__((constructor)) mRo50_oscillator_constructor(void)
 
 	ret = oscillator_factory_register(&mRo50_oscillator_factory);
 	if (ret < 0)
-		perr("oscillator_factory_register", ret);
+		log_error("oscillator_factory_register", ret);
 }

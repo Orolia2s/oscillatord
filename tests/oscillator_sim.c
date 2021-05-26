@@ -36,18 +36,13 @@
 
 #define SETPOINT_AMPLITUDE ((SETPOINT_MAX - SETPOINT_MIN) + 1)
 
-static void dummy_print_progname(void)
-{
-	fprintf(stderr, ERR);
-}
-
 static volatile int loop = true;
 
 static void signal_handler(int signum)
 {
-	info("Caught signal %s.\n", strsignal(signum));
+	log_info("Caught signal %s.\n", strsignal(signum));
 	if (!loop) {
-		err("Signalled twice, brutal exit.\n");
+		log_error("Signalled twice, brutal exit.\n");
 		exit(EXIT_FAILURE);
 	}
 	loop = false;
@@ -114,9 +109,6 @@ int main(int argc, char *argv[])
 	seed = time(NULL);
 	srand(seed);
 
-	/* remove the line startup in error() calls */
-	error_print_progname = dummy_print_progname;
-
 	prog_name = basename(argv[0]);
 	if (argc != 2)
 		error(EXIT_FAILURE, 0, "%s config_file_path", prog_name);
@@ -126,13 +118,16 @@ int main(int argc, char *argv[])
 	if (ret != 0)
 		error(EXIT_FAILURE, -ret, "config_init(%s)", path);
 
-	log_enable_debug(config_get_bool_default(&config, "enable-debug",
-			false));
+	log_set_level(
+		config_get_bool_default(&config, "enable-debug",false) ?
+		LOG_DEBUG :
+		LOG_INFO
+	);
 
 	/* TODO implement a config_get ull ? */
 	period_str = config_get(&config, "simulation-period");
 	period = atoll(period_str ? : "1000000000");
-	info("simulation period is %lldns\n", period);
+	log_info("simulation period is %lldns\n", period);
 
 	ret = ptspair_init(&pts);
 	if (ret < 0)
@@ -173,7 +168,7 @@ int main(int argc, char *argv[])
 	if (ret == -1)
 		error(EXIT_FAILURE, errno, "timerfd_settime");
 
-	info("%s[%jd] started, seed %jd.\n", prog_name, (intmax_t)getpid(),
+	log_info("%s[%jd] started, seed %jd.\n", prog_name, (intmax_t)getpid(),
 			(intmax_t)seed);
 
 	signal(SIGINT, signal_handler);
@@ -182,11 +177,11 @@ int main(int argc, char *argv[])
 	/* choose initial setpoint */
 	setpoint = random_in_range(SETPOINT_MIN, SETPOINT_MAX + 1);
 	setpoint = SETPOINT_MIN;
-	info("initial setpoint %"PRIu32"\n", setpoint);
+	log_info("initial setpoint %"PRIu32"\n", setpoint);
 	/* choose initial phase_error */
 	phase_error = random_in_range(-INITIAL_ERROR_AMPLITUDE_NS,
 			INITIAL_ERROR_AMPLITUDE_NS);
-	info("initial phase_error: %"PRIi32"\n", phase_error);
+	log_info("initial phase_error: %"PRIi32"\n", phase_error);
 
 	memset(&its, 0, sizeof(its));
 	while (loop) {
@@ -210,7 +205,7 @@ int main(int argc, char *argv[])
 			if (sret < 0 && ret != -EINTR)
 				error(EXIT_FAILURE, errno, "read");
 			phase_error += compute_delta(setpoint);
-			debug("phase error: %"PRIi32"\n", phase_error);
+			log_debug("phase error: %"PRIi32"\n", phase_error);
 
 			if (phase_error_fd != -1) {
 				sret = write(phase_error_fd, &phase_error,
@@ -225,17 +220,17 @@ int main(int argc, char *argv[])
 			if (sret < 0)
 				error(EXIT_FAILURE, errno, "read");
 			if (sret == 0 && ret != -EINTR) {
-				info("Peer closed the control fifo\n");
+				log_info("Peer closed the control fifo\n");
 				break;
 			}
-			debug("new setpoint: %"PRIu32"\n", setpoint);
+			log_debug("new setpoint: %"PRIu32"\n", setpoint);
 		}
 		if (FD_ISSET(phase_error_fd, &readfds)) {
 			sret = read(phase_error_fd, &phase_offset,
 					sizeof(phase_offset));
 			if (sret < 0)
 				error(EXIT_FAILURE, errno, "read");
-			debug("applying phase offset: %"PRIi32"\n",
+			log_debug("applying phase offset: %"PRIi32"\n",
 					phase_offset);
 			phase_error += phase_offset;
 		}
@@ -251,7 +246,7 @@ int main(int argc, char *argv[])
 
 	close(tfd);
 
-	info("%s exiting.\n", prog_name);
+	log_info("%s exiting.\n", prog_name);
 
 	return EXIT_SUCCESS;
 }

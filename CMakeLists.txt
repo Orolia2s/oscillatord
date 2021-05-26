@@ -42,7 +42,8 @@ add_definitions("
     -Wno-unused-parameter
     -Wmissing-declarations
     -Wmissing-prototypes
-    -Wpointer-arith")
+    -Wpointer-arith
+    -DLOG_USE_COLOR")
 add_definitions("-DOD_REVISION=\"${PACKAGE_VERSION}\"")
 
 add_subdirectory(tests)

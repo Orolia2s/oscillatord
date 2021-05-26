@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <string.h>
 #include <stdbool.h>
 
 #include <spi2c.h>
@@ -41,12 +42,12 @@ static int morion_oscillator_set_dac(struct oscillator *oscillator,
 
 	morion = container_of(oscillator, struct morion_oscillator, oscillator);
 
-	debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
+	log_debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
 
 	ret = spi_transfer(morion->spi, buf, sizeof(buf), NULL, 0);
 	if (ret != 0) {
 		ret = -errno;
-		err("failed spi transfer : %m\n");
+		log_error("failed spi transfer : %m");
 		return ret;
 	}
 
@@ -92,21 +93,21 @@ static struct oscillator *morion_oscillator_new(struct config *config)
 
 	ret = config_get_uint8_t(config, "morion-spi-num");
 	if (ret < 0) {
-		err("morion-spi-num config key must be provided\n");
+		log_error("morion-spi-num config key must be provided");
 		goto error;
 	}
 	spi_num = ret;
 
 	ret = config_get_uint8_t(config, "morion-spi-sub");
 	if (ret < 0) {
-		err("morion-spi-sub config key must be provided\n");
+		log_error("morion-spi-sub config key must be provided");
 		goto error;
 	}
 	spi_sub = ret;
 
 	ret = config_get_unsigned_number(config, "morion-spi-speed");
 	if (ret < 0) {
-		err("morion-spi-speed config key must me provided\n");
+		log_error("morion-spi-speed config key must me provided");
 		goto error;
 	}
 	spi_speed = ret;
@@ -114,7 +115,7 @@ static struct oscillator *morion_oscillator_new(struct config *config)
 	morion->spi = spi_new(spi_num, spi_sub, spi_speed, MORION_SPI_BPW);
 	if (morion->spi == NULL) {
 		ret = -errno;
-		err("spi_new: %m\n");
+		log_error("spi_new: %m\n");
 		goto error;
 	}
 
@@ -122,7 +123,7 @@ static struct oscillator *morion_oscillator_new(struct config *config)
 			morion_oscillator_index);
 	morion_oscillator_index++;
 
-	info("instantiated " FACTORY_NAME " oscillator on spidev%"
+	log_info("instantiated " FACTORY_NAME " oscillator on spidev%"
 	     PRIu8 ".%" PRIu8, spi_num, spi_sub);
 
 	return oscillator;
@@ -152,5 +153,5 @@ static void __attribute__((constructor)) morion_oscillator_constructor(void)
 
 	ret = oscillator_factory_register(&morion_oscillator_factory);
 	if (ret < 0)
-		perr("oscillator_factory_register", ret);
+		log_error("oscillator_factory_register", ret);
 }

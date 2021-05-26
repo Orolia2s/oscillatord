@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <string.h>
 #include <stdbool.h>
 
 #include <spi2c.h>
@@ -45,7 +46,7 @@ static int sim_oscillator_set_dac(struct oscillator *oscillator,
 
 	sim = container_of(oscillator, struct sim_oscillator, oscillator);
 
-	debug("%s(%s, %" PRIu32 ")\n", __func__, oscillator->name, value);
+	log_debug("%s(%s, %" PRIu32 ")", __func__, oscillator->name, value);
 
 	sret = write(sim->control_fifo, &value, sizeof(value));
 	if (sret == -1)
@@ -63,7 +64,7 @@ static int sim_oscillator_get_dac(struct oscillator *oscillator,
 	sim = container_of(oscillator, struct sim_oscillator, oscillator);
 
 	*value = sim->value;
-	debug("%s(%s) = %" PRIu32 "\n", __func__, oscillator->name, *value);
+	log_debug("%s(%s) = %" PRIu32, __func__, oscillator->name, *value);
 
 	return 0;
 }
@@ -76,7 +77,7 @@ static int sim_oscillator_get_ctrl(struct oscillator *oscillator,
 
 static int sim_oscillator_save(struct oscillator *oscillator)
 {
-	debug("%s(%s)\n", __func__, oscillator->name);
+	log_debug("%s(%s)", __func__, oscillator->name);
 
 	return -ENOSYS;
 }
@@ -86,7 +87,7 @@ static int sim_oscillator_get_temp(struct oscillator *oscillator,
 {
 	*temp = (rand() % (55 - 10)) + 10;
 
-	info("%s(%p, %u)\n", __func__, oscillator, *temp);
+	log_info("%s(%p, %u)", __func__, oscillator, *temp);
 
 	return 0;
 }
@@ -127,7 +128,7 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 
 	ret = asprintf(&simulator_command, "oscillator_sim %s", config->path);
 	if (ret < 0) {
-		err("asprintf error\n");
+		log_error("asprintf error");
 		errno = ENOMEM;
 		return NULL;
 	}
@@ -138,44 +139,44 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 	oscillator = &sim->oscillator;
 	sim->control_fifo = -1;
 
-	info("launching the simulator process\n");
+	log_info("launching the simulator process");
 	unlink(CONTROL_FIFO_PATH);
 	sim->simulator_process = popen(simulator_command, "re");
 	if (sim->simulator_process == NULL) {
 		ret = -errno;
-		err("popen: %m\n");
+		log_error("popen: %m");
 		goto error;
 	}
-	info("opening fifo\n");
+	log_info("opening fifo");
 	do {
 		sim->control_fifo = open(CONTROL_FIFO_PATH, O_WRONLY);
 	} while (sim->control_fifo == -1 && errno == ENOENT);
 	if (sim->control_fifo == -1) {
 		ret = -errno;
-		err("open(" CONTROL_FIFO_PATH "): %m\n");
+		log_error("open(" CONTROL_FIFO_PATH "): %m");
 		goto error;
 	}
 	oscillator_factory_init(FACTORY_NAME, oscillator, FACTORY_NAME "-%d",
 			sim_oscillator_index);
 
 
-	debug("reading pts name\n");
+	log_debug("reading pts name");
 	cret = fgets(sim->pps_pts, SIM_MAX_PTS_PATH_LEN,
 			sim->simulator_process);
 	if (cret == NULL) {
 		ret = -EIO;
-		err("fgets error\n");
+		log_error("fgets error");
 		goto error;
 	}
-	debug("pts name is %s\n", sim->pps_pts);
+	log_debug("pts name is %s", sim->pps_pts);
 
 	ret = config_set(config, "pps-device", sim->pps_pts);
 	if (ret < 0) {
-		err("config_set: %s\n", strerror(-ret));
+		log_error("config_set: %s\n", strerror(-ret));
 		goto error;
 	}
 
-	info("instantiated " FACTORY_NAME " oscillator\n");
+	log_info("instantiated " FACTORY_NAME " oscillator");
 
 	return oscillator;
 error:
@@ -204,5 +205,5 @@ static void __attribute__((constructor)) sim_oscillator_constructor(void)
 
 	ret = oscillator_factory_register(&sim_oscillator_factory);
 	if (ret < 0)
-		perr("oscillator_factory_register", ret);
+		log_error("oscillator_factory_register", ret);
 }

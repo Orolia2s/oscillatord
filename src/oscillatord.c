@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <string.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,11 +39,6 @@
 
 __attribute__((cleanup(gnss_cleanup))) struct gnss gnss = {0};
 
-static void dummy_print_progname(void)
-{
-	fprintf(stderr, ERR);
-}
-
 static volatile int loop = true;
 
 /*
@@ -50,9 +46,9 @@ static volatile int loop = true;
  */
 static void signal_handler(int signum)
 {
-	info("Caught signal %s.\n", strsignal(signum));
+	log_info("Caught signal %s.", strsignal(signum));
 	if (!loop) {
-		err("Signalled twice, brutal exit.\n");
+		log_error("Signalled twice, brutal exit.");
 		exit(EXIT_FAILURE);
 	}
 	loop = false;
@@ -65,10 +61,10 @@ static int apply_phase_offset(int fd, const char *device_name,
 
 	ret = write(fd, &phase_error, sizeof(phase_error));
 	if (ret == -1) {
-		err("Can't write %s ", device_name);
+		log_error("Can't write %s", device_name);
 		return -errno;
 	}
-	info("%s: applied a phase offset correction of %"PRIi32"ns\n",
+	log_info("%s: applied a phase offset correction of %"PRIi32"ns",
 			device_name, phase_error);
 
 	return ret;
@@ -104,9 +100,6 @@ int main(int argc, char *argv[])
 	__attribute__((cleanup(oscillator_factory_destroy)))
 			struct oscillator *oscillator = NULL;
 
-	/* remove the line startup in error() calls */
-	error_print_progname = dummy_print_progname;
-
 	if (argc != 2)
 		error(EXIT_FAILURE, 0, "usage: %s config_file_path", argv[0]);
 	path = argv[1];
@@ -119,7 +112,11 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 	/* Set log level according to configuration */
-	log_enable_debug(config_get_bool_default(&config, "debug", false));
+	log_set_level(
+		config_get_bool_default(&config, "debug", false) ?
+		LOG_DEBUG :
+		LOG_INFO
+	);
 
 	value = config_get(&config, "turns");
 	turns = (value != NULL) ? atoll(value) : 0;
@@ -127,7 +124,7 @@ int main(int argc, char *argv[])
 	oscillator = oscillator_factory_new(&config);
 	if (oscillator == NULL)
 		error(EXIT_FAILURE, errno, "oscillator_factory_new");
-	info("oscillator model %s\n", oscillator->class->name);
+	log_info("oscillator model %s", oscillator->class->name);
 
 	phasemeter_device = config_get(&config, "phasemeter-device");
 	if (phasemeter_device == NULL) {
@@ -135,7 +132,7 @@ int main(int argc, char *argv[])
 				"config %s", path);
 		return -EINVAL;
 	}
-	info("PPS device %s\n", phasemeter_device);
+	log_info("PPS device %s", phasemeter_device);
 
 	fd_phasemeter = open(phasemeter_device, O_RDWR);
 	if (fd_phasemeter == -1) {
@@ -231,7 +228,7 @@ int main(int argc, char *argv[])
 
 
 		if (ignore_next_irq) {
-			debug("ignoring 1 input due to phase jump\n");
+			log_debug("ignoring 1 input due to phase jump");
 			ignore_next_irq = false;
 			continue;
 		}
@@ -263,8 +260,8 @@ int main(int argc, char *argv[])
 			.fine_setpoint = ctrl_values.fine_ctrl,
 			.coarse_setpoint = ctrl_values.coarse_ctrl,
 		};
-		info("input: phase_error = (%lds, %09ldns),"
-			"valid = %s, lock = %s, fine = %d, coarse = %d\n",
+		log_info("input: phase_error = (%lds, %09ldns),"
+			"valid = %s, lock = %s, fine = %d, coarse = %d",
 			input.phase_error.tv_sec,
 			input.phase_error.tv_nsec,
 			input.valid ? "true" : "false",
@@ -279,7 +276,7 @@ int main(int argc, char *argv[])
 
 		/* Process output result of the algorithm */
 		if (output.action == PHASE_JUMP) {
-			info("Phase jump requested\n");
+			log_info("Phase jump requested");
 			ret = apply_phase_offset(
 				fd_phasemeter,
 				phasemeter_device,
@@ -291,7 +288,7 @@ int main(int argc, char *argv[])
 			ignore_next_irq = true;
 
 		} else if (output.action == CALIBRATE) {
-			info("Calibration requested\n");
+			log_info("Calibration requested");
 			struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
 			if (calib_params == NULL) {
 				error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");

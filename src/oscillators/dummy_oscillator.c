@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <limits.h>
+#include <string.h>
 
 #include "config.h"
 #include "log.h"
@@ -18,7 +19,7 @@ static unsigned int dummy_oscillator_index;
 static int dummy_oscillator_set_dac(struct oscillator *oscillator,
 		uint32_t value)
 {
-	info("%s(%p, %" PRIu32 ")\n", __func__, oscillator, value);
+	log_info("%s(%p, %" PRIu32 ")", __func__, oscillator, value);
 
 	return 0;
 }
@@ -29,7 +30,7 @@ static int dummy_oscillator_get_dac(struct oscillator *oscillator,
 	*value = (rand() % (DUMMY_SETPOINT_MAX - DUMMY_SETPOINT_MIN)) +
 			DUMMY_SETPOINT_MIN;
 
-	info("%s(%p, %" PRIu32 ")\n", __func__, oscillator, *value);
+	log_info("%s(%p, %" PRIu32 ")", __func__, oscillator, *value);
 
 	return 0;
 }
@@ -42,7 +43,7 @@ static int dummy_oscillator_get_ctrl(struct oscillator *oscillator,
 
 static int dummy_oscillator_save(struct oscillator *oscillator)
 {
-	info("%s(%p)\n", __func__, oscillator);
+	log_info("%s(%p)", __func__, oscillator);
 
 	return 0;
 }
@@ -52,7 +53,7 @@ static int dummy_oscillator_get_temp(struct oscillator *oscillator,
 {
 	*temp = (rand() % (55 - 10)) + 10;
 
-	info("%s(%p, %u)\n", __func__, oscillator, *temp);
+	log_info("%s(%p, %u)", __func__, oscillator, *temp);
 
 	return 0;
 }
@@ -103,5 +104,5 @@ static void __attribute__((constructor)) dummy_oscillator_constructor(void)
 
 	ret = oscillator_factory_register(&dummy_oscillator_factory);
 	if (ret < 0)
-		perr("oscillator_factory_register", ret);
+		log_error("oscillator_factory_register", ret);
 }
