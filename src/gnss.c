@@ -14,6 +14,8 @@
 #include <ubloxcfg/ff_epoch.h>
 #include <ubloxcfg/ff_stuff.h>
 
+#define GNSS_TIMEOUT_MS 1500
+
 static void * gnss_thread(void * p_data);
 
 static bool gnss_data_valid(EPOCH_t *epoch)
@@ -125,7 +127,7 @@ static void * gnss_thread(void * p_data)
 
 	while (!stop)
 	{
-		PARSER_MSG_t *msg = rxGetNextMessage(gnss->rx);
+		PARSER_MSG_t *msg = rxGetNextMessageTimeout(gnss->rx, GNSS_TIMEOUT_MS);
 		if (msg != NULL)
 		{
 			if(epochCollect(&coll, msg, &epoch))
@@ -139,6 +141,7 @@ static void * gnss_thread(void * p_data)
 				pthread_mutex_unlock(&gnss->mutex_data);
 			}
 		} else {
+			log_warn("UART GNSS Timeout !");
 			usleep(5 * 1000);
 		}
 		pthread_mutex_lock(&gnss->mutex_data);
