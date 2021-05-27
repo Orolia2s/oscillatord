@@ -5,6 +5,29 @@
 * cmake
 * [libspi2c](ssh://git@bitbucket.org/spectracom/libspi2c)
 * libgps26/28
+* [liboscillatordisciplining](git@bitbucket.org:spectracom/disciplining-minipod.git)
+
+## Installation
+
+This program is build using **cmake**:
+
+```
+mkdir build
+cd build
+make
+sudo make install
+```
+
+- **make install** will install the executable as well as a service to run oscillatord
+- for the service to work, one must copy the [oscillatord.conf](./oscillatord.conf) file in */etc/*
+
+For test purposes, it is easier to compile the executable and run it from a terminal:
+in project's root directory
+```
+make -C build
+sudo ./build/src/oscillatord oscillatord.conf
+```
+
 
 ## Overview
 
