@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <limits.h>
-
+#include <stdio.h>
 #include <argz.h>
 #include <envz.h>
 
@@ -10,20 +10,16 @@
 #include "log.h"
 #include "utils.h"
 
-int config_init(struct config *config, const char *path)
+
+static int read_file(const char *path, char **argz, size_t *argz_len)
 {
-	int ret;
+
+	char __attribute__((cleanup(string_cleanup)))*string = NULL;
+	FILE __attribute__((cleanup(file_cleanup)))*f = NULL;
 	long size;
+	int ret;
 	size_t sret;
-
-	__attribute__((cleanup(file_cleanup))) FILE *f = NULL;
-	__attribute__((cleanup(string_cleanup))) char *string = NULL;
-
-	memset(config, 0, sizeof(*config));
-
-	config->path = strdup(path);
-	if (config->path == NULL)
-		return -errno;
+	char *entry = NULL;
 
 	f = fopen(path, "rbe");
 	if (f == NULL)
@@ -49,7 +45,58 @@ int config_init(struct config *config, const char *path)
 	if (sret < (size_t)size)
 		return feof(f) ? -EIO : ret;
 
-	return -argz_create_sep(string, '\n', &config->argz, &config->len);
+	ret = -argz_create_sep(string, '\n', argz, argz_len);
+	if (ret)
+		return ret;
+
+	while ((entry = argz_next(*argz, *argz_len, entry))) {
+		if (entry[0] == '#') {
+			argz_delete(argz, argz_len, entry);
+			entry = NULL;
+		}
+	}
+
+	return 0;
+}
+
+int config_init(struct config *config, const char *path)
+{
+	int ret;
+	const char *defconfig_path = NULL;
+	const char *defconfig_key = NULL;
+
+	defconfig_key = config->defconfig_key;
+
+	memset(config, 0, sizeof(*config));
+
+	config->path = strdup(path);
+	if (config->path == NULL)
+		return -errno;
+
+	ret = read_file(path, &config->argz, &config->len);
+	if (ret)
+		return ret;
+
+	if (defconfig_key != NULL) {
+		defconfig_path = config_get(config, defconfig_key);
+		config->defconfig_key = defconfig_key;
+	}
+
+	if (defconfig_path == NULL)
+		return 0;
+
+	ret = read_file(defconfig_path, &config->argz_defconfig, &config->len_defconfig);
+	if (ret)
+		return ret;
+
+	ret = envz_merge(&config->argz_defconfig, &config->len_defconfig,
+			 config->argz, config->len, 1);
+	if (ret)
+		return ret;
+
+	ret = envz_merge(&config->argz, &config->len,
+			config->argz_defconfig, config->len_defconfig, 0);
+	return ret;
 }
 
 const char *config_get(const struct config *config, const char *key)
@@ -122,6 +169,20 @@ int config_get_uint8_t(const struct config *config, const char *key)
 	return value;
 }
 
+void config_dump(const struct config *config, char *buf,
+		size_t buf_len)
+{
+	size_t n;
+	size_t slen;
+	char *argz = malloc(config->len);
+
+	memcpy(argz, config->argz, config->len);
+	argz_stringify(argz, config->len, '\n');
+	slen = strlen(argz) + 1;
+	n = buf_len < slen ? buf_len : slen;
+	memcpy(buf, argz, n);
+	free(argz);
+}
 
 void config_cleanup(struct config *config)
 {

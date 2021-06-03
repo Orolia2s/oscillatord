@@ -6,6 +6,9 @@
 struct config {
 	char *argz;
 	size_t len;
+	char *argz_defconfig;
+	size_t len_defconfig;
+	const char *defconfig_key;
 	char *path;
 };
 
@@ -24,4 +27,5 @@ long config_get_unsigned_number(const struct config *config, const char *key);
 int config_get_uint8_t(const struct config *config, const char *key);
 void config_cleanup(struct config *config);
 
+void config_dump(const struct config *config, char *buf, size_t buf_len);
 #endif /* CONFIG_H_ */
