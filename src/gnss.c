@@ -17,6 +17,9 @@
 #include <ubloxcfg/ff_stuff.h>
 
 #define GNSS_TIMEOUT_MS 1500
+#include "f9_defvalsets.h"
+
+#define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
 static void * gnss_thread(void * p_data);
 
@@ -119,6 +122,10 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
 struct gnss * gnss_init(const struct config *config, struct gps_device_t *session)
 {
 	struct gnss *gnss;
+	int ret;
+	size_t i;
+	bool do_reconfiguration;
+
 	RX_ARGS_t args = RX_ARGS_DEFAULT();
 	args.autobaud = false;
 	args.detect = false;
@@ -148,11 +155,29 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 		free(gnss);
 		return NULL;
 	}
+
+	do_reconfiguration = config_get_bool_default(config,
+					"gnss-receiver-reconfigure",
+					false);
+	if (do_reconfiguration) {
+		log_info("configuring receiver with ART parameters\n");
+		for (i = 0; i < ARRAY_SIZE(ubxCfgValsetMsgs); i++)
+		{
+			ret = rxSendUbxCfg(gnss->rx, ubxCfgValsetMsgs[i].data,
+					   ubxCfgValsetMsgs[i].size, 2500);
+			if (!ret) {
+				log_error("sending default config failed\n");
+				free(gnss->rx);
+				free(gnss);
+				return NULL;
+			}
+		}
+	}
 	gnss->stop = false;
 
 	pthread_mutex_init(&gnss->mutex_data, NULL);
 
-	int ret = pthread_create(
+	ret = pthread_create(
 		&gnss->thread,
 		NULL,
 		gnss_thread,
