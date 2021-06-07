@@ -19,14 +19,12 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 pkg_check_modules(oscillator-disciplining REQUIRED liboscillator-disciplining)
-pkg_check_modules(spi2c REQUIRED libspi2c)
 pkg_check_modules(SYSTEMD systemd REQUIRED)
 pkg_check_modules(ubloxcfg REQUIRED libubloxcfg)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common/)
 include_directories(${oscillator-disciplining_INCLUDE_DIRS})
-include_directories(${spi2c_INCLUDE_DIRS})
 include_directories(${gps_INCLUDE_DIRS})
 include_directories(${ubloxcfg_INCLUDE_DIRS})
 

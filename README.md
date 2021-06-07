@@ -3,7 +3,6 @@
 ## Requirements
 
 * cmake
-* [libspi2c](ssh://git@bitbucket.org/spectracom/libspi2c)
 * libgps26/28
 * [liboscillatordisciplining](git@bitbucket.org:spectracom/disciplining-minipod.git)
 

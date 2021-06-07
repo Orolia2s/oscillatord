@@ -12,8 +12,6 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include <spi2c.h>
-
 #include "sim_oscillator.h"
 
 #include "config.h"
