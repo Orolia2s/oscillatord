@@ -147,6 +147,10 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	} else if (output->action == ADJUST_COARSE) {
 		log_info("Coarse adjustment to value %d requested", output->setpoint);
 		command = MRO50_ADJUST_COARSE;
+	} else if (output->action == SAVE_COARSE) {
+		log_debug("Saving coarse value to mRO50 memory");
+		ioctl(mRo50->osc_fd, MRO50_SAVE_COARSE);
+		return 0;
 	} else {
 		log_error("Calling mRo50_oscillator_apply_output with action different from ADJUST_COARSE or ADJUST_FINE");
 		log_error("Action is %d", output->action);
