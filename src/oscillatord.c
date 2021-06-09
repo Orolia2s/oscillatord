@@ -173,30 +173,31 @@ int main(int argc, char *argv[])
 	}
 
 	bool clock_set = false;
+	fd_clock = open(ptp_clock, O_RDWR);
+	if (fd_clock < 0)
+		return -1;
+	clockid_t clkid;
+	struct timespec ts;
+	clkid = FD_TO_CLOCKID(fd_clock);
 	// TODO: Implement Timeout
 	while(!clock_set) {
 		struct gnss_data data = gnss_get_data(&gnss);
 		if (data.valid) {
-			/* Test open and configure PHC */
-			clockid_t clkid;
-			struct timespec ts;
+			/* Configure PHC time */
+			/* First get clock time to preserve nanoseconds */
+			ret = clock_gettime(clkid, &ts);
+			if (ret == 0) {
+				ts.tv_sec = data.time;
 
-			ts.tv_sec = data.time;
-			ts.tv_nsec = 0;
-
-			fd_clock = open(ptp_clock, O_RDWR);
-			if (fd_clock < 0)
-				return -1;
-
-			clkid = FD_TO_CLOCKID(fd_clock);
-
-			ret = clock_settime(clkid, &ts);
-			if (ret == 0)
-				clock_set = true;
+				ret = clock_settime(clkid, &ts);
+				if (ret == 0)
+					clock_set = true;
+			}
 		} else {
 			sleep(2);
 		}
 	}
+	close(fd_clock);
 
 	/* Main Loop */
 	do {
