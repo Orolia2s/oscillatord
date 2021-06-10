@@ -112,8 +112,8 @@ static int init_ptp_clock_time(const char * ptp_clock)
 	struct timespec ts;
 	int ret;
 	bool clock_set = false;
-	
-	
+	bool clock_valid = false;
+		
 	fd_clock = open(ptp_clock, O_RDWR);
 	if (fd_clock < 0) {
 		log_warn("Could not open ptp clock fd");
@@ -121,25 +121,46 @@ static int init_ptp_clock_time(const char * ptp_clock)
 	}
 	clkid = FD_TO_CLOCKID(fd_clock);
 
-	while(!clock_set) {
+	while(!clock_valid) {
 		if (gnss_get_valid(&gnss)) {
-			/* Configure PHC time */
-			/* First get clock time to preserve nanoseconds */
-			ret = clock_gettime(clkid, &ts);
-			if (ret == 0) {
-				ts.tv_sec = gnss_get_lastfix_time(&gnss);
+			/* Set clock time according to gnss data */
+			if (!clock_set) {
+				/* Configure PHC time */
+				/* First get clock time to preserve nanoseconds */
+				ret = clock_gettime(clkid, &ts);
+				if (ret == 0) {
+					ts.tv_sec = gnss_get_lastfix_time(&gnss);
 
-				ret = clock_settime(clkid, &ts);
-				if (ret == 0)
-					clock_set = true;
+					ret = clock_settime(clkid, &ts);
+					if (ret == 0) {
+						clock_set = true;
+						log_debug("PTP Clock Set");
+						sleep(2);
+					}
+				} else {
+					log_warn("Could not get PTP clock time");
+					return -1;
+				}
+			/* PHC time has been set, check time is correctly set */
 			} else {
-				log_warn("Could not get PTP clock time");
+				ret = clock_gettime(clkid, &ts);
+				if (ret == 0) {
+					if (ts.tv_sec == gnss_get_lastfix_time(&gnss)) {
+						log_info("PHC time correctly set");
+						clock_valid = true;
+					} else {
+						log_warn("PHC time is not valid, resetting it");
+						clock_set = false;
+					}
+				} else {
+					log_error("Could get not PHC time");
+					return -1;
+				}
 			}
 		} else {
 			sleep(2);
 		}
 	}
-	log_info("PTP clock time set");
 	close(fd_clock);
 	return 0;
 }
@@ -262,8 +283,10 @@ int main(int argc, char *argv[])
 	sleep(SETTLING_TIME);
 	log_info("Initialize time of ptp clock %s", ptp_clock);
 	ret = init_ptp_clock_time(ptp_clock);
-	if (ret != 0)
+	if (ret != 0) {
 		log_error("Could not set ptp clock time");
+		return -EINVAL;
+	}
 
 	/* Start NTP SHM session */
 	(void)ntpshm_context_init(&context);
@@ -279,7 +302,6 @@ int main(int argc, char *argv[])
 
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
-
 
 	/* Main Loop */
 	do {
