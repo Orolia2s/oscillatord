@@ -150,6 +150,8 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	}
 	gnss->stop = false;
 
+	pthread_mutex_init(&gnss->mutex_data, NULL);
+
 	int ret = pthread_create(
 		&gnss->thread,
 		NULL,
@@ -196,7 +198,9 @@ static void * gnss_thread(void * p_data)
 
 	epochInit(&coll);
 
+	pthread_mutex_lock(&gnss->mutex_data);
 	stop = gnss->stop;
+	pthread_mutex_unlock(&gnss->mutex_data);
 
 	while (!stop)
 	{

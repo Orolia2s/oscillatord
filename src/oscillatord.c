@@ -23,6 +23,7 @@
 #include "config.h"
 #include "gnss.h"
 #include "log.h"
+#include "monitoring.h"
 #include "ntpshm.h"
 #include "oscillator.h"
 #include "oscillator_factory.h"
@@ -139,13 +140,14 @@ static int init_ptp_clock_time(int fd_clock, struct gnss *gnss)
 
 int main(int argc, char *argv[])
 {
-	struct od_input input;
-	struct od_output output;
 	struct config config;
 	struct gps_device_t session;
 	struct phasemeter *phasemeter;
 	struct oscillator_ctrl ctrl_values;
 	struct gnss *gnss;
+	struct monitoring *monitoring;
+	struct od_input input;
+	struct od_output output;
 	const char *ptp_clock;
 	const char *path;
 	const char *libod_conf_path;
@@ -163,6 +165,8 @@ int main(int argc, char *argv[])
 	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	__attribute__((cleanup(oscillator_factory_destroy)))
 		struct oscillator *oscillator = NULL;
+
+
 
 	if (argc != 2)
 		error(EXIT_FAILURE, 0, "usage: %s config_file_path", argv[0]);
@@ -277,6 +281,13 @@ int main(int argc, char *argv[])
 		ntpshm_link_activate(&session);
 	}
 
+	/* Start Monitoring Thread */
+	monitoring = monitoring_init(&config);
+	if (monitoring == NULL) {
+		log_error("Error creating monitoring socket thread");
+		return -EINVAL;
+	}
+
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
@@ -309,15 +320,16 @@ int main(int argc, char *argv[])
 		}
 
 		input = (struct od_input) {
+			.calibration_requested = false,
+			.coarse_setpoint = ctrl_values.coarse_ctrl,
+			.fine_setpoint = ctrl_values.fine_ctrl,
+			.lock = ctrl_values.lock,
 			.phase_error = (struct timespec) {
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			},
 			.valid = gnss_get_valid(gnss),
-			.lock = ctrl_values.lock,
 			.temperature = temperature,
-			.fine_setpoint = ctrl_values.fine_ctrl,
-			.coarse_setpoint = ctrl_values.coarse_ctrl,
 		};
 		log_info("input: phase_error = (%lds, %09ldns),"
 			"valid = %s, lock = %s, fine = %d, coarse = %d",
@@ -327,6 +339,17 @@ int main(int argc, char *argv[])
 			input.lock ? "true" : "false",
 			input.fine_setpoint,
 			input.coarse_setpoint);
+
+		/* Check for monitoring requests */
+		pthread_mutex_lock(&monitoring->mutex);
+
+		monitoring->status = od_get_status(od);
+		monitoring->phase_error = input.phase_error.tv_nsec;
+		if (monitoring->request == REQUEST_CALIBRATION)
+			input.calibration_requested = true;
+
+		pthread_cond_signal(&monitoring->cond);
+		pthread_mutex_unlock(&monitoring->mutex);
 
 		/* Call disciplining algorithm process loop */
 		ret = od_process(od, &input, &output);
@@ -370,6 +393,7 @@ int main(int argc, char *argv[])
 
 	gnss_stop(gnss);
 	phasemeter_stop(phasemeter);
+	monitoring_stop(monitoring);
 
 	od_destroy(&od);
 	close(fd_clock);
