@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include "oscillator_factory.h"
 #include "config.h"
