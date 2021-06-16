@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
 				error(EXIT_FAILURE, -ret, "oscillator_apply_output");
 		}
 
-		sleep(5);
+		sleep(SETTLING_TIME);
 	} while (loop && turns != 1);
 
 	pthread_mutex_lock(&gnss.mutex_data);

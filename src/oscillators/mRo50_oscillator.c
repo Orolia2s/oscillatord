@@ -203,7 +203,7 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 			results = NULL;
 			return NULL;
 		}
-		sleep(calib_params->settling_time);
+		sleep(SETTLING_TIME);
 
 		struct oscillator_ctrl ctrl;
 		ret = mRo50_oscillator_get_ctrl(oscillator, &ctrl);
