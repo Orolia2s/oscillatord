@@ -70,13 +70,83 @@ static int apply_phase_offset(int fd, const char *device_name,
 	return ret;
 }
 
+static int get_phase_error(int fd_phasemeter, int32_t *phase_error)
+{
+	fd_set rfds;
+	struct timeval tv;
+	int ret;
+
+	FD_ZERO(&rfds);
+	FD_SET(fd_phasemeter, &rfds);
+
+	tv = (struct timeval) { .tv_sec = LOOP_TIMEOUT, .tv_usec = 0 };
+	ret = select(fd_phasemeter + 1, &rfds, NULL, NULL, &tv);
+	switch (ret) {
+		case 0:
+			error(EXIT_FAILURE, 0, "Timeout, shouldn't happen!");
+			/* no fall through GCC, error(1, ...) doesn't return */
+			__attribute__ ((fallthrough));
+
+		case -1:
+			if (errno == EINTR)
+				return -1;
+			error(EXIT_FAILURE, errno, "select");
+	}
+
+	/* Read phase error from phasemeter */
+	ret = read(fd_phasemeter, phase_error, sizeof(*phase_error));
+	if (ret == -1) {
+		if (errno == EAGAIN || errno == EINTR)
+			return -1;
+		error(EXIT_FAILURE, errno, "read");
+	}
+
+	return 0;
+}
+
+static int init_ptp_clock_time(const char* ptp_clock)
+{
+	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
+	clockid_t clkid;
+	struct timespec ts;
+	int ret;
+	bool clock_set = false;
+	
+	fd_clock = open(ptp_clock, O_RDWR);
+	if (fd_clock < 0) {
+		log_warn("Could not open ptp clock fd");
+		return -1;
+	}
+	
+	log_info("Initialize time of ptp clock %s", ptp_clock);
+	clkid = FD_TO_CLOCKID(fd_clock);
+	while(!clock_set) {
+		struct gnss_data data = gnss_get_data(&gnss);
+		if (data.valid) {
+			/* Configure PHC time */
+			/* First get clock time to preserve nanoseconds */
+			ret = clock_gettime(clkid, &ts);
+			if (ret == 0) {
+				ts.tv_sec = data.time;
+
+				ret = clock_settime(clkid, &ts);
+				if (ret == 0)
+					clock_set = true;
+			}
+		} else {
+			sleep(2);
+		}
+	}
+	close(fd_clock);
+	log_info("PTP clock time set");
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
 	struct od_input input;
 	struct od_output output;
 	struct config config;
-	struct timeval tv;
 	struct gnss_data gnss_data;
 	const char *phasemeter_device;
 	const char *ptp_clock;
@@ -84,7 +154,6 @@ int main(int argc, char *argv[])
 	const char *libod_conf_path;
 	const char *value;
 	char err_msg[OD_ERR_MSG_LEN];
-	fd_set rfds;
 	uint16_t temperature;
 	int32_t phase_error;
 	ssize_t sret;
@@ -96,7 +165,6 @@ int main(int argc, char *argv[])
 
 	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
 	__attribute__((cleanup(fd_cleanup))) int fd_phasemeter = -1;
-	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	__attribute__((cleanup(oscillator_factory_destroy)))
 			struct oscillator *oscillator = NULL;
 
@@ -172,61 +240,33 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	bool clock_set = false;
-	fd_clock = open(ptp_clock, O_RDWR);
-	if (fd_clock < 0)
-		return -1;
-	clockid_t clkid;
-	struct timespec ts;
-	clkid = FD_TO_CLOCKID(fd_clock);
-	// TODO: Implement Timeout
-	while(!clock_set) {
-		struct gnss_data data = gnss_get_data(&gnss);
-		if (data.valid) {
-			/* Configure PHC time */
-			/* First get clock time to preserve nanoseconds */
-			ret = clock_gettime(clkid, &ts);
-			if (ret == 0) {
-				ts.tv_sec = data.time;
+	ret = get_phase_error(fd_phasemeter, &phase_error);
+	if (ret != 0) {
+		log_error("Could not get phase error for initial phase jump");
+	} else {
+		log_info("Applying initial phase jump before setting PTP clock time");
+		ret = apply_phase_offset(
+			fd_phasemeter,
+			phasemeter_device,
+			-phase_error
+		);
 
-				ret = clock_settime(clkid, &ts);
-				if (ret == 0)
-					clock_set = true;
-			}
-		} else {
-			sleep(2);
-		}
+		if (ret < 0)
+			error(EXIT_FAILURE, -ret, "apply_phase_offset");
 	}
-	close(fd_clock);
+	sleep(SETTLING_TIME);
+	ret = init_ptp_clock_time(ptp_clock);
+	if (ret != 0)
+		log_error("Could not set ptp clock time");
 
 	/* Main Loop */
 	do {
 		turns--;
-		FD_ZERO(&rfds);
-		FD_SET(fd_phasemeter, &rfds);
 
-		tv = (struct timeval) { .tv_sec = LOOP_TIMEOUT, .tv_usec = 0 };
-		ret = select(fd_phasemeter + 1, &rfds, NULL, NULL, &tv);
-		switch (ret) {
-			case 0:
-				error(EXIT_FAILURE, 0, "Timeout, shouldn't happen!");
-				/* no fall through GCC, error(1, ...) doesn't return */
-				__attribute__ ((fallthrough));
-
-			case -1:
-				if (errno == EINTR)
-					continue;
-				error(EXIT_FAILURE, errno, "select");
-		}
-
-		/* Read phase error from phasemeter */
-		sret = read(fd_phasemeter, &phase_error, sizeof(phase_error));
-		if (sret == -1) {
-			if (errno == EAGAIN || errno == EINTR)
-				continue;
-			error(EXIT_FAILURE, errno, "read");
-		}
-
+		// Get Phase error
+		ret = get_phase_error(fd_phasemeter, &phase_error);
+		if (ret != 0)
+			continue;
 
 		if (ignore_next_irq) {
 			log_debug("ignoring 1 input due to phase jump");
