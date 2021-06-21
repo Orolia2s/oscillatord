@@ -3,6 +3,8 @@
 #include <time.h>
 #include <error.h>
 #include <stdlib.h>
+#include <math.h>
+#include <time.h>
 
 #include "log.h"
 #include "config.h"
@@ -51,11 +53,10 @@ static time_t gnss_get_time(EPOCH_t *epoch)
 		.tm_mday = epoch->day,
 		.tm_hour = epoch->hour,
 		.tm_min = epoch->minute,
-		.tm_sec = epoch->second,
+		.tm_sec = (int) round(epoch->second),
 		// Is DST on? 1 = yes, 0 = no, -1 = unknown
 		.tm_isdst = -1
 	};
-
 	time_t time = mktime(&t);
 					/* Temporary solution to get UTC time as mktime converts
 					* considering time provided is a local time
@@ -67,6 +68,53 @@ static time_t gnss_get_time(EPOCH_t *epoch)
 # endif
 	return time;
 }
+
+
+static int gnss_get_leap_seconds(EPOCH_t *epoch)
+{
+	if (epoch->haveLeapSeconds) {
+		return epoch->leapSeconds;
+	}
+	return 0;
+}
+
+
+static int gnss_get_leap_notify(EPOCH_t *epoch)
+{
+	if (epoch->haveLeapSecondEvent) {
+		if ((0 != epoch->lsChange) && (0 < epoch->timeToLsEvent) &&
+			((60 * 60 * 23) > epoch->timeToLsEvent)) {
+			if (1 == epoch->lsChange) {
+				return LEAP_ADDSECOND;
+			} else if (-1 == epoch->lsChange) {
+				return LEAP_DELSECOND;
+			}
+		} else {
+			return LEAP_NOWARNING;
+		}
+	}
+	return LEAP_NOWARNING;
+}
+
+// Copied from GPSD
+/* Latch the fact that we've saved a fix.
+ * And add in the device fudge */
+static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
+{
+
+    /* this should be an invariant of the way this function is called */
+    if (0 >= device->last_fixtime.tv_sec) {
+        return;
+    }
+
+    (void)clock_gettime(CLOCK_REALTIME, &td->clock);
+    /* structure copy of time from GPS */
+    td->real = device->last_fixtime;
+
+    /* thread-safe update */
+    pps_thread_fixin(&device->pps_thread, td);
+}
+
 
 int gnss_init(const struct config *config, struct gnss *gnss)
 {
@@ -120,6 +168,7 @@ static void * gnss_thread(void * p_data)
 	EPOCH_t epoch;
 	struct gnss *gnss = (struct gnss*) p_data;
 	bool stop;
+	int ret;
 
 	epochInit(&coll);
 
@@ -137,6 +186,23 @@ static void * gnss_thread(void * p_data)
 					gnss->data.fix = gnss_get_fix(epoch.fix);
 					gnss->data.time = gnss_get_time(&epoch);
 					gnss->data.valid = gnss_data_valid(&epoch);
+					gnss->session->context->leap_seconds = gnss_get_leap_seconds(&epoch);
+					gnss->session->context->leap_notify = gnss_get_leap_notify(&epoch);
+					log_debug("GNSS data: Fix %d, valid %d, time %lld, leap_seconds %d, leap_notify %d",
+						gnss->data.fix,
+						gnss->data.valid,
+						gnss->data.time,
+						gnss->session->context->leap_seconds,
+						gnss->session->context->leap_notify);
+
+					if (gnss->data.fix > MODE_NO_FIX)
+						gnss->session->fixcnt++;
+					else
+						gnss->session->fixcnt = 0;
+
+					gnss->session->last_fixtime.tv_sec = gnss->data.time;
+					struct timedelta_t td;
+					ntp_latch(gnss->session, &td);
 				}
 				pthread_mutex_unlock(&gnss->mutex_data);
 			}

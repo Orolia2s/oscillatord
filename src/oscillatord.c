@@ -20,15 +20,16 @@
 #include <linux/ptp_clock.h>
 #include <sys/timex.h>
 
+#include "config.h"
+#include "gnss.h"
 #include "log.h"
+#include "ntpshm.h"
 #include "oscillator.h"
 #include "oscillator_factory.h"
-#include "gnss.h"
-#include "config.h"
+#include "ppsthread.h"
 #include "utils.h"
 
-#define CLOCKFD 3
-#define FD_TO_CLOCKID(fd)	((clockid_t) ((((unsigned int) ~fd) << 3) | CLOCKFD))
+static struct gps_context_t context;
 
 /*
  * The driver has a watchdog which resets the 1PPS device if no interrupt has
@@ -104,7 +105,7 @@ static int get_phase_error(int fd_phasemeter, int32_t *phase_error)
 	return 0;
 }
 
-static int init_ptp_clock_time(const char* ptp_clock)
+static int init_ptp_clock_time(const char * ptp_clock)
 {
 	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	clockid_t clkid;
@@ -112,14 +113,14 @@ static int init_ptp_clock_time(const char* ptp_clock)
 	int ret;
 	bool clock_set = false;
 	
+	
 	fd_clock = open(ptp_clock, O_RDWR);
 	if (fd_clock < 0) {
 		log_warn("Could not open ptp clock fd");
 		return -1;
 	}
-	
-	log_info("Initialize time of ptp clock %s", ptp_clock);
 	clkid = FD_TO_CLOCKID(fd_clock);
+
 	while(!clock_set) {
 		struct gnss_data data = gnss_get_data(&gnss);
 		if (data.valid) {
@@ -132,13 +133,15 @@ static int init_ptp_clock_time(const char* ptp_clock)
 				ret = clock_settime(clkid, &ts);
 				if (ret == 0)
 					clock_set = true;
+			} else {
+				log_warn("Could not get PTP clock time");
 			}
 		} else {
 			sleep(2);
 		}
 	}
-	close(fd_clock);
 	log_info("PTP clock time set");
+	close(fd_clock);
 	return 0;
 }
 
@@ -148,6 +151,7 @@ int main(int argc, char *argv[])
 	struct od_output output;
 	struct config config;
 	struct gnss_data gnss_data;
+	struct gps_device_t session;
 	const char *phasemeter_device;
 	const char *ptp_clock;
 	const char *path;
@@ -156,13 +160,11 @@ int main(int argc, char *argv[])
 	char err_msg[OD_ERR_MSG_LEN];
 	uint16_t temperature;
 	int32_t phase_error;
-	ssize_t sret;
 	unsigned int turns;
 	int ret;
 	int sign;
 	bool opposite_phase_error;
 	bool ignore_next_irq = false;
-
 	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
 	__attribute__((cleanup(fd_cleanup))) int fd_phasemeter = -1;
 	__attribute__((cleanup(oscillator_factory_destroy)))
@@ -196,15 +198,22 @@ int main(int argc, char *argv[])
 
 	phasemeter_device = config_get(&config, "phasemeter-device");
 	if (phasemeter_device == NULL) {
-		error(EXIT_FAILURE, errno, "pps-device not defined in "
+		error(EXIT_FAILURE, errno, "phasemeter-device not defined in "
 				"config %s", path);
 		return -EINVAL;
 	}
-	log_info("PPS device %s", phasemeter_device);
+	log_info("Phasemeter device %s", phasemeter_device);
 
 	fd_phasemeter = open(phasemeter_device, O_RDWR);
 	if (fd_phasemeter == -1) {
 		error(EXIT_FAILURE, errno, "open(%s)", phasemeter_device);
+		return -EINVAL;
+	}
+
+	ptp_clock = config_get(&config, "ptp-clock");
+	if  (ptp_clock == NULL) {
+		error(EXIT_FAILURE, errno, "ptp-clock not defined in "
+				"config %s", path);
 		return -EINVAL;
 	}
 
@@ -223,23 +232,23 @@ int main(int argc, char *argv[])
 			"opposite-phase-error", false);
 	sign = opposite_phase_error ? -1 : 1;
 
+
+	session.context = &context;
+	(void)memset(&context, '\0', sizeof(struct gps_context_t));
+	context.leap_notify = LEAP_NOWARNING;
+	session.sourcetype = source_pps;
+	volatile struct pps_thread_t * pps_thread = &(session.pps_thread);
+	pps_thread->context = &session;
+
 	/* Start GNSS Thread */
-	ret = gnss_init(&config, &gnss);	
+	gnss.session = &session;
+	ret = gnss_init(&config, &gnss);
 	if (ret < 0) {
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 		return -EINVAL;
 	}
 
-	signal(SIGINT, signal_handler);
-	signal(SIGTERM, signal_handler);
-
-	ptp_clock = config_get(&config, "ptp-clock");
-	if  (ptp_clock == NULL) {
-		error(EXIT_FAILURE, errno, "ptp-clock not defined in "
-				"config %s", path);
-		return -EINVAL;
-	}
-
+	/* Apply initial phase jump before setting PTP clock time */
 	ret = get_phase_error(fd_phasemeter, &phase_error);
 	if (ret != 0) {
 		log_error("Could not get phase error for initial phase jump");
@@ -255,9 +264,26 @@ int main(int argc, char *argv[])
 			error(EXIT_FAILURE, -ret, "apply_phase_offset");
 	}
 	sleep(SETTLING_TIME);
+	log_info("Initialize time of ptp clock %s", ptp_clock);
 	ret = init_ptp_clock_time(ptp_clock);
 	if (ret != 0)
 		log_error("Could not set ptp clock time");
+
+	/* Start NTP SHM session */
+	(void)ntpshm_context_init(&context);
+
+
+	pps_thread->devicename = config_get(&config, "pps-device");
+	if (pps_thread->devicename != NULL) {
+		pps_thread->log_hook = ppsthread_log;
+		log_info("Init NTP SHM session");
+		ntpshm_session_init(&session);
+		ntpshm_link_activate(&session);
+	}
+
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
+
 
 	/* Main Loop */
 	do {
@@ -350,11 +376,12 @@ int main(int argc, char *argv[])
 		sleep(SETTLING_TIME);
 	} while (loop && turns != 1);
 
+	ntpshm_link_deactivate(&session);
+
 	pthread_mutex_lock(&gnss.mutex_data);
 	gnss.stop = true;
 	pthread_mutex_unlock(&gnss.mutex_data);
 	pthread_join(gnss.thread, NULL);
-
 	od_destroy(&od);
 
 	return EXIT_SUCCESS;

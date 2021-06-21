@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <time.h>
 
+#include "ppsthread.h"
+
 #define LOG_VERSION "0.1.0"
 
 typedef struct {
@@ -45,5 +47,6 @@ int log_add_callback(log_LogFn fn, void *udata, int level);
 int log_add_fp(FILE *fp, int level);
 
 void log_log(int level, const char *file, int line, const char *fmt, ...);
+void ppsthread_log(volatile struct pps_thread_t *pps_thread, int level, const char *fmt, ...);
 
 #endif
