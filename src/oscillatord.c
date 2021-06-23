@@ -163,6 +163,7 @@ int main(int argc, char *argv[])
 	unsigned int turns;
 	int ret;
 	int sign;
+	int log_level;
 	bool opposite_phase_error;
 	bool ignore_next_irq = false;
 	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
@@ -182,11 +183,8 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 	/* Set log level according to configuration */
-	log_set_level(
-		config_get_bool_default(&config, "debug", false) ?
-		LOG_DEBUG :
-		LOG_INFO
-	);
+	log_level = config_get_unsigned_number(&config, "debug");
+	log_set_level(log_level >= 0 ? log_level : 0);
 
 	value = config_get(&config, "turns");
 	turns = (value != NULL) ? atoll(value) : 0;
