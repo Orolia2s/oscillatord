@@ -106,10 +106,6 @@ struct gps_device_t {
     volatile struct pps_thread_t pps_thread;
     int fixcnt;                         /* count of fixes from this device */
 	struct timespec last_fixtime;
-};
-
-struct gnss_data {
-	time_t time;
 	int fix;
 	bool valid;
 };
@@ -117,7 +113,6 @@ struct gnss_data {
 struct gnss {
 	bool session_open;
 	RX_t *rx;
-	struct gnss_data data;
 	struct gps_device_t *session;
 	pthread_t thread;
 	pthread_mutex_t mutex_data;
@@ -125,6 +120,7 @@ struct gnss {
 };
 
 int gnss_init(const struct config *config, struct gnss *gnss);
-struct gnss_data gnss_get_data(struct gnss *gnss);
+time_t gnss_get_lastfix_time(struct gnss * gnss);
+bool gnss_get_valid(struct gnss *gnss);
 
 #endif

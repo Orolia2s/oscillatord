@@ -122,13 +122,12 @@ static int init_ptp_clock_time(const char * ptp_clock)
 	clkid = FD_TO_CLOCKID(fd_clock);
 
 	while(!clock_set) {
-		struct gnss_data data = gnss_get_data(&gnss);
-		if (data.valid) {
+		if (gnss_get_valid(&gnss)) {
 			/* Configure PHC time */
 			/* First get clock time to preserve nanoseconds */
 			ret = clock_gettime(clkid, &ts);
 			if (ret == 0) {
-				ts.tv_sec = data.time;
+				ts.tv_sec = gnss_get_lastfix_time(&gnss);
 
 				ret = clock_settime(clkid, &ts);
 				if (ret == 0)
@@ -150,7 +149,6 @@ int main(int argc, char *argv[])
 	struct od_input input;
 	struct od_output output;
 	struct config config;
-	struct gnss_data gnss_data;
 	struct gps_device_t session;
 	const char *phasemeter_device;
 	const char *ptp_clock;
@@ -304,9 +302,6 @@ int main(int argc, char *argv[])
 		else if (ret < 0)
 			error(EXIT_FAILURE, -ret, "oscillator_get_temp");
 
-		/* Get GNSS Fix*/
-		gnss_data = gnss_get_data(&gnss);
-
 		/* Get Oscillator control values needed
 		 * for the disciplining algorithm
 		 */
@@ -318,7 +313,7 @@ int main(int argc, char *argv[])
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			},
-			.valid = gnss_data.valid,
+			.valid = gnss_get_valid(&gnss),
 			.lock = ctrl_values.lock,
 			.temperature = temperature,
 			// .qErr = gnss.data.qErr,

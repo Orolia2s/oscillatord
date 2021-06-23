@@ -58,9 +58,9 @@ static time_t gnss_get_time(EPOCH_t *epoch)
 		.tm_isdst = -1
 	};
 	time_t time = mktime(&t);
-					/* Temporary solution to get UTC time as mktime converts
-					* considering time provided is a local time
-					*/
+	/* Temporary solution to get UTC time as mktime converts
+	* considering time provided is a local time
+	*/
 # ifdef	__USE_MISC
 	time =  time + localtime(&time)->tm_gmtoff;
 # else
@@ -153,13 +153,23 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 	return 0;
 }
 
-struct gnss_data gnss_get_data(struct gnss *gnss)
+time_t gnss_get_lastfix_time(struct gnss * gnss)
 {
-	struct gnss_data data;
+	time_t time;
 	pthread_mutex_lock(&gnss->mutex_data);
-	data = gnss->data;
+	time = gnss->session->last_fixtime.tv_sec;
 	pthread_mutex_unlock(&gnss->mutex_data);
-	return data;
+	return time;
+
+}
+
+bool gnss_get_valid(struct gnss *gnss)
+{
+	bool valid;
+	pthread_mutex_lock(&gnss->mutex_data);
+	valid = gnss->session->valid;
+	pthread_mutex_unlock(&gnss->mutex_data);
+	return valid;
 }
 
 static void * gnss_thread(void * p_data)
@@ -168,7 +178,6 @@ static void * gnss_thread(void * p_data)
 	EPOCH_t epoch;
 	struct gnss *gnss = (struct gnss*) p_data;
 	bool stop;
-	int ret;
 
 	epochInit(&coll);
 
@@ -183,24 +192,23 @@ static void * gnss_thread(void * p_data)
 			{
 				pthread_mutex_lock(&gnss->mutex_data);
 				if(epoch.haveFix) {
-					gnss->data.fix = gnss_get_fix(epoch.fix);
-					gnss->data.time = gnss_get_time(&epoch);
-					gnss->data.valid = gnss_data_valid(&epoch);
+					gnss->session->last_fixtime.tv_sec = gnss_get_time(&epoch);
+					gnss->session->valid = gnss_data_valid(&epoch);
+					gnss->session->fix = gnss_get_fix(epoch.fix);
 					gnss->session->context->leap_seconds = gnss_get_leap_seconds(&epoch);
 					gnss->session->context->leap_notify = gnss_get_leap_notify(&epoch);
-					log_debug("GNSS data: Fix %d, valid %d, time %lld, leap_seconds %d, leap_notify %d",
-						gnss->data.fix,
-						gnss->data.valid,
-						gnss->data.time,
-						gnss->session->context->leap_seconds,
-						gnss->session->context->leap_notify);
-
-					if (gnss->data.fix > MODE_NO_FIX)
+					if (gnss->session->fix > MODE_NO_FIX)
 						gnss->session->fixcnt++;
 					else
 						gnss->session->fixcnt = 0;
 
-					gnss->session->last_fixtime.tv_sec = gnss->data.time;
+					log_debug("GNSS data: Fix %d, valid %d, time %lld, leapm_seconds %d, leap_notify %d",
+						gnss->session->fix,
+						gnss->session->valid,
+						gnss->session->last_fixtime.tv_sec,
+						gnss->session->context->leap_seconds,
+						gnss->session->context->leap_notify);
+
 					struct timedelta_t td;
 					ntp_latch(gnss->session, &td);
 				}
