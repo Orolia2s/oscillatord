@@ -84,8 +84,6 @@ int oscillator_factory_register(const struct oscillator_factory *factory)
 	if (!oscillator_factory_is_valid(factory))
 		return -EINVAL;
 
-	log_debug("%s(%s)", __func__, factory->class.name);
-
 	if (factories_nb == MAX_OSCILLATOR_FACTORIES) {
 		log_error("no room left for factories, see "
 				"MAX_OSCILLATOR_FACTORIES");
