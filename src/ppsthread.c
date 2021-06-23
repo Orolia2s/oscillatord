@@ -850,7 +850,7 @@ static void *gpsd_ppsmonitor(void *arg)
             duration = duration_tio;
 
             // (long long) for 32-bit compat.  PRId64 segfaults
-            thread_context->log_hook(thread_context, THREAD_PROG,
+            thread_context->log_hook(thread_context, THREAD_RAW,
                     "TPPS:%s %.10s, cycle: %lld, duration: %lld @ %s",
                     thread_context->devicename, edge_str,
                     (long long)cycle, (long long)duration,
@@ -916,7 +916,7 @@ static void *gpsd_ppsmonitor(void *arg)
             cycle = cycle_kpps;
             duration = duration_kpps;
             // (long long) for 32-bit compat.  PRId64 segfaults
-            thread_context->log_hook(thread_context, THREAD_PROG,
+            thread_context->log_hook(thread_context, THREAD_RAW,
                 "KPPS:%s %.10s cycle: %lld, duration: %lld @ %s",
                 thread_context->devicename,
                 edge_str,
@@ -973,7 +973,7 @@ static void *gpsd_ppsmonitor(void *arg)
 
         state_last = state;
         // (long long) for 32-bit compat.  PRId64 segfaults
-        thread_context->log_hook(thread_context, THREAD_PROG,
+        thread_context->log_hook(thread_context, THREAD_RAW,
             "PPS:%s %.10s cycle: %lld, duration: %lld @ %s",
             thread_context->devicename,
             edge_str,
@@ -1213,7 +1213,7 @@ static void *gpsd_ppsmonitor(void *arg)
             thread_context->pps_out = ppstimes;
             thread_context->ppsout_count++;
             thread_unlock(thread_context);
-            thread_context->log_hook(thread_context, THREAD_INF,
+            thread_context->log_hook(thread_context, THREAD_RAW,
                 "PPS:%s %.10s hooks called clock: %s real: %s: %.20s",
                 thread_context->devicename,
                 edge_str,
@@ -1221,7 +1221,7 @@ static void *gpsd_ppsmonitor(void *arg)
                 timespec_str(&ppstimes.real, ts_str2, sizeof(ts_str2)),
                 log1);
         }
-        thread_context->log_hook(thread_context, THREAD_PROG,
+        thread_context->log_hook(thread_context, THREAD_RAW,
                 "PPS:%s %.10s %.30s @ %s offset %.20s",
                 thread_context->devicename,
                 edge_str,
