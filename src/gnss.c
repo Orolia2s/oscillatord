@@ -228,3 +228,13 @@ static void * gnss_thread(void * p_data)
 	free(gnss->rx);
 	return NULL;
 }
+
+void gnss_stop(struct gnss *gnss)
+{
+	pthread_mutex_lock(&gnss->mutex_data);
+	gnss->stop = true;
+	pthread_mutex_unlock(&gnss->mutex_data);
+
+	pthread_join(gnss->thread, NULL);
+	return;
+}

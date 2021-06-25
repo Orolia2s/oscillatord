@@ -122,5 +122,6 @@ struct gnss {
 int gnss_init(const struct config *config, struct gnss *gnss);
 time_t gnss_get_lastfix_time(struct gnss * gnss);
 bool gnss_get_valid(struct gnss *gnss);
+void gnss_stop(struct gnss *gnss);
 
 #endif

@@ -3,6 +3,7 @@
 #include <inttypes.h>
 
 #include "config.h"
+#include "phasemeter.h"
 
 #include <oscillator-disciplining/oscillator-disciplining.h>
 
@@ -23,7 +24,8 @@ typedef int (*oscillator_apply_output_cb)(struct oscillator *oscillator,
 		struct od_output *output);
 typedef void (*oscillator_destroy_cb)(struct oscillator **oscillator);
 typedef struct calibration_results* (*oscillator_calibrate_cb)(struct oscillator *oscillator,
-		struct calibration_parameters *calib_params, int phase_descriptor, int phase_sign);
+		struct phasemeter *phasemeter, struct calibration_parameters *calib_params,
+		int phase_sign);
 
 struct oscillator_class {
 	const char *name;
@@ -64,8 +66,8 @@ int oscillator_get_temp(struct oscillator *oscillator, uint16_t *temp);
 int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output);
 struct calibration_results * oscillator_calibrate(
 	struct oscillator *oscillator,
+	struct phasemeter *phasemeter,
 	struct calibration_parameters * calib_params,
-	int phase_descriptor,
 	int phase_sign);
 
 #endif /* SRC_OSCILLATOR_H_ */

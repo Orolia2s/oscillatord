@@ -1,6 +1,7 @@
 #include <sys/select.h>
-#include <sys/types.h>
 #include <sys/time.h>
+#include <sys/timex.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -18,7 +19,6 @@
 
 #include <oscillator-disciplining/oscillator-disciplining.h>
 #include <linux/ptp_clock.h>
-#include <sys/timex.h>
 
 #include "config.h"
 #include "gnss.h"
@@ -26,6 +26,7 @@
 #include "ntpshm.h"
 #include "oscillator.h"
 #include "oscillator_factory.h"
+#include "phasemeter.h"
 #include "ppsthread.h"
 #include "utils.h"
 
@@ -55,66 +56,34 @@ static void signal_handler(int signum)
 	loop = false;
 }
 
-static int apply_phase_offset(int fd, const char *device_name,
+static int apply_phase_offset(int fd_clock, const char *device_name,
 				  int32_t phase_error)
 {
-	int ret;
+	int ret = 0;
+	clockid_t clkid;
+	clkid = FD_TO_CLOCKID(fd_clock);
 
-	ret = write(fd, &phase_error, sizeof(phase_error));
-	if (ret == -1) {
-		log_error("Can't write %s", device_name);
-		return -errno;
-	}
+	struct timex timex = {
+		.modes = ADJ_OFFSET | ADJ_NANO,
+		.offset = phase_error
+	};
+
+	ret = clock_adjtime(clkid, &timex);
+
 	log_info("%s: applied a phase offset correction of %"PRIi32"ns",
 			device_name, phase_error);
 
 	return ret;
 }
 
-static int get_phase_error(int fd_phasemeter, int32_t *phase_error)
+static int init_ptp_clock_time(int fd_clock)
 {
-	fd_set rfds;
-	struct timeval tv;
-	int ret;
-
-	FD_ZERO(&rfds);
-	FD_SET(fd_phasemeter, &rfds);
-
-	tv = (struct timeval) { .tv_sec = LOOP_TIMEOUT, .tv_usec = 0 };
-	ret = select(fd_phasemeter + 1, &rfds, NULL, NULL, &tv);
-	switch (ret) {
-		case 0:
-			error(EXIT_FAILURE, 0, "Timeout, shouldn't happen!");
-			/* no fall through GCC, error(1, ...) doesn't return */
-			__attribute__ ((fallthrough));
-
-		case -1:
-			if (errno == EINTR)
-				return -1;
-			error(EXIT_FAILURE, errno, "select");
-	}
-
-	/* Read phase error from phasemeter */
-	ret = read(fd_phasemeter, phase_error, sizeof(*phase_error));
-	if (ret == -1) {
-		if (errno == EAGAIN || errno == EINTR)
-			return -1;
-		error(EXIT_FAILURE, errno, "read");
-	}
-
-	return 0;
-}
-
-static int init_ptp_clock_time(const char * ptp_clock)
-{
-	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	clockid_t clkid;
 	struct timespec ts;
 	int ret;
 	bool clock_set = false;
 	bool clock_valid = false;
 		
-	fd_clock = open(ptp_clock, O_RDWR);
 	if (fd_clock < 0) {
 		log_warn("Could not open ptp clock fd");
 		return -1;
@@ -167,7 +136,6 @@ static int init_ptp_clock_time(const char * ptp_clock)
 			sleep(2);
 		}
 	}
-	close(fd_clock);
 	return 0;
 }
 
@@ -177,7 +145,7 @@ int main(int argc, char *argv[])
 	struct od_output output;
 	struct config config;
 	struct gps_device_t session;
-	const char *phasemeter_device;
+	struct phasemeter *phasemeter;
 	const char *ptp_clock;
 	const char *path;
 	const char *libod_conf_path;
@@ -192,7 +160,7 @@ int main(int argc, char *argv[])
 	bool opposite_phase_error;
 	bool ignore_next_irq = false;
 	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
-	__attribute__((cleanup(fd_cleanup))) int fd_phasemeter = -1;
+	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	__attribute__((cleanup(oscillator_factory_destroy)))
 			struct oscillator *oscillator = NULL;
 
@@ -219,26 +187,13 @@ int main(int argc, char *argv[])
 		error(EXIT_FAILURE, errno, "oscillator_factory_new");
 	log_info("oscillator model %s", oscillator->class->name);
 
-	phasemeter_device = config_get(&config, "phasemeter-device");
-	if (phasemeter_device == NULL) {
-		error(EXIT_FAILURE, errno, "phasemeter-device not defined in "
-				"config %s", path);
-		return -EINVAL;
-	}
-	log_info("Phasemeter device %s", phasemeter_device);
-
-	fd_phasemeter = open(phasemeter_device, O_RDWR);
-	if (fd_phasemeter == -1) {
-		error(EXIT_FAILURE, errno, "open(%s)", phasemeter_device);
-		return -EINVAL;
-	}
-
 	ptp_clock = config_get(&config, "ptp-clock");
-	if  (ptp_clock == NULL) {
+	if (ptp_clock == NULL) {
 		error(EXIT_FAILURE, errno, "ptp-clock not defined in "
 				"config %s", path);
 		return -EINVAL;
 	}
+	log_info("PTP Clock: %s", ptp_clock);
 
 	/* Get path to disciplining shared library */
 	libod_conf_path = config_get_default(&config, "libod-config-path",
@@ -255,6 +210,11 @@ int main(int argc, char *argv[])
 			"opposite-phase-error", false);
 	sign = opposite_phase_error ? -1 : 1;
 
+	fd_clock = open(ptp_clock, O_RDWR);
+	if (fd_clock == -1) {
+		error(EXIT_FAILURE, errno, "open(%s)", ptp_clock);
+		return -EINVAL;
+	}
 
 	session.context = &context;
 	(void)memset(&context, '\0', sizeof(struct gps_context_t));
@@ -271,24 +231,32 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	/* Apply initial phase jump before setting PTP clock time */
-	ret = get_phase_error(fd_phasemeter, &phase_error);
-	if (ret != 0) {
-		log_error("Could not get phase error for initial phase jump");
-	} else {
-		log_info("Applying initial phase jump before setting PTP clock time");
-		ret = apply_phase_offset(
-			fd_phasemeter,
-			phasemeter_device,
-			-phase_error
-		);
-
-		if (ret < 0)
-			error(EXIT_FAILURE, -ret, "apply_phase_offset");
+	/* Start Phasemeter Thread */
+	phasemeter = phasemeter_init(fd_clock);
+	if (phasemeter == NULL) {
+		return -EINVAL;
 	}
+
+	/* Wait for all thread to get at least one piece of data */
+	sleep(2);
+
+
+	/* Apply initial phase jump before setting PTP clock time */
+	phase_error = get_phase_error(phasemeter);
+	log_debug("Initial phase error to apply is %d", phase_error);
+	log_info("Applying initial phase jump before setting PTP clock time");
+	ret = apply_phase_offset(
+		fd_clock,
+		ptp_clock,
+		-phase_error * sign
+	);
+
+	if (ret < 0)
+		error(EXIT_FAILURE, -ret, "apply_phase_offset");
+
 	sleep(SETTLING_TIME);
 	log_info("Initialize time of ptp clock %s", ptp_clock);
-	ret = init_ptp_clock_time(ptp_clock);
+	ret = init_ptp_clock_time(fd_clock);
 	if (ret != 0) {
 		log_error("Could not set ptp clock time");
 		return -EINVAL;
@@ -314,9 +282,7 @@ int main(int argc, char *argv[])
 		turns--;
 
 		// Get Phase error
-		ret = get_phase_error(fd_phasemeter, &phase_error);
-		if (ret != 0)
-			continue;
+		phase_error = get_phase_error(phasemeter);
 
 		if (ignore_next_irq) {
 			log_debug("ignoring 1 input due to phase jump");
@@ -366,8 +332,8 @@ int main(int argc, char *argv[])
 		if (output.action == PHASE_JUMP) {
 			log_info("Phase jump requested");
 			ret = apply_phase_offset(
-				fd_phasemeter,
-				phasemeter_device,
+				fd_clock,
+				ptp_clock,
 				-output.value_phase_ctrl
 			);
 
@@ -382,8 +348,8 @@ int main(int argc, char *argv[])
 				error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
 			}
 
-			struct calibration_results *results = oscillator_calibrate(oscillator, calib_params, fd_phasemeter, sign);
-			if (results == NULL) {
+			struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, calib_params, sign);
+			if (results == NULL)
 				error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
 			}
 
@@ -399,11 +365,11 @@ int main(int argc, char *argv[])
 
 	ntpshm_link_deactivate(&session);
 
-	pthread_mutex_lock(&gnss.mutex_data);
-	gnss.stop = true;
-	pthread_mutex_unlock(&gnss.mutex_data);
-	pthread_join(gnss.thread, NULL);
+	gnss_stop(&gnss);
+	phasemeter_stop(phasemeter);
+
 	od_destroy(&od);
+	close(fd_clock);
 
 	return EXIT_SUCCESS;
 }

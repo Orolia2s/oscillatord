@@ -16,7 +16,21 @@
 
 #include "../oscillator.h"
 #include "../oscillator_factory.h"
-#include "oscillator_mRO50_ioctl.h"
+
+/*---------------------------------------------------------------------------*/
+#ifndef MRO50_IOCTL_H
+#define MRO50_IOCTL_H
+
+#define MRO50_READ_FINE		_IOR('M', 1, u32 *)
+#define MRO50_READ_COARSE	_IOR('M', 2, u32 *)
+#define MRO50_ADJUST_FINE	_IOW('M', 3, u32)
+#define MRO50_ADJUST_COARSE	_IOW('M', 4, u32)
+#define MRO50_READ_TEMP		_IOR('M', 5, u32 *)
+#define MRO50_READ_CTRL		_IOR('M', 6, u32 *)
+#define MRO50_SAVE_COARSE	_IO('M', 7)
+
+#endif /* MRO50_IOCTL_H */
+/*---------------------------------------------------------------------------*/
 
 #define FACTORY_NAME "mRO50"
 #define MRO50_CMD_READ_TEMP 0x3e
@@ -158,7 +172,7 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	}
 
 	ret = ioctl(mRo50->osc_fd, command, &output->setpoint);
-	if (ret != sizeof(output->setpoint)) {
+	if (ret != 0) {
 		log_error("Could not prepare command request to adjust fine frequency, error %d", ret);
 		return -1;
 	}
@@ -167,7 +181,8 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 }
 
 static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator *oscillator,
-		struct calibration_parameters *calib_params, int phase_descriptor, int phase_sign)
+		struct phasemeter *phasemeter, struct calibration_parameters *calib_params,
+		int phase_sign)
 {
 	struct mRo50_oscillator *mRo50;
 	int ret;
@@ -214,12 +229,8 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 
 		log_info("Starting phase error measures %d/%d", i+1, results->length);
 		for (int j = 0; j < results->nb_calibration; j++) {
-			ret = read(phase_descriptor, &phase_error, sizeof(phase_error));
-			if (ret == -1) {
-				log_error("Error reading phasemeter");
-				error(EXIT_FAILURE, errno, "read phase descriptor");
-			}
-
+			phase_error = get_phase_error(phasemeter);
+			
 			*(results->measures + i * results->nb_calibration + j) = (struct timespec) {
 				.tv_sec = phase_sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = phase_sign * phase_error % NS_IN_SECOND,
