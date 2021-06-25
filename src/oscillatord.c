@@ -129,13 +129,19 @@ static int init_ptp_clock_time(const char * ptp_clock)
 				/* First get clock time to preserve nanoseconds */
 				ret = clock_gettime(clkid, &ts);
 				if (ret == 0) {
-					ts.tv_sec = gnss_get_lastfix_time(&gnss);
-
-					ret = clock_settime(clkid, &ts);
-					if (ret == 0) {
+					time_t gnss_time = gnss_get_lastfix_time(&gnss);
+					if (ts.tv_sec == gnss_time) {
+						log_info("PTP Clock time already set");
 						clock_set = true;
-						log_debug("PTP Clock Set");
-						sleep(2);
+					} else {
+						ts.tv_sec = gnss_time;
+
+						ret = clock_settime(clkid, &ts);
+						if (ret == 0) {
+							clock_set = true;
+							log_debug("PTP Clock Set");
+							sleep(2);
+						}
 					}
 				} else {
 					log_warn("Could not get PTP clock time");
