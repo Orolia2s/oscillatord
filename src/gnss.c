@@ -116,8 +116,9 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
 }
 
 
-int gnss_init(const struct config *config, struct gnss *gnss)
+struct gnss * gnss_init(const struct config *config, struct gps_device_t *session)
 {
+	struct gnss *gnss;
 	RX_ARGS_t args = RX_ARGS_DEFAULT();
 	args.autobaud = false;
 	args.detect = false;
@@ -125,14 +126,27 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 	const char *gnss_device_tty = config_get(config, "gnss-device-tty");
 	if (gnss_device_tty == NULL) {
 		log_error("device-tty not defined in config %s", config->path);
-		return -1;
+		return NULL;
 	}
-	
+
+	if (session == NULL) {
+		log_error("No gps session provided");
+		return NULL;
+	}
+
+	gnss = (struct gnss *) malloc(sizeof(struct gnss));
+	if (gnss == NULL) {
+		log_error("could not allocate memory for gnss");
+		return NULL;
+	}
+
+	gnss->session = session;
 	gnss->rx = rxInit(gnss_device_tty, &args);
 	if (gnss->rx == NULL || !rxOpen(gnss->rx)) {
 		free(gnss->rx);
 		printf("rx init failed\n");
-		return -1;
+		free(gnss);
+		return NULL;
 	}
 	gnss->stop = false;
 
@@ -146,11 +160,12 @@ int gnss_init(const struct config *config, struct gnss *gnss)
 	if (ret != 0) {
 		rxClose(gnss->rx);
 		free(gnss->rx);
+		free(gnss);
 		error(EXIT_FAILURE, -ret, "gnss_init");
-		return -1;
+		return NULL;
 	}
 
-	return 0;
+	return gnss;
 }
 
 time_t gnss_get_lastfix_time(struct gnss * gnss)

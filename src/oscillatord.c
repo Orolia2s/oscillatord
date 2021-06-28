@@ -39,8 +39,6 @@ static struct gps_context_t context;
  */
 #define LOOP_TIMEOUT 4
 
-__attribute__((cleanup(gnss_cleanup))) struct gnss gnss = {0};
-
 static volatile int loop = true;
 
 /*
@@ -76,7 +74,7 @@ static int apply_phase_offset(int fd_clock, const char *device_name,
 	return ret;
 }
 
-static int init_ptp_clock_time(int fd_clock)
+static int init_ptp_clock_time(int fd_clock, struct gnss *gnss)
 {
 	clockid_t clkid;
 	struct timespec ts;
@@ -91,14 +89,14 @@ static int init_ptp_clock_time(int fd_clock)
 	clkid = FD_TO_CLOCKID(fd_clock);
 
 	while(!clock_valid) {
-		if (gnss_get_valid(&gnss)) {
+		if (gnss_get_valid(gnss)) {
 			/* Set clock time according to gnss data */
 			if (!clock_set) {
 				/* Configure PHC time */
 				/* First get clock time to preserve nanoseconds */
 				ret = clock_gettime(clkid, &ts);
 				if (ret == 0) {
-					time_t gnss_time = gnss_get_lastfix_time(&gnss);
+					time_t gnss_time = gnss_get_lastfix_time(gnss);
 					if (ts.tv_sec == gnss_time) {
 						log_info("PTP Clock time already set");
 						clock_set = true;
@@ -120,7 +118,7 @@ static int init_ptp_clock_time(int fd_clock)
 			} else {
 				ret = clock_gettime(clkid, &ts);
 				if (ret == 0) {
-					if (ts.tv_sec == gnss_get_lastfix_time(&gnss)) {
+					if (ts.tv_sec == gnss_get_lastfix_time(gnss)) {
 						log_info("PHC time correctly set");
 						clock_valid = true;
 					} else {
@@ -146,6 +144,8 @@ int main(int argc, char *argv[])
 	struct config config;
 	struct gps_device_t session;
 	struct phasemeter *phasemeter;
+	struct oscillator_ctrl ctrl_values;
+	struct gnss *gnss;
 	const char *ptp_clock;
 	const char *path;
 	const char *libod_conf_path;
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
 	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	__attribute__((cleanup(oscillator_factory_destroy)))
-			struct oscillator *oscillator = NULL;
+		struct oscillator *oscillator = NULL;
 
 	if (argc != 2)
 		error(EXIT_FAILURE, 0, "usage: %s config_file_path", argv[0]);
@@ -175,17 +175,13 @@ int main(int argc, char *argv[])
 		error(EXIT_FAILURE, -ret, "config_init(%s)", path);
 		return -EINVAL;
 	}
+
 	/* Set log level according to configuration */
 	log_level = config_get_unsigned_number(&config, "debug");
 	log_set_level(log_level >= 0 ? log_level : 0);
 
 	value = config_get(&config, "turns");
 	turns = (value != NULL) ? atoll(value) : 0;
-
-	oscillator = oscillator_factory_new(&config);
-	if (oscillator == NULL)
-		error(EXIT_FAILURE, errno, "oscillator_factory_new");
-	log_info("oscillator model %s", oscillator->class->name);
 
 	ptp_clock = config_get(&config, "ptp-clock");
 	if (ptp_clock == NULL) {
@@ -198,7 +194,17 @@ int main(int argc, char *argv[])
 	/* Get path to disciplining shared library */
 	libod_conf_path = config_get_default(&config, "libod-config-path",
 		path);
-	
+
+	opposite_phase_error = config_get_bool_default(&config,
+			"opposite-phase-error", false);
+	sign = opposite_phase_error ? -1 : 1;
+
+
+	oscillator = oscillator_factory_new(&config);
+	if (oscillator == NULL)
+		error(EXIT_FAILURE, errno, "oscillator_factory_new");
+	log_info("oscillator model %s", oscillator->class->name);
+
 	/* Create shared library oscillator object */
 	od = od_new_from_config(libod_conf_path, err_msg);
 	if (od == NULL) {
@@ -206,16 +212,14 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	opposite_phase_error = config_get_bool_default(&config,
-			"opposite-phase-error", false);
-	sign = opposite_phase_error ? -1 : 1;
-
+	/* Open PTP clock file descriptor */
 	fd_clock = open(ptp_clock, O_RDWR);
 	if (fd_clock == -1) {
 		error(EXIT_FAILURE, errno, "open(%s)", ptp_clock);
 		return -EINVAL;
 	}
 
+	/* Init GPS session and context */
 	session.context = &context;
 	(void)memset(&context, '\0', sizeof(struct gps_context_t));
 	context.leap_notify = LEAP_NOWARNING;
@@ -224,8 +228,7 @@ int main(int argc, char *argv[])
 	pps_thread->context = &session;
 
 	/* Start GNSS Thread */
-	gnss.session = &session;
-	ret = gnss_init(&config, &gnss);
+	gnss = gnss_init(&config, &session);
 	if (ret < 0) {
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 		return -EINVAL;
@@ -250,13 +253,13 @@ int main(int argc, char *argv[])
 		ptp_clock,
 		-phase_error * sign
 	);
-
 	if (ret < 0)
 		error(EXIT_FAILURE, -ret, "apply_phase_offset");
-
 	sleep(SETTLING_TIME);
+
+	/* Init PTP clock time */
 	log_info("Initialize time of ptp clock %s", ptp_clock);
-	ret = init_ptp_clock_time(fd_clock);
+	ret = init_ptp_clock_time(fd_clock, gnss);
 	if (ret != 0) {
 		log_error("Could not set ptp clock time");
 		return -EINVAL;
@@ -265,7 +268,7 @@ int main(int argc, char *argv[])
 	/* Start NTP SHM session */
 	(void)ntpshm_context_init(&context);
 
-
+	/* Start PPS Thread that triggers writes in NTP SHM */
 	pps_thread->devicename = config_get(&config, "pps-device");
 	if (pps_thread->devicename != NULL) {
 		pps_thread->log_hook = ppsthread_log;
@@ -299,18 +302,20 @@ int main(int argc, char *argv[])
 		/* Get Oscillator control values needed
 		 * for the disciplining algorithm
 		 */
-		struct oscillator_ctrl ctrl_values;
-		oscillator_get_ctrl(oscillator, &ctrl_values);
+		ret = oscillator_get_ctrl(oscillator, &ctrl_values);
+		if (ret != 0) {
+			log_warn("Could not get control values of oscillator");
+			continue;
+		}
 
 		input = (struct od_input) {
 			.phase_error = (struct timespec) {
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			},
-			.valid = gnss_get_valid(&gnss),
+			.valid = gnss_get_valid(gnss),
 			.lock = ctrl_values.lock,
 			.temperature = temperature,
-			// .qErr = gnss.data.qErr,
 			.fine_setpoint = ctrl_values.fine_ctrl,
 			.coarse_setpoint = ctrl_values.coarse_ctrl,
 		};
@@ -344,14 +349,12 @@ int main(int argc, char *argv[])
 		} else if (output.action == CALIBRATE) {
 			log_info("Calibration requested");
 			struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
-			if (calib_params == NULL) {
+			if (calib_params == NULL)
 				error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
-			}
 
 			struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, calib_params, sign);
 			if (results == NULL)
 				error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
-			}
 
 			od_calibrate(od, calib_params, results);
 		} else {
@@ -365,7 +368,7 @@ int main(int argc, char *argv[])
 
 	ntpshm_link_deactivate(&session);
 
-	gnss_stop(&gnss);
+	gnss_stop(gnss);
 	phasemeter_stop(phasemeter);
 
 	od_destroy(&od);

@@ -119,7 +119,7 @@ struct gnss {
 	bool stop;
 };
 
-int gnss_init(const struct config *config, struct gnss *gnss);
+struct gnss* gnss_init(const struct config *config, struct gps_device_t *session);
 time_t gnss_get_lastfix_time(struct gnss * gnss);
 bool gnss_get_valid(struct gnss *gnss);
 void gnss_stop(struct gnss *gnss);
