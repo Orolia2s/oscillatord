@@ -1,3 +1,4 @@
+#include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/timex.h>
@@ -138,6 +139,15 @@ static int init_ptp_clock_time(int fd_clock, struct gnss *gnss)
 	return 0;
 }
 
+static int enable_pps(int fd, bool enable)
+{
+	if (ioctl(fd, PTP_ENABLE_PPS, enable ? 1 : 0) < 0) {
+		log_error("PTP_ENABLE_PPS failed");
+		return -1;
+	}
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct config config;
@@ -270,6 +280,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Start NTP SHM session */
+	enable_pps(fd_clock, true);
 	(void)ntpshm_context_init(&context);
 
 	/* Start PPS Thread that triggers writes in NTP SHM */
@@ -389,6 +400,7 @@ int main(int argc, char *argv[])
 		sleep(SETTLING_TIME);
 	} while (loop && turns != 1);
 
+	enable_pps(fd_clock, false);
 	ntpshm_link_deactivate(&session);
 
 	gnss_stop(gnss);
