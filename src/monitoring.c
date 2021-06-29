@@ -205,7 +205,7 @@ static void *monitoring_thread(void * p_data)
 
 	while (!stop)
 	{
-		log_debug("Listening on socket...");
+		log_trace("Listening on socket...");
 		ret = listen(monitoring->sockfd, 1);
 		if (ret == -1) {
 			log_error("Error listening to socket");
