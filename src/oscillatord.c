@@ -161,11 +161,9 @@ int main(int argc, char *argv[])
 	const char *ptp_clock;
 	const char *path;
 	const char *libod_conf_path;
-	const char *value;
 	char err_msg[OD_ERR_MSG_LEN];
 	uint16_t temperature;
 	int32_t phase_error;
-	unsigned int turns;
 	int ret;
 	int sign;
 	int log_level;
@@ -194,9 +192,6 @@ int main(int argc, char *argv[])
 	/* Set log level according to configuration */
 	log_level = config_get_unsigned_number(&config, "debug");
 	log_set_level(log_level >= 0 ? log_level : 0);
-
-	value = config_get(&config, "turns");
-	turns = (value != NULL) ? atoll(value) : 0;
 
 	ptp_clock = config_get(&config, "ptp-clock");
 	if (ptp_clock == NULL) {
@@ -305,8 +300,6 @@ int main(int argc, char *argv[])
 
 	/* Main Loop */
 	do {
-		turns--;
-
 		// Get Phase error
 		phase_error = get_phase_error(phasemeter);
 
@@ -399,7 +392,7 @@ int main(int argc, char *argv[])
 		}
 
 		sleep(SETTLING_TIME);
-	} while (loop && turns != 1);
+	} while (loop);
 
 	enable_pps(fd_clock, false);
 	ntpshm_link_deactivate(&session);
