@@ -107,6 +107,8 @@ struct gps_device_t {
     int fixcnt;                         /* count of fixes from this device */
 	struct timespec last_fixtime;
 	int fix;
+	int8_t antenna_status;
+	int8_t antenna_power;
 	bool valid;
 };
 

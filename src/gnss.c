@@ -1,37 +1,47 @@
 #include <errno.h>
-#include <unistd.h>
-#include <time.h>
 #include <error.h>
-#include <stdlib.h>
 #include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
+#include <unistd.h>
 
-#include "log.h"
+#include <ubloxcfg/ff_epoch.h>
+#include <ubloxcfg/ff_parser.h>
+#include <ubloxcfg/ff_rx.h>
+#include <ubloxcfg/ff_stuff.h>
+#include <ubloxcfg/ff_ubx.h>
+#include <ubloxcfg/ubloxcfg.h>
+
 #include "config.h"
 #include "gnss.h"
-
-#include <ubloxcfg/ubloxcfg.h>
-#include <ubloxcfg/ff_rx.h>
-#include <ubloxcfg/ff_parser.h>
-#include <ubloxcfg/ff_epoch.h>
-#include <ubloxcfg/ff_stuff.h>
-
-#define GNSS_TIMEOUT_MS 1500
+#include "log.h"
 #include "f9_defvalsets.h"
 
-#define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
+#define GNSS_TIMEOUT_MS 1500
 #define GNSS_RECONFIGURE_MAX_TRY 5
 
-static void * gnss_thread(void * p_data);
+#define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
-static bool gnss_data_valid(EPOCH_t *epoch)
-{
-	if (epoch->haveFix) {
-		if (epoch->fix >= EPOCH_FIX_TIME)
-			return true;
-	}
-	return false;
-}
+enum AntennaStatus {
+	ANT_STATUS_INIT,
+	ANT_STATUS_DONT_KNOW,
+	ANT_STATUS_OK,
+	ANT_STATUS_SHORT,
+	ANT_STATUS_OPEN,
+	ANT_STATUS_UNDEFINED
+};
+
+enum AntennaPower {
+	ANT_POWER_OFF,
+	ANT_POWER_ON,
+	ANT_POWER_DONTKNOW,
+	ANT_POWER_IDLE,
+	ANT_POWER_UNDEFINED
+};
+
+static void * gnss_thread(void * p_data);
 
 static int gnss_get_fix(int fix)
 {
@@ -100,6 +110,49 @@ static int gnss_get_leap_notify(EPOCH_t *epoch)
 	return LEAP_NOWARNING;
 }
 
+static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *msg)
+{
+	if (msg->size > (UBX_FRAME_SIZE + 4)) {
+		if (msg->size >= (int) UBX_MON_RF_V0_MIN_SIZE) {
+			int offs = UBX_HEAD_SIZE;
+			UBX_MON_RF_V0_GROUP0_t gr0;
+			memcpy(&gr0, &msg->data[offs], sizeof(gr0));
+			offs += sizeof(gr0);
+
+			// Reset antenna status and power
+			session->antenna_status = 0x5; // Undefined value according to spec
+			session->antenna_power = 0x5; // Undefined value according to spec
+
+			UBX_MON_RF_V0_GROUP1_t gr1;
+			while (offs <= (msg->size - 2 - (int)sizeof(gr1)))
+			{
+				memcpy(&gr1, &msg->data[offs], sizeof(gr1));
+				// If we have multiple blocks and one is 0X2 (eq OK) and the next is not,
+				// Take worst of values
+				if (session->antenna_status == 0x5 || (session->antenna_status == 0x2 && gr1.antStatus != 0x2))
+					session->antenna_status = gr1.antStatus;
+				// Same behaviour but 0x2 means DONT_KNOW
+				if (session->antenna_power == 0x5 || (session->antenna_power == 0x2 && gr1.antPower != 0x2))
+					session->antenna_power = gr1.antPower;
+				offs += sizeof(gr1);
+			}
+		}
+	}
+}
+
+static void log_gnss_data(struct gps_device_t *session)
+{
+	log_debug("GNSS data: fix %d, antenna status: %d, valid %d,"
+		" time %lld, leapm_seconds %d, leap_notify %d",
+		session->fix,
+		session->antenna_status,
+		session->valid,
+		session->last_fixtime.tv_sec,
+		session->context->leap_seconds,
+		session->context->leap_notify
+	);
+}
+
 // Copied from GPSD
 /* Latch the fact that we've saved a fix.
  * And add in the device fudge */
@@ -149,6 +202,9 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	}
 
 	gnss->session = session;
+	// Init Antenna Status and Power to undefined values according to UBX Protocol
+	gnss->session->antenna_status = ANT_STATUS_UNDEFINED;
+	gnss->session->antenna_power = ANT_POWER_UNDEFINED;
 	gnss->rx = rxInit(gnss_device_tty, &args);
 	if (gnss->rx == NULL || !rxOpen(gnss->rx)) {
 		free(gnss->rx);
@@ -232,6 +288,7 @@ static void * gnss_thread(void * p_data)
 	EPOCH_t coll;
 	EPOCH_t epoch;
 	struct gnss *gnss = (struct gnss*) p_data;
+	struct gps_device_t * session;
 	bool stop;
 
 	epochInit(&coll);
@@ -245,32 +302,38 @@ static void * gnss_thread(void * p_data)
 		PARSER_MSG_t *msg = rxGetNextMessageTimeout(gnss->rx, GNSS_TIMEOUT_MS);
 		if (msg != NULL)
 		{
+			pthread_mutex_lock(&gnss->mutex_data);
+			session = gnss->session;
+			// Epoch collect is used to fetch navigation data such as time and leap seconds
 			if(epochCollect(&coll, msg, &epoch))
 			{
-				pthread_mutex_lock(&gnss->mutex_data);
 				if(epoch.haveFix) {
-					gnss->session->last_fixtime.tv_sec = gnss_get_time(&epoch);
-					gnss->session->valid = gnss_data_valid(&epoch);
-					gnss->session->fix = gnss_get_fix(epoch.fix);
-					gnss->session->context->leap_seconds = gnss_get_leap_seconds(&epoch);
-					gnss->session->context->leap_notify = gnss_get_leap_notify(&epoch);
-					if (gnss->session->fix > MODE_NO_FIX)
-						gnss->session->fixcnt++;
+					session->last_fixtime.tv_sec = gnss_get_time(&epoch);
+					session->fix = gnss_get_fix(epoch.fix);
+					session->context->leap_seconds = gnss_get_leap_seconds(&epoch);
+					session->context->leap_notify = gnss_get_leap_notify(&epoch);
+					if (session->fix > MODE_NO_FIX)
+						session->fixcnt++;
 					else
-						gnss->session->fixcnt = 0;
+						session->fixcnt = 0;
 
-					log_debug("GNSS data: Fix %d, valid %d, time %lld, leapm_seconds %d, leap_notify %d",
-						gnss->session->fix,
-						gnss->session->valid,
-						gnss->session->last_fixtime.tv_sec,
-						gnss->session->context->leap_seconds,
-						gnss->session->context->leap_notify);
 
 					struct timedelta_t td;
-					ntp_latch(gnss->session, &td);
+					ntp_latch(session, &td);
+					log_gnss_data(session);
 				}
-				pthread_mutex_unlock(&gnss->mutex_data);
+
+			// Analyze msg to parse UBX-MON-RF to get antenna status
+			} else {
+				uint8_t clsId = UBX_CLSID(msg->data);
+				uint8_t msgId = UBX_MSGID(msg->data);
+				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
+					gnss_get_antenna_data(session, msg);
+					session->valid = session->fix >= MODE_NO_FIX && session->antenna_status == ANT_STATUS_OK;
+					log_gnss_data(session);
+				}
 			}
+			pthread_mutex_unlock(&gnss->mutex_data);
 		} else {
 			log_warn("UART GNSS Timeout !");
 			usleep(5 * 1000);
