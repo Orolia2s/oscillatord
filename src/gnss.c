@@ -20,6 +20,7 @@
 #include "f9_defvalsets.h"
 
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
+#define GNSS_RECONFIGURE_MAX_TRY 5
 
 static void * gnss_thread(void * p_data);
 
@@ -160,13 +161,25 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 					"gnss-receiver-reconfigure",
 					false);
 	if (do_reconfiguration) {
+		bool receiver_reconfigured = false;
+		int tries = 0;
 		log_info("configuring receiver with ART parameters\n");
-		for (i = 0; i < ARRAY_SIZE(ubxCfgValsetMsgs); i++)
-		{
-			ret = rxSendUbxCfg(gnss->rx, ubxCfgValsetMsgs[i].data,
-					   ubxCfgValsetMsgs[i].size, 2500);
-			if (!ret) {
-				log_error("sending default config failed\n");
+		while (!receiver_reconfigured) {
+			for (i = 0; i < ARRAY_SIZE(ubxCfgValsetMsgs); i++)
+			{
+				ret = rxSendUbxCfg(gnss->rx, ubxCfgValsetMsgs[i].data,
+								ubxCfgValsetMsgs[i].size, 2500);
+				if (!ret) {
+				} else if (i == ARRAY_SIZE(ubxCfgValsetMsgs) - 1) {
+					log_info("Successfully reconfigured gnss receiver");
+					receiver_reconfigured = true;
+				}
+			}
+
+			if (tries < GNSS_RECONFIGURE_MAX_TRY) {
+				tries++;
+			} else {
+				log_error("Could not reconfigure GNSS receiver from default config\n");
 				free(gnss->rx);
 				free(gnss);
 				return NULL;
