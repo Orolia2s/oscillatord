@@ -4,7 +4,8 @@
 
 * cmake
 * libgps26/28
-* [liboscillatordisciplining](git@bitbucket.org:spectracom/disciplining-minipod.git)
+* [disciplining-minipod](https://github.com/Orolia2s/disciplining-minipod)
+* [ubloxcfg](https://github.com/Orolia2s/ubloxcfgs) : use commit **2c37136c15d0f75cfc0db52433b8d945b403eec6**
 
 ## Installation
 
@@ -18,27 +19,30 @@ sudo make install
 ```
 
 - **make install** will install the executable as well as a service to run oscillatord
-- for the service to work, one must copy the [oscillatord.conf](./oscillatord.conf) file in */etc/*
+- for the service to work, one must copy the [oscillatord_default.conf](./example_configurations/oscillatord_default.conf) file and rename it in */etc/oscillatord.conf*
 
 For test purposes, it is easier to compile the executable and run it from a terminal:
 in project's root directory
 ```
 make -C build
-sudo ./build/src/oscillatord oscillatord.conf
+sudo ./build/src/oscillatord example_configurations/oscillatord_default.conf
 ```
 
 
 ## Overview
 
-The **oscillatord** daemon, takes input from a 1pps phase error device,
+The **oscillatord** daemon, takes input from a PHC clock,
 reporting once per second, the phase error between an oscillator and a reference
 GNSS receiver.
-For an example of such a device, please see the [dmnd_1pps][dmnd_1pps] kernel
+For an example of such a device, please see the **ptp_ocp** kernel
 driver.
 
 The phase error read is then used as an input to the
-[liboscillator-disciplining] library which will compute a setpoint, used by
-**oscillatord** to control an oscillator.
+[disciplining-minipod](https://github.com/Orolia2s/disciplining-minipod) library which will compute a setpoint, used by
+**oscillatord** to control an oscillator and discipline it to the 1PPS from a GNSS receiver.
+**Oscillatord** also sets PHC'stime at start up, using Output from a GNSS receiver.
+
+To communicate with GNSS receiver's serial it uses [ubloxcfg](https://github.com/Orolia2s/ubloxcfg)
 
 ## Operation
 
@@ -53,21 +57,9 @@ Super user rights may be required to access the devices.
 
 The daemon can be terminated with a **SIGINT** (Ctrl+C) or a **SIGTERM**.
 
-**liboscillator-disciplining** allows to export the data to a CSV file by
-exporting the environment variable **OD_CSV**.
-It's value must contain a valid path to where the CSV data must be saved.
-
 ## Oscillators supported
 
-* **rakon**
-* **morion**
-* **dummy** is a dummy oscillator, faking the control commands sent to the
-oscillator, it is intended for oscillatord debugging purpose.
-Note that it uses the 1pps and tsync devices anyway.
-* **sim** is a simulated oscillator, it allows to test the algorithm in a
-reproductible way and using the **libosc_sim_stubs.so** library provided, it
-allows to run oscillatord without using any real hardware and with accelerated
-time.
+* **mRO50**
 
 ## Configuration
 
@@ -82,81 +74,21 @@ considered as part of, respectively, the **key** or the **value**.
 
 ### Common configuration keys
 
-* **oscillator**: name of the oscillator to use, accepted: rakon, sim or dummy.
-**Required**.
+* **oscillator**: name of the oscillator to use, accepted: mRO50 only **Required**.
+* **ptp-clock**: path to the PHC used to get the phase error and set time **Required**.
+* **mro50-device**: Path the the mro50 device used to control the oscillator
+**Required**
 * **pps-device**: path to the 1PPS phase error device.
 **Required**.
 * **gnss-device-tty**: path to the device tty (e.g /dev/ttyS2)
 **Required**.
-* **gpsd-addr**: address of gpsd daemon
-**Required**
-* **gpsd-port**: port of gpsd daemon
-**Required**
 * **opposite-phase-error**: if **true**, the opposite of the phase error
 reported by the 1PPS phase error device, will be fed into
-**liboscillator-discpining**.
+**disciplining-minipod**.
 Any other value means **false**.
-**Optional**, defaults to **false**.
-* **libod-config-path**: Path to the liboscillator-disciplining configuration
-file.
-If not set, then the current config file will be used by
-liboscillator-disciplining, which will only use its own config keys and ignore
-those of escillatord.
-Please refer to the liboscillatord-documentation for information on the valid
-config keys.
-**Optional**, unset by default.
-* **enable-debug**: enables the **debug** level of logging.
-**Optional**, defaults to **false**.
+* **debug**: set debug level.
 
-### Rakon-specific configuration keys
-
-* **rakon-i2c-num**: index of the i2c device to use.
-**Required**.
-* **rakon-i2c-addr**: i2c address used by the rakon to communicate.
-**Required**.
-
-### Morion-specific configuration keys
-
-We use a spi bus to control the DAC of the morion
-The device path is /dev/spidev{**morion-spi-num**}.{**morion-spi-sub**}
-
-* **morion-spi-num**
-**Required**.
-* **morion-spi-sub**
-**Required**.
-* **morion-spi-speed**: speed of the spi bus
-**Required**.
-
-### Sim-specific configuration keys
-
-* **simulation-period**: Duration of the simulated seconds in ns.
-**Optional**, defaults to **1000000000** ns (1s).
-* **turns**: Number of turns after which **oscillatord** must stop, 0 meaning
-that **oscillatord** must run forever.
-**Optional**, defaults to **0**.
-
-**Notes**:
- * the **tsync-device** and **device-index** values, albeit required,
-will be ignored when **libosc_sim_stubs.so** is LD\_PRELOAD-ed.
- * **pps-device** is not required, since its value will be provided internally
- by the simulator.
-
-
-### Dummy-specific configuration keys
-
-This oscillator has no specific configuration key.
-
-## libosc_sim_stubs
-
-This library is provided for testing oscillatord whithout using a real hardware.
-By LD\_PRELOAD-ing it, the required tsync symbols will be overriden to report an
-always valid PPS signal.
-
-**clock_gettime** is also overriden to simulate a monotonic clock always growing
-of 1 second at each call, independently of the frequency at which it is called,
-in order to be able to accelerate or slow down the time.
-
-It is intended for use with the **sim** oscillator.
+It also contains configuration keys for disciplining-minipod program (check [default config](./example_configurationns/oscillatord_default.conf) for description of parameters)
 
 ## The oscillator simulator
 
@@ -193,8 +125,3 @@ In order to check the code is conformant, please execute:
     for f in $(find . -name '*.c' -o -name '*.h')
         do ../linux/scripts/checkpatch.pl $f
     done
-
-
-[dmnd_1pps]: https://bitbucket.org/spectracom/dmnd-1pps-phase-module/src/master/
-[liboscillator-disciplining]: https://bitbucket.org/spectracom/disciplining-lqr/src/master/
-
