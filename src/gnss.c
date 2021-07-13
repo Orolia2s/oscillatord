@@ -181,8 +181,8 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	bool do_reconfiguration;
 
 	RX_ARGS_t args = RX_ARGS_DEFAULT();
-	args.autobaud = false;
-	args.detect = false;
+	args.autobaud = true;
+	args.detect = true;
 
 	const char *gnss_device_tty = config_get(config, "gnss-device-tty");
 	if (gnss_device_tty == NULL) {
