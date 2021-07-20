@@ -4,7 +4,6 @@
 #include <inttypes.h>
 
 #define NS_IN_SECOND 1000000000l
-#define SETTLING_TIME 5
 
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \
