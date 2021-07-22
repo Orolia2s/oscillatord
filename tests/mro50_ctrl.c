@@ -4,7 +4,6 @@
  */
 #include <ctype.h>
 #include <getopt.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -14,6 +13,8 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include "utils.h"
 
 typedef u_int32_t u32;
 
@@ -114,22 +115,6 @@ static int check_type(char * type)
         printf("Unknown type %s\n", type);
         return -1;
     }
-}
-
-
-static double compute_temp(uint32_t reg)
-{
-    double x = reg / 4095;
-    if (x == 1.0) {
-        printf("Cannot compute temperature\n");
-        // Return absurd value so that user know it is not possible
-        return -3000.0;
-    }
-    double resistance = 47000 * x / (1 - x);
-    double temperature = (4100 * 298.15
-        / (298.15 * log(pow(10, -5) * resistance) + 4100))
-        - 273.14;
-    return temperature;
 }
 
 

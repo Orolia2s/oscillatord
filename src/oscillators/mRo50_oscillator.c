@@ -48,8 +48,6 @@
 #define __packed __attribute__((__packed__))
 #endif
 
-#define DUMMY_TEMPERATURE_VALUE -3000.0
-
 typedef u_int32_t uint32_t;
 typedef u_int32_t u32;
 
@@ -60,21 +58,6 @@ struct mRo50_oscillator {
 
 static unsigned int mRo50_oscillator_index;
 
-static double compute_temp(uint32_t reg)
-{
-	double x = (double) reg / 4095.0;
-	if (x == 1.0) {
-		log_warn("Cannot compute temperature\n");
-		// Return absurd value so that user know it is not possible
-		return DUMMY_TEMPERATURE_VALUE;
-	}
-	double resistance = 47000.0 * x / (1.0 - x);
-	double temperature = (
-		4100.0 * 298.15
-		/ (298.15 * log(pow(10, -5) * resistance) + 4100.0)
-		) - 273.14;
-	return temperature;
-}
 
 static void mRo50_oscillator_destroy(struct oscillator **oscillator)
 {

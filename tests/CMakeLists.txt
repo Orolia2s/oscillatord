@@ -9,8 +9,11 @@ file(GLOB MRO50_CTRL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/mro50_ctrl.c)
 add_executable(oscillator_sim ${SIM_SOURCES} ${COMMON_SOURCES})
 add_executable(monitoring ${MONITORING_SOURCES} ${COMMON_SOURCES})
 add_executable(mro50_ctrl ${MRO50_CTRL_SOURCES} ${COMMON_SOURCES})
+target_link_libraries(oscillator_sim PRIVATE
+	m)
 target_link_libraries(monitoring PRIVATE
-	json-c)
+	json-c
+	m)
 target_link_libraries(mro50_ctrl PRIVATE
 	m)
 
