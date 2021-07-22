@@ -4,6 +4,7 @@
  */
 #include <ctype.h>
 #include <getopt.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -47,7 +48,8 @@ enum {
 
 enum {
     TYPE_FINE,
-    TYPE_COARSE
+    TYPE_COARSE,
+    TYPE_TEMP
 };
 
 static void print_help(void)
@@ -55,7 +57,7 @@ static void print_help(void)
     printf("usage: mro50_ctrl [-h] -d DEVICE -c COMMAND -t TYPE [WRITE_VALUE]\n");
     printf("- DEVICE: mrO50 device's path\n");
     printf("- COMMAND: 'read' or 'write'\n");
-    printf("- TYPE: 'fine' of 'coarse'\n");
+    printf("- TYPE: 'fine' of 'coarse' or 'temp' (temp is read only)\n");
     printf("- WRITE_VALUE: mandatory if command is write.\n");
     printf("- -h: prints help\n");
     return;
@@ -106,11 +108,28 @@ static int check_type(char * type)
         return TYPE_FINE;
     else if (strcmp(type, "coarse") == 0)
         return TYPE_COARSE;
+    else if (strcmp(type, "temp") == 0)
+        return TYPE_TEMP;
     else {
         printf("Unknown type %s\n", type);
         return -1;
     }
+}
 
+
+static double compute_temp(uint32_t reg)
+{
+    double x = reg / 4095;
+    if (x == 1.0) {
+        printf("Cannot compute temperature\n");
+        // Return absurd value so that user know it is not possible
+        return -3000.0;
+    }
+    double resistance = 47000 * x / (1 - x);
+    double temperature = (4100 * 298.15
+        / (298.15 * log(pow(10, -5) * resistance) + 4100))
+        - 273.14;
+    return temperature;
 }
 
 
@@ -199,11 +218,13 @@ int main(int argc, char ** argv)
         device, command, type);
 
     if (command_int == COMMAND_READ) {
-        uint32_t read_value;
+        uint32_t read_value = 0;
         if (type_int == TYPE_FINE)
             ioctl_command = MRO50_READ_FINE;
         else if (type_int == TYPE_COARSE)
             ioctl_command = MRO50_READ_COARSE;
+        else if (type_int == TYPE_TEMP)
+            ioctl_command = MRO50_READ_TEMP;
         else
             return -1;
 
@@ -212,7 +233,11 @@ int main(int argc, char ** argv)
             printf("Error reading %s value\n", type);
             return -1;
         }
-        printf("%s value read is %d\n", type, read_value);
+        if (type_int == TYPE_TEMP) {
+            double temperature = compute_temp(read_value);
+            printf("Temperature is %f °C", temperature);
+        } else
+            printf("%s value read is %d\n", type, read_value);
     } else if (command_int == COMMAND_WRITE) {
         if (type_int == TYPE_FINE) {
             ioctl_command = MRO50_ADJUST_FINE;
@@ -229,6 +254,8 @@ int main(int argc, char ** argv)
                     printf("value is out of range for coarse control !\n");
                     return -1;
                 }
+        } else if (type_int == TYPE_TEMP) {
+            printf("Cannot write temperature \n");
         }
         else
             return -1;
