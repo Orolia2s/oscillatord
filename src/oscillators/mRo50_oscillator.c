@@ -2,6 +2,7 @@
 #include <string.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <math.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -47,6 +48,8 @@
 #define __packed __attribute__((__packed__))
 #endif
 
+#define DUMMY_TEMPERATURE_VALUE -3000.0
+
 typedef u_int32_t uint32_t;
 typedef u_int32_t u32;
 
@@ -56,6 +59,22 @@ struct mRo50_oscillator {
 };
 
 static unsigned int mRo50_oscillator_index;
+
+static double compute_temp(uint32_t reg)
+{
+	double x = (double) reg / 4095.0;
+	if (x == 1.0) {
+		log_warn("Cannot compute temperature\n");
+		// Return absurd value so that user know it is not possible
+		return DUMMY_TEMPERATURE_VALUE;
+	}
+	double resistance = 47000.0 * x / (1.0 - x);
+	double temperature = (
+		4100.0 * 298.15
+		/ (298.15 * log(pow(10, -5) * resistance) + 4100.0)
+		) - 273.14;
+	return temperature;
+}
 
 static void mRo50_oscillator_destroy(struct oscillator **oscillator)
 {
@@ -144,6 +163,26 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	}
 
 	ctrl->lock = ctrl_reg & 0X2;
+	return 0;
+}
+
+static int mRO50_oscillator_get_temp(struct oscillator *oscillator, uint16_t *temp)
+{
+	struct mRo50_oscillator *mRo50;
+	int ret;
+	uint32_t read_value;
+	double temperature;
+	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
+
+	ret = ioctl(mRo50->osc_fd, MRO50_READ_TEMP, &read_value);
+	if (ret != 0) {
+		log_error("Could not read temperature from mRO50 oscillator, err %d", ret);
+		return -1;
+	}
+	temperature = compute_temp(read_value);
+	if (temperature == DUMMY_TEMPERATURE_VALUE)
+		return -1;
+	*temp = (uint16_t) round(temperature);
 	return 0;
 }
 
@@ -247,7 +286,7 @@ static const struct oscillator_factory mRo50_oscillator_factory = {
 			.name = FACTORY_NAME,
 			.get_ctrl = mRo50_oscillator_get_ctrl,
 			.save = NULL,
-			.get_temp = NULL,
+			.get_temp = mRO50_oscillator_get_temp,
 			.apply_output = mRo50_oscillator_apply_output,
 			.calibrate = mRo50_oscillator_calibrate,
 			.dac_min = MRO50_SETPOINT_MIN,

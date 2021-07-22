@@ -337,13 +337,14 @@ int main(int argc, char *argv[])
 			.temperature = temperature,
 		};
 		log_info("input: phase_error = (%lds, %09ldns),"
-			"valid = %s, lock = %s, fine = %d, coarse = %d",
+			"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %d°C",
 			input.phase_error.tv_sec,
 			input.phase_error.tv_nsec,
 			input.valid ? "true" : "false",
 			input.lock ? "true" : "false",
 			input.fine_setpoint,
-			input.coarse_setpoint);
+			input.coarse_setpoint,
+			input.temperature);
 
 		/* Check for monitoring requests */
 		pthread_mutex_lock(&monitoring->mutex);
