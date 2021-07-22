@@ -97,7 +97,7 @@ static struct oscillator *mRo50_oscillator_new(struct config *config)
 	
 	fd = open(osc_device_name, O_RDWR);
 	if (fd < 0) {
-		log_error("Could not open mRo50 serial\n");
+		log_error("Could not open mRo50 device\n");
 		goto error;
 	}
 	mRo50->osc_fd = fd;
