@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 	const char *path;
 	const char *libod_conf_path;
 	char err_msg[OD_ERR_MSG_LEN];
-	uint16_t temperature;
+	double temperature;
 	int32_t phase_error;
 	int ret;
 	int sign;
@@ -337,7 +337,7 @@ int main(int argc, char *argv[])
 			.temperature = temperature,
 		};
 		log_info("input: phase_error = (%lds, %09ldns),"
-			"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %d°C",
+			"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %.1f°C",
 			input.phase_error.tv_sec,
 			input.phase_error.tv_nsec,
 			input.valid ? "true" : "false",

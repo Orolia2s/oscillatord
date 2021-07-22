@@ -149,7 +149,7 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	return 0;
 }
 
-static int mRO50_oscillator_get_temp(struct oscillator *oscillator, uint16_t *temp)
+static int mRO50_oscillator_get_temp(struct oscillator *oscillator, double *temp)
 {
 	struct mRo50_oscillator *mRo50;
 	int ret;
@@ -165,7 +165,7 @@ static int mRO50_oscillator_get_temp(struct oscillator *oscillator, uint16_t *te
 	temperature = compute_temp(read_value);
 	if (temperature == DUMMY_TEMPERATURE_VALUE)
 		return -1;
-	*temp = (uint16_t) round(temperature);
+	*temp = temperature;
 	return 0;
 }
 
