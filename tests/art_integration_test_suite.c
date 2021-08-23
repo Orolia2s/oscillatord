@@ -308,34 +308,28 @@ static bool test_gnss_serial(char * path)
     return false;
 }
 
-
-int main(int argc, char *argv[])
-{
+static bool test_ocp_directory(char * ocp_path) {
     bool mro50_passed = false;
     bool ptp_passed = false;
     bool gnss_receiver_passed = false;
     bool found_eeprom = false;
-    log_set_level(LOG_DEBUG);
 
-    log_info("ART Program Test Suite");
-    log_info("Checking ART's procfs is exposed on the server");
+    DIR * ocp_dir = opendir(ocp_path);
 
-    DIR * ocp_0 = opendir("/proc/driver/ocp0");
-
-    if (ocp_0 != NULL) {
+    if (ocp_dir != NULL) {
         log_info("Directory /proc/driver/ocp0 exists\n");
     } else {
         log_error("Directory /proc/driver/ocp0 does not exists\n");
-        return -1;
+        return false;
     }
 
-    struct dirent * entry = readdir(ocp_0);
+    struct dirent * entry = readdir(ocp_dir);
     while (entry != NULL) {
         /* I2C TEST: Find EEPROM File */
         if (strncmp(entry->d_name, "i2c", 4) == 0) {
             log_info("I2C device detected");
             char pathname[1024];   /* should alwys be big enough */
-            sprintf( pathname, "%s/%s", "/proc/driver/ocp0", entry->d_name);
+            sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
             found_eeprom = find_file(realpath(pathname, NULL), "eeprom");
             if (found_eeprom) {
                 log_info("\t- Found EEPROM file\n");
@@ -346,7 +340,7 @@ int main(int argc, char *argv[])
         /* MRO50 TEST: Perform R/W operations using ioctls */
         } else if (strncmp(entry->d_name, "mro50", 6) == 0) {
             log_info("mro50 device detected");
-            int mro50 = opensymlink("/proc/driver/ocp0", entry);
+            int mro50 = opensymlink(ocp_path, entry);
             if (mro50 > 0) {
                 mro50_passed = test_mro50_device(mro50);
                 close(mro50);
@@ -357,7 +351,7 @@ int main(int argc, char *argv[])
         /* PTP CLOCK TEST: Set clock time */
         } else if (strncmp(entry->d_name, "ptp", 4) == 0) {
             log_info("ptp clock device detected");
-            int ptp_clock = opensymlink("/proc/driver/ocp0", entry);
+            int ptp_clock = opensymlink(ocp_path, entry);
             if (ptp_clock > 0) {
                 ptp_passed = test_ptp_device(ptp_clock);
                 close(ptp_passed);
@@ -369,11 +363,11 @@ int main(int argc, char *argv[])
         } else if (strncmp(entry->d_name, "ttyGPS", 7) == 0) {
             log_info("ttyGPS detected");
             char pathname[1024];   /* should alwys be big enough */
-            sprintf( pathname, "%s/%s", "/proc/driver/ocp0", entry->d_name);
+            sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
             gnss_receiver_passed = test_gnss_serial(realpath(pathname, NULL));
         }
 
-        entry = readdir(ocp_0);
+        entry = readdir(ocp_dir);
     }
 
     if (!found_eeprom) {
@@ -381,10 +375,46 @@ int main(int argc, char *argv[])
         log_warn("The card may work without eeprom storage,"\
         "but configuration will not be stored on the device");
     }
+
     if (!(mro50_passed && ptp_passed && gnss_receiver_passed)) {
         log_error("At least one test failed");
-        return -1;
+        return false;
     }
     log_info("All tests passed");
+    return true;
+}
+
+
+int main(int argc, char *argv[])
+{
+    log_set_level(LOG_DEBUG);
+
+    log_info("ART Program Test Suite");
+    log_info("Checking if there are ART's procfs on the server");
+
+    DIR * driver_fs = opendir("/proc/driver");
+    if (driver_fs == NULL) {
+        log_error("Cannot access /proc/driver");
+        return -1;
+    }
+
+    struct dirent * entry;
+    while ((entry = readdir(driver_fs)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        if (!strncmp(entry->d_name, "ocp", 3)) {
+            char ocp_path[1024];
+            snprintf(ocp_path, sizeof(ocp_path), "%s/%s", "/proc/driver", entry->d_name);
+            log_info("Found directory %s", ocp_path);
+
+            if(test_ocp_directory(ocp_path))
+                log_info("ART Card in %s passed all tests", ocp_path);
+            else
+                log_error("ART Card in %S did not pass all tests", ocp_path);
+        }
+    }
+    closedir(driver_fs);
+
     return 0;
 }
