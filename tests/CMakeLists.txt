@@ -7,10 +7,12 @@ file(GLOB COMMON_SOURCES ${PROJECT_SOURCE_DIR}/common/*.[ch])
 file(GLOB MONITORING_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/monitoring_client.c)
 file(GLOB MRO50_CTRL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/mro50_ctrl.c)
 file(GLOB ART_INTEGRATION_TEST_SUITE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/art_integration_test_suite.c)
+file(GLOB EXTTS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts_test.c)
 add_executable(oscillator_sim ${SIM_SOURCES} ${COMMON_SOURCES})
 add_executable(monitoring ${MONITORING_SOURCES} ${COMMON_SOURCES})
 add_executable(mro50_ctrl ${MRO50_CTRL_SOURCES} ${COMMON_SOURCES})
 add_executable(art_integration_test_suite ${ART_INTEGRATION_TEST_SUITE_SOURCES} ${COMMON_SOURCES})
+add_executable(extts_test ${EXTTS_TEST_SOURCES} ${COMMON_SOURCES})
 target_link_libraries(oscillator_sim PRIVATE
 	m)
 target_link_libraries(monitoring PRIVATE
@@ -21,6 +23,8 @@ target_link_libraries(mro50_ctrl PRIVATE
 target_link_libraries(art_integration_test_suite PRIVATE
 	m
 	${ubloxcfg_LIBRARIES})
+	target_link_libraries(extts_test PRIVATE
+	m)
 
 install(TARGETS oscillator_sim RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(TARGETS monitoring RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
