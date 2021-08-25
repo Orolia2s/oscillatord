@@ -68,10 +68,11 @@ static int apply_phase_offset(int fd_clock, const char *device_name,
 		.offset = phase_error
 	};
 
+	log_info("Calling clock adjtime");
+	log_info("%s: applying phase offset correction of %"PRIi32"ns",
+			device_name, phase_error);
 	ret = clock_adjtime(clkid, &timex);
 
-	log_info("%s: applied a phase offset correction of %"PRIi32"ns",
-			device_name, phase_error);
 
 	return ret;
 }
@@ -164,6 +165,7 @@ int main(int argc, char *argv[])
 	char err_msg[OD_ERR_MSG_LEN];
 	double temperature;
 	int32_t phase_error;
+	int phasemeter_status;
 	int ret;
 	int sign;
 	int log_level;
@@ -255,7 +257,10 @@ int main(int argc, char *argv[])
 
 
 	/* Apply initial phase jump before setting PTP clock time */
-	phase_error = get_phase_error(phasemeter);
+	do {
+		phasemeter_status = get_phase_error(phasemeter, &phase_error);
+		log_debug("Phasemeter status is %d", phasemeter_status);
+	} while (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS);
 	log_debug("Initial phase error to apply is %d", phase_error);
 	log_info("Applying initial phase jump before setting PTP clock time");
 	ret = apply_phase_offset(
@@ -300,12 +305,17 @@ int main(int argc, char *argv[])
 
 	/* Main Loop */
 	do {
-		// Get Phase error
-		phase_error = get_phase_error(phasemeter);
+		/* Get Phase error and status*/
+		phasemeter_status = get_phase_error(phasemeter, &phase_error);
 
 		if (ignore_next_irq) {
 			log_debug("ignoring 1 input due to phase jump");
 			ignore_next_irq = false;
+			continue;
+		}
+
+		/* For now continue if we do not have a valid phase error */
+		if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS) {
 			continue;
 		}
 

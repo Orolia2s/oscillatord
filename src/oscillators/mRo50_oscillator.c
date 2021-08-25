@@ -251,7 +251,15 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 
 		log_info("Starting phase error measures %d/%d", i+1, results->length);
 		for (int j = 0; j < results->nb_calibration; j++) {
-			phase_error = get_phase_error(phasemeter);
+			int phasemeter_status = get_phase_error(phasemeter, &phase_error);
+			if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS) {
+				log_error("Could not get phase error during calibration, aborting");
+				free(results->measures);
+				results->measures = NULL;
+				free(results);
+				results = NULL;
+				return NULL;
+			}
 			
 			*(results->measures + i * results->nb_calibration + j) = (struct timespec) {
 				.tv_sec = phase_sign * phase_error / NS_IN_SECOND,
