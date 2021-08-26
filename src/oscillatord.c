@@ -176,7 +176,8 @@ int main(int argc, char *argv[])
 	__attribute__((cleanup(oscillator_factory_destroy)))
 		struct oscillator *oscillator = NULL;
 
-
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
 
 	if (argc != 2)
 		error(EXIT_FAILURE, 0, "usage: %s config_file_path", argv[0]);
@@ -300,8 +301,6 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	signal(SIGINT, signal_handler);
-	signal(SIGTERM, signal_handler);
 
 	/* Main Loop */
 	do {
