@@ -330,7 +330,6 @@ static void * gnss_thread(void * p_data)
 				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
 					gnss_get_antenna_data(session, msg);
 					session->valid = session->fix > MODE_NO_FIX && (session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_OPEN);
-					log_gnss_data(session);
 				}
 			}
 			pthread_mutex_unlock(&gnss->mutex_data);
