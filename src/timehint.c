@@ -244,7 +244,7 @@ int ntpshm_put(struct gps_device_t *session, volatile struct shmTime *shmseg,
 
     ntp_write(shmseg, td, precision, session->context->leap_notify);
 
-    log_debug("NTP: ntpshm_put(%d) %s @ %s",
+    log_trace("NTP: ntpshm_put(%d) %s @ %s",
              precision,
              timespec_str(&td->real, real_str, sizeof(real_str)),
              timespec_str(&td->clock, clock_str, sizeof(clock_str)));
