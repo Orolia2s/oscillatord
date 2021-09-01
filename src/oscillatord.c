@@ -260,7 +260,6 @@ int main(int argc, char *argv[])
 	/* Apply initial phase jump before setting PTP clock time */
 	do {
 		phasemeter_status = get_phase_error(phasemeter, &phase_error);
-		log_debug("Phasemeter status is %d", phasemeter_status);
 	} while (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS);
 	log_debug("Initial phase error to apply is %d", phase_error);
 	log_info("Applying initial phase jump before setting PTP clock time");
