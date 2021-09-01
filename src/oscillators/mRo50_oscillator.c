@@ -208,7 +208,7 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 {
 	struct mRo50_oscillator *mRo50;
 	int ret;
-	int32_t phase_error;
+	int64_t phase_error;
 
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 

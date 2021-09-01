@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 	const char *libod_conf_path;
 	char err_msg[OD_ERR_MSG_LEN];
 	double temperature;
-	int32_t phase_error;
+	int64_t phase_error;
 	int phasemeter_status;
 	int ret;
 	int sign;
