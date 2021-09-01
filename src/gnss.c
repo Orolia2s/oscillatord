@@ -335,6 +335,9 @@ static void * gnss_thread(void * p_data)
 			pthread_mutex_unlock(&gnss->mutex_data);
 		} else {
 			log_warn("UART GNSS Timeout !");
+			pthread_mutex_lock(&gnss->mutex_data);
+			gnss->session->valid = false;
+			pthread_mutex_unlock(&gnss->mutex_data);
 			usleep(5 * 1000);
 		}
 		pthread_mutex_lock(&gnss->mutex_data);
