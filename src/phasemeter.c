@@ -182,11 +182,10 @@ static void* phasemeter_thread(void *p_data)
 					continue;
 				}
 			}
-			int32_t phase_error = (int32_t) timestamp_diff;
-			log_debug("Phasemeter: phase_error: %ldns", phase_error);
+			log_debug("Phasemeter: phase_error: %lldns", timestamp_diff);
 			pthread_mutex_lock(&phasemeter->mutex);
 			phasemeter->status = PHASEMETER_BOTH_TIMESTAMPS;
-			phasemeter->phase_error = phase_error;
+			phasemeter->phase_error = timestamp_diff;
 			stop = phasemeter->stop;
 			pthread_mutex_unlock(&phasemeter->mutex);
 		}
@@ -250,7 +249,7 @@ void phasemeter_stop(struct phasemeter *phasemeter)
 }
 
 
-int get_phase_error(struct phasemeter *phasemeter, int32_t *phase_error)
+int get_phase_error(struct phasemeter *phasemeter, int64_t *phase_error)
 {
 	int status;
 	pthread_mutex_lock(&phasemeter->mutex);

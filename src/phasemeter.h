@@ -23,6 +23,6 @@ struct phasemeter {
 
 struct phasemeter* phasemeter_init(int fd);
 void phasemeter_stop(struct phasemeter *phasemeter);
-int get_phase_error(struct phasemeter *phasemeter, int32_t *phase_error);
+int get_phase_error(struct phasemeter *phasemeter, int64_t *phase_error);
 
 #endif /* OSCILLATORD_PHASEMETER_H */
