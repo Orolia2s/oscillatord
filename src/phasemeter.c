@@ -153,7 +153,7 @@ static void* phasemeter_thread(void *p_data)
 			 * Phase error is superior to 500ms
 			 * We should get another external timestamp to compute phase error
 			 */
-			if (timestamp_diff > MILLISECONDS_500 && timestamp_diff < -MILLISECONDS_500) {
+			if (timestamp_diff > MILLISECONDS_500 || timestamp_diff < -MILLISECONDS_500) {
 				log_warn("Diff is sup to 500 ms, getting a third timestamp");
 				struct external_timestamp ts3;
 				do {
@@ -173,7 +173,7 @@ static void* phasemeter_thread(void *p_data)
 				log_trace("Timestamp 3: type %s, ts %lld", (ts3.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts3.timestamp);
 				timestamp_diff = ts3.timestamp - ts2.timestamp;
 				timestamp_diff = (ts2.index == EXTTS_INDEX_GNSS_PPS) ? -timestamp_diff : timestamp_diff;
-				if (timestamp_diff > MILLISECONDS_500 && timestamp_diff < -MILLISECONDS_500) {
+				if (timestamp_diff > MILLISECONDS_500 || timestamp_diff < -MILLISECONDS_500) {
 					log_warn("Could not get timestamp diff inferior to 500ms, restarting");
 					pthread_mutex_lock(&phasemeter->mutex);
 					phasemeter->status = PHASEMETER_ERROR;
