@@ -125,6 +125,7 @@ static void* phasemeter_thread(void *p_data)
 		 * GNSS receiver PPS output can be deactivated if GNSS is not locked
 		 */
 		if (ts1.index == EXTTS_INDEX_ART_INTERNAL_PPS && ts1.index == ts2.index) {
+			log_warn("Phasemeter: Did not receive GNSS pps event");
 			pthread_mutex_lock(&phasemeter->mutex);
 			phasemeter->status = PHASEMETER_NO_GNSS_TIMESTAMPS;
 			stop = phasemeter->stop;
@@ -134,6 +135,7 @@ static void* phasemeter_thread(void *p_data)
 		 * This case should not happen
 		 */
 		} else if (ts1.index == EXTTS_INDEX_GNSS_PPS && ts1.index == ts2.index) {
+			log_warn("Phasemeter: Did not receive ART internal pps event");
 			pthread_mutex_lock(&phasemeter->mutex);
 			phasemeter->status = PHASEMETER_NO_ART_INTERNAL_TIMESTAMPS;
 			stop = phasemeter->stop;
@@ -143,6 +145,8 @@ static void* phasemeter_thread(void *p_data)
 		 * One timestamp comes from GNSS receiver and the one come froms ART Internal PPS
 		 */
 		} else {
+			log_trace("Timestamp 1: type %s, ts %lld", (ts1.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts1.timestamp);
+			log_trace("Timestamp 2: type %s, ts %lld", (ts2.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts2.timestamp);
 			int64_t timestamp_diff = ts2.timestamp - ts1.timestamp;
 			timestamp_diff = (ts1.index == EXTTS_INDEX_GNSS_PPS) ? -timestamp_diff : timestamp_diff;
 			/*
@@ -150,6 +154,7 @@ static void* phasemeter_thread(void *p_data)
 			 * We should get another external timestamp to compute phase error
 			 */
 			if (timestamp_diff > MILLISECONDS_500 && timestamp_diff < -MILLISECONDS_500) {
+				log_warn("Diff is sup to 500 ms, getting a third timestamp");
 				struct external_timestamp ts3;
 				do {
 					ts3.index = read_extts(phasemeter->fd, &ts3.timestamp);
@@ -165,7 +170,7 @@ static void* phasemeter_thread(void *p_data)
 					pthread_mutex_unlock(&phasemeter->mutex);
 					continue;
 				}
-
+				log_trace("Timestamp 3: type %s, ts %lld", (ts3.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts3.timestamp);
 				timestamp_diff = ts3.timestamp - ts2.timestamp;
 				timestamp_diff = (ts2.index == EXTTS_INDEX_GNSS_PPS) ? -timestamp_diff : timestamp_diff;
 				if (timestamp_diff > MILLISECONDS_500 && timestamp_diff < -MILLISECONDS_500) {
@@ -178,7 +183,7 @@ static void* phasemeter_thread(void *p_data)
 				}
 			}
 			int32_t phase_error = (int32_t) timestamp_diff;
-			log_debug("Phasemeter: phase_error: %lldns", phase_error);
+			log_debug("Phasemeter: phase_error: %ldns", phase_error);
 			pthread_mutex_lock(&phasemeter->mutex);
 			phasemeter->status = PHASEMETER_BOTH_TIMESTAMPS;
 			phasemeter->phase_error = phase_error;
