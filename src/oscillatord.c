@@ -77,10 +77,29 @@ static int apply_phase_offset(int fd_clock, const char *device_name,
 	return ret;
 }
 
+static bool check_ptp_clock_time(clockid_t clkid, struct gnss *gnss)
+{
+	struct timespec ts;
+	time_t gnss_time;
+	int ret;
+	if (gnss_get_valid(gnss)) {
+		gnss_time = gnss_get_next_fix_time(gnss);
+		ret = clock_gettime(clkid, &ts);
+		if (ret == 0) {
+			if (ts.tv_sec == gnss_time)
+				return true;
+		} else
+			log_error("Could get not PHC time");
+	}
+	return false;
+
+}
+
 static int init_ptp_clock_time(int fd_clock, struct gnss *gnss)
 {
 	clockid_t clkid;
 	struct timespec ts;
+	time_t gnss_time;
 	int ret;
 	bool clock_set = false;
 	bool clock_valid = false;
@@ -96,21 +115,21 @@ static int init_ptp_clock_time(int fd_clock, struct gnss *gnss)
 			/* Set clock time according to gnss data */
 			if (!clock_set) {
 				/* Configure PHC time */
-				/* First get clock time to preserve nanoseconds */
+				/* Wait to get next gnss time */
+				gnss_time = gnss_get_next_fix_time(gnss);
+				/* Then get clock time to preserve nanoseconds */
 				ret = clock_gettime(clkid, &ts);
 				if (ret == 0) {
-					time_t gnss_time = gnss_get_lastfix_time(gnss);
 					if (ts.tv_sec == gnss_time) {
 						log_info("PTP Clock time already set");
 						clock_set = true;
 					} else {
 						ts.tv_sec = gnss_time;
-
 						ret = clock_settime(clkid, &ts);
 						if (ret == 0) {
 							clock_set = true;
 							log_debug("PTP Clock Set");
-							sleep(2);
+							sleep(4);
 						}
 					}
 				} else {
@@ -119,18 +138,12 @@ static int init_ptp_clock_time(int fd_clock, struct gnss *gnss)
 				}
 			/* PHC time has been set, check time is correctly set */
 			} else {
-				ret = clock_gettime(clkid, &ts);
-				if (ret == 0) {
-					if (ts.tv_sec == gnss_get_lastfix_time(gnss)) {
-						log_info("PHC time correctly set");
-						clock_valid = true;
-					} else {
-						log_warn("PHC time is not valid, resetting it");
-						clock_set = false;
-					}
+				if (check_ptp_clock_time(clkid, gnss)) {
+					log_info("PHC time correctly set");
+					clock_valid = true;
 				} else {
-					log_error("Could get not PHC time");
-					return -1;
+					log_warn("PHC time is not valid, resetting it");
+					clock_set = false;
 				}
 			}
 		} else {

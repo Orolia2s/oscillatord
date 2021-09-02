@@ -245,6 +245,7 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	gnss->stop = false;
 
 	pthread_mutex_init(&gnss->mutex_data, NULL);
+	pthread_cond_init(&gnss->cond_time, NULL);
 
 	ret = pthread_create(
 		&gnss->thread,
@@ -264,10 +265,11 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	return gnss;
 }
 
-time_t gnss_get_lastfix_time(struct gnss * gnss)
+time_t gnss_get_next_fix_time(struct gnss * gnss)
 {
 	time_t time;
 	pthread_mutex_lock(&gnss->mutex_data);
+	pthread_cond_wait(&gnss->cond_time, &gnss->mutex_data);
 	time = gnss->session->last_fixtime.tv_sec;
 	pthread_mutex_unlock(&gnss->mutex_data);
 	return time;
@@ -321,6 +323,7 @@ static void * gnss_thread(void * p_data)
 					struct timedelta_t td;
 					ntp_latch(session, &td);
 					log_gnss_data(session);
+					pthread_cond_signal(&gnss->cond_time);
 				}
 
 			// Analyze msg to parse UBX-MON-RF to get antenna status
