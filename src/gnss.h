@@ -83,6 +83,8 @@ struct gps_context_t {
 #define LEAP_ADDSECOND  0x1     /* last minute of day has 60 seconds */
 #define LEAP_DELSECOND  0x2     /* last minute of day has 59 seconds */
 #define LEAP_NOTINSYNC  0x3     /* overload, clock is free running */
+	int lsChange;
+	int timeToLsEvent;
 	/* we need the volatile here to tell the C compiler not to
 		* 'optimize' as 'dead code' the writes to SHM */
 	volatile struct shmTime *shmTime[NTPSHMSEGS];
@@ -107,6 +109,7 @@ struct gps_device_t {
     int fixcnt;                         /* count of fixes from this device */
 	struct timespec last_fixtime;
 	int fix;
+	bool leap_second_occured;
 	int8_t antenna_status;
 	int8_t antenna_power;
 	bool valid;
@@ -119,12 +122,14 @@ struct gnss {
 	pthread_t thread;
 	pthread_mutex_t mutex_data;
 	pthread_cond_t cond_time;
+	int fd_clock;
 	bool stop;
 };
 
-struct gnss* gnss_init(const struct config *config, struct gps_device_t *session);
+struct gnss* gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock);
 time_t gnss_get_next_fix_time(struct gnss * gnss);
 bool gnss_get_valid(struct gnss *gnss);
 void gnss_stop(struct gnss *gnss);
+int gnss_set_ptp_clock_time(struct gnss *gnss);
 
 #endif

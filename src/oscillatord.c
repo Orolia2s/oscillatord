@@ -67,10 +67,10 @@ static int apply_phase_offset(int fd_clock, const char *device_name,
 	struct timex timex = {
 		.modes = ADJ_SETOFFSET | ADJ_NANO,
 		.offset = 0,
-		.time.tv_sec = phase_error > 0 ?
+		.time.tv_sec = phase_error > 0 || (phase_error % NS_IN_SECOND == 0.0) ?
 			(long long) floor(phase_error / NS_IN_SECOND):
 			(long long) floor(phase_error / NS_IN_SECOND) - 1,
-		.time.tv_usec = phase_error > 0 ?
+		.time.tv_usec = phase_error > 0 || (phase_error % NS_IN_SECOND == 0.0) ?
 			phase_error % NS_IN_SECOND:
 			phase_error % NS_IN_SECOND + NS_IN_SECOND,
 	};
@@ -79,82 +79,6 @@ static int apply_phase_offset(int fd_clock, const char *device_name,
 		device_name, phase_error);
 	ret = clock_adjtime(clkid, &timex);
 	return ret;
-}
-
-static bool check_ptp_clock_time(clockid_t clkid, struct gnss *gnss)
-{
-	struct timespec ts;
-	time_t gnss_time;
-	int ret;
-	if (gnss_get_valid(gnss)) {
-		gnss_time = gnss_get_next_fix_time(gnss);
-		ret = clock_gettime(clkid, &ts);
-		if (ret == 0) {
-			if (ts.tv_sec == gnss_time)
-				return true;
-		} else
-			log_error("Could get not PHC time");
-	}
-	return false;
-
-}
-
-static int init_ptp_clock_time(int fd_clock, struct gnss *gnss)
-{
-	clockid_t clkid;
-	struct timespec ts;
-	time_t gnss_time;
-	int ret;
-	bool clock_set = false;
-	bool clock_valid = false;
-		
-	if (fd_clock < 0) {
-		log_warn("Could not open ptp clock fd");
-		return -1;
-	}
-	clkid = FD_TO_CLOCKID(fd_clock);
-
-	while(!clock_valid) {
-		if (gnss_get_valid(gnss)) {
-			/* Set clock time according to gnss data */
-			if (!clock_set) {
-				/* Configure PHC time */
-				/* Wait to get next gnss time */
-				gnss_time = gnss_get_next_fix_time(gnss);
-				/* Then get clock time to preserve nanoseconds */
-				ret = clock_gettime(clkid, &ts);
-				if (ret == 0) {
-					if (ts.tv_sec == gnss_time) {
-						log_info("PTP Clock time already set");
-						clock_set = true;
-					} else {
-						ts.tv_sec = gnss_time;
-						ret = clock_settime(clkid, &ts);
-						if (ret == 0) {
-							clock_set = true;
-							log_debug("PTP Clock Set");
-							sleep(4);
-						}
-					}
-				} else {
-					log_warn("Could not get PTP clock time");
-					return -1;
-				}
-			/* PHC time has been set, check time is correctly set */
-			} else {
-				if (check_ptp_clock_time(clkid, gnss)) {
-					log_info("PHC time correctly set");
-					clock_valid = true;
-				} else {
-					log_warn("PHC time is not valid, resetting it");
-					clock_set = false;
-				}
-			}
-		} else {
-			sleep(2);
-		}
-	}
-	return 0;
 }
 
 static int enable_pps(int fd, bool enable)
@@ -258,7 +182,7 @@ int main(int argc, char *argv[])
 	pps_thread->context = &session;
 
 	/* Start GNSS Thread */
-	gnss = gnss_init(&config, &session);
+	gnss = gnss_init(&config, &session, fd_clock);
 	if (ret < 0) {
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 		return -EINVAL;
@@ -272,7 +196,6 @@ int main(int argc, char *argv[])
 
 	/* Wait for all thread to get at least one piece of data */
 	sleep(2);
-
 
 	/* Apply initial phase jump before setting PTP clock time */
 	do {
@@ -291,7 +214,7 @@ int main(int argc, char *argv[])
 
 	/* Init PTP clock time */
 	log_info("Initialize time of ptp clock %s", ptp_clock);
-	ret = init_ptp_clock_time(fd_clock, gnss);
+	ret = gnss_set_ptp_clock_time(gnss);
 	if (ret != 0) {
 		log_error("Could not set ptp clock time");
 		return -EINVAL;
@@ -316,7 +239,6 @@ int main(int argc, char *argv[])
 		log_error("Error creating monitoring socket thread");
 		return -EINVAL;
 	}
-
 
 	/* Main Loop */
 	do {
