@@ -118,11 +118,12 @@ struct gnss {
 	struct gps_device_t *session;
 	pthread_t thread;
 	pthread_mutex_t mutex_data;
+	pthread_cond_t cond_time;
 	bool stop;
 };
 
 struct gnss* gnss_init(const struct config *config, struct gps_device_t *session);
-time_t gnss_get_lastfix_time(struct gnss * gnss);
+time_t gnss_get_next_fix_time(struct gnss * gnss);
 bool gnss_get_valid(struct gnss *gnss);
 void gnss_stop(struct gnss *gnss);
 
