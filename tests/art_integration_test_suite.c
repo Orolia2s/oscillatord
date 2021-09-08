@@ -51,17 +51,28 @@ typedef u_int32_t u32;
 #endif /* MRO50_IOCTL_H */
 /*---------------------------------------------------------------------------*/
 
-const char base_procfs_path[16] = "/proc/driver/ocp";
-
 /* Open file from symlink path */
 static int opensymlink( const char *dirname, struct dirent *dir)
 {
     char pathname[1024];   /* should alwys be big enough */
     int fp;
     sprintf( pathname, "%s/%s", dirname, dir->d_name );
-
+	log_info("Realpath is %s", realpath(pathname, NULL));
     fp = open(realpath(pathname, NULL), O_RDWR);
     return fp;
+}
+
+static void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
+{
+    char dev_repository[1024];   /* should alwys be big enough */
+    sprintf(dev_repository, "%s/%s", dirname, dir->d_name );
+    char dev_name[100];
+    char * token = strtok(realpath(dev_repository, NULL), "/");
+    while(token != NULL) {
+        strncpy(dev_name, token, sizeof(dev_name));
+        token = strtok(NULL, "/");
+    }
+    sprintf(dev_path, "%s/%s", "/dev", dev_name );
 }
 
 /* Find file by name recursively in a directory*/
@@ -231,7 +242,7 @@ static bool test_ptp_device(int ptp)
         log_error("\t- Could not set time of ptp clock\n");
         return false;
     }
-    ret = clock_gettime(CLOCK_REALTIME, &ts_set);
+    ret = clock_gettime(clkid, &ts_set);
     if (ret != 0) {
         log_error("\t- Could not read time of ptp clock\n");
         return false;
@@ -259,6 +270,7 @@ static bool test_gnss_serial(char * path)
     RX_ARGS_t args = RX_ARGS_DEFAULT();
     args.autobaud = true;
     args.detect = true;
+    log_info("Path is %s", path);
     RX_t * rx = rxInit(path, &args);
 
     if (!rxOpen(rx)) {
@@ -317,9 +329,9 @@ static bool test_ocp_directory(char * ocp_path) {
     DIR * ocp_dir = opendir(ocp_path);
 
     if (ocp_dir != NULL) {
-        log_info("Directory /proc/driver/ocp0 exists\n");
+        log_info("Directory %s exists\n", ocp_path);
     } else {
-        log_error("Directory /proc/driver/ocp0 does not exists\n");
+        log_error("Directory %s does not exists\n", ocp_path);
         return false;
     }
 
@@ -351,7 +363,9 @@ static bool test_ocp_directory(char * ocp_path) {
         /* PTP CLOCK TEST: Set clock time */
         } else if (strncmp(entry->d_name, "ptp", 4) == 0) {
             log_info("ptp clock device detected");
-            int ptp_clock = opensymlink(ocp_path, entry);
+            char dev_path[1024];   /* should alwys be big enough */
+            find_dev_path(ocp_path, entry, dev_path);
+            int ptp_clock = open(dev_path, O_RDWR);
             if (ptp_clock > 0) {
                 ptp_passed = test_ptp_device(ptp_clock);
                 close(ptp_passed);
@@ -360,11 +374,12 @@ static bool test_ocp_directory(char * ocp_path) {
             }
 
         /* SERIAL GNSS TEST: check it can receive a fix and UBX-MON-RF message */
-        } else if (strncmp(entry->d_name, "ttyGPS", 7) == 0) {
+        } else if (strncmp(entry->d_name, "ttyGNSS", 7) == 0) {
             log_info("ttyGPS detected");
-            char pathname[1024];   /* should alwys be big enough */
-            sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
-            gnss_receiver_passed = test_gnss_serial(realpath(pathname, NULL));
+            char dev_path[1024];   /* should alwys be big enough */
+            find_dev_path(ocp_path, entry, dev_path);
+            int ptp_clock = open(dev_path, O_RDWR);
+            gnss_receiver_passed = test_gnss_serial(dev_path);
         }
 
         entry = readdir(ocp_dir);
@@ -376,7 +391,7 @@ static bool test_ocp_directory(char * ocp_path) {
         "but configuration will not be stored on the device");
     }
 
-    if (!(mro50_passed && ptp_passed && gnss_receiver_passed)) {
+    if (!(/* mro50_passed && */ ptp_passed && gnss_receiver_passed)) {
         log_error("At least one test failed");
         return false;
     }
@@ -392,9 +407,9 @@ int main(int argc, char *argv[])
     log_info("ART Program Test Suite");
     log_info("Checking if there are ART's procfs on the server");
 
-    DIR * driver_fs = opendir("/proc/driver");
+    DIR * driver_fs = opendir("/sys/class/timecard");
     if (driver_fs == NULL) {
-        log_error("Cannot access /proc/driver");
+        log_error("Cannot access /sys/class/timecard");
         return -1;
     }
 
@@ -405,7 +420,7 @@ int main(int argc, char *argv[])
 
         if (!strncmp(entry->d_name, "ocp", 3)) {
             char ocp_path[1024];
-            snprintf(ocp_path, sizeof(ocp_path), "%s/%s", "/proc/driver", entry->d_name);
+            snprintf(ocp_path, sizeof(ocp_path), "%s/%s", "/sys/class/timecard", entry->d_name);
             log_info("Found directory %s", ocp_path);
 
             if(test_ocp_directory(ocp_path))
