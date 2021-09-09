@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <signal.h>
+#include <math.h>
 
 #include <error.h>
 
@@ -57,23 +58,26 @@ static void signal_handler(int signum)
 }
 
 static int apply_phase_offset(int fd_clock, const char *device_name,
-				  int32_t phase_error)
+	int64_t phase_error)
 {
 	int ret = 0;
 	clockid_t clkid;
 	clkid = FD_TO_CLOCKID(fd_clock);
 
 	struct timex timex = {
-		.modes = ADJ_OFFSET | ADJ_NANO,
-		.offset = phase_error
+		.modes = ADJ_SETOFFSET | ADJ_NANO,
+		.offset = 0,
+		.time.tv_sec = phase_error > 0 ?
+			(long long) floor(phase_error / NS_IN_SECOND):
+			(long long) floor(phase_error / NS_IN_SECOND) - 1,
+		.time.tv_usec = phase_error > 0 ?
+			phase_error % NS_IN_SECOND:
+			phase_error % NS_IN_SECOND + NS_IN_SECOND,
 	};
 
-	log_info("Calling clock adjtime");
 	log_info("%s: applying phase offset correction of %"PRIi32"ns",
-			device_name, phase_error);
+		device_name, phase_error);
 	ret = clock_adjtime(clkid, &timex);
-
-
 	return ret;
 }
 
