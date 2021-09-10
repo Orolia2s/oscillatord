@@ -662,7 +662,7 @@ static int get_edge_rfc2783(struct inner_context_t *inner_context,
      * unsigned long as a wider-or-equal type to
      * accommodate Linux's type.
      */
-    thread_context->log_hook(thread_context, THREAD_PROG,
+    thread_context->log_hook(thread_context, THREAD_RAW,
                              "KPPS:%s assert %s, sequence: %lu, "
                              "clear  %s, sequence: %lu - using: %.10s",
                              thread_context->devicename,
