@@ -43,6 +43,20 @@ enum AntennaPower {
 	ANT_POWER_UNDEFINED
 };
 
+static const char *fix_log[11] = {
+	"unknown",
+	"no fix",
+	"DR only",
+	"time",
+	"2D",
+	"3D",
+	"3D_DR",
+	"RTK_FLOAT",
+	"RTK_FIXED",
+	"RTK_FLOAT_DR",
+	"RTK_FIXED_DR",
+};
+
 static void * gnss_thread(void * p_data);
 
 static int gnss_get_fix(int fix)
@@ -144,10 +158,12 @@ static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *ms
 
 static void log_gnss_data(struct gps_device_t *session)
 {
-	log_debug("GNSS data: fix %d, antenna status: %d, valid %d,"
+	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, antenna status: %d, valid %d,"
 		" time %lld, leapm_seconds %d, leap_notify %d, lsChange %d "
 		"timeToLsChange %d",
+		fix_log[session->fix],
 		session->fix,
+		session->fixOk ? "True" : "False",
 		session->antenna_status,
 		session->valid,
 		session->last_fixtime.tv_sec,
@@ -432,7 +448,8 @@ static void * gnss_thread(void * p_data)
 			{
 				if(epoch.haveFix) {
 					session->last_fixtime.tv_sec = gnss_get_time(&epoch);
-					session->fix = gnss_get_fix(epoch.fix);
+					session->fix = epoch.fix;
+					session->fixOk = epoch.fixOk;
 					session->context->leap_seconds = gnss_get_leap_seconds(&epoch);
 					session->context->leap_notify = gnss_get_leap_notify(&epoch);
 					session->context->timeToLsEvent = epoch.timeToLsEvent;
@@ -464,7 +481,7 @@ static void * gnss_thread(void * p_data)
 				uint8_t msgId = UBX_MSGID(msg->data);
 				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
 					gnss_get_antenna_data(session, msg);
-					session->valid = session->fix > MODE_NO_FIX && (session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN);
+					session->valid = session->fix >= EPOCH_FIX_S2D && session->fixOk && (session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN);
 				}
 			}
 			pthread_mutex_unlock(&gnss->mutex_data);
