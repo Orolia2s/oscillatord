@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 
 	/* Start GNSS Thread */
 	gnss = gnss_init(&config, &session, fd_clock);
-	if (ret < 0) {
+	if (gnss == NULL) {
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 		return -EINVAL;
 	}
