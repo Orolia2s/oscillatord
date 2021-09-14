@@ -4,6 +4,7 @@
  * by interacting will all its devices
  */
 #include <dirent.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,11 +13,11 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/timex.h>
+#include <time.h>
 #include <ubloxcfg/ff_epoch.h>
 #include <ubloxcfg/ff_rx.h>
 #include <ubloxcfg/ff_ubx.h>
 #include <unistd.h>
-#include <time.h>
 
 #include "log.h"
 #include "utils.h"
@@ -57,11 +58,12 @@ static int opensymlink( const char *dirname, struct dirent *dir)
     char pathname[1024];   /* should alwys be big enough */
     int fp;
     sprintf( pathname, "%s/%s", dirname, dir->d_name );
-	log_info("Realpath is %s", realpath(pathname, NULL));
+    log_info("Realpath is %s", realpath(pathname, NULL));
     fp = open(realpath(pathname, NULL), O_RDWR);
     return fp;
 }
 
+/* find device path in /dev from symlink in sysfs */
 static void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
 {
     char dev_repository[1024];   /* should alwys be big enough */
@@ -97,7 +99,7 @@ static bool find_file(char * path , char * name)
         } else if (!strcmp(dp->d_name, name)) {
             char file_path[1024];
             snprintf(file_path, sizeof(file_path), "%s/%s", path, dp->d_name);
-            log_info("\t\t- file %s is in %s", name, file_path);
+            log_info("\t- file %s is in %s", name, file_path);
             found = true;
             break;
         }
@@ -107,17 +109,12 @@ static bool find_file(char * path , char * name)
 }
 
 /* Compute diff between two timespec */
-static void timespec_diff(struct timespec *start, struct timespec *stop,
-                   struct timespec *result)
+static void timespec_diff(struct timespec *ts1, struct timespec *ts2,
+                   int64_t *diff_ns)
 {
-    if ((stop->tv_nsec - start->tv_nsec) < 0) {
-        result->tv_sec = stop->tv_sec - start->tv_sec - 1;
-        result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000;
-    } else {
-        result->tv_sec = stop->tv_sec - start->tv_sec;
-        result->tv_nsec = stop->tv_nsec - start->tv_nsec;
-    }
-
+    uint64_t ts1_ns = ts1->tv_sec * NS_IN_SECOND + ts1->tv_nsec;
+    uint64_t ts2_ns = ts2->tv_sec * NS_IN_SECOND + ts2->tv_nsec;
+    *diff_ns = ts1_ns - ts2_ns;
     return;
 }
 
@@ -218,9 +215,92 @@ static bool test_mro50_device(int mro50)
     return true;
 }
 
+/* When setting time, a small delay is added because of the time
+ * it takes to get time and set it on the PTP Clock
+ */
+#define SET_TIME_PHASE_ERROR 100000
+/* Test adjust time */
+static bool test_ptp_adjtime(clockid_t clkid, int64_t adjust_ns)
+{
+    int ret;
+    struct timespec ts_real;
+    struct timespec ts_before_adjustment;
+    struct timespec ts_after_adjustment;
+    int64_t diff_ns_before_adjustment;
+    int64_t diff_ns;
+
+    log_info("\t- Making an adjustment of %lldns to ptp clock", adjust_ns);
+    // Get realtime
+    ret = clock_gettime(CLOCK_REALTIME, &ts_real);
+    if (ret != 0) {
+        log_error("\t- Could not read clock realtime on server\n");
+        return false;
+    }
+    // Set PTP clock time to realtime
+    ret = clock_settime(clkid, &ts_real);
+    if (ret != 0) {
+        log_error("\t- Could not set time of ptp clock\n");
+        return false;
+    }
+
+    // Compute time diff between realtime clock and ptp_clock time before adjustment
+    ret = clock_gettime(CLOCK_REALTIME, &ts_real);
+    if (ret != 0) {
+        log_error("\t- Could not read clock realtime on server\n");
+        return false;
+    }
+    ret = clock_gettime(clkid, &ts_before_adjustment);
+    if (ret != 0) {
+        log_error("\t- Could not read clock realtime on server\n");
+        return false;
+    }
+    timespec_diff(&ts_before_adjustment, &ts_real, &diff_ns_before_adjustment);
+    log_trace("\t- Diff before adjustment is %lld", diff_ns_before_adjustment);
+
+    struct timex timex = {
+        .modes = ADJ_SETOFFSET | ADJ_NANO,
+        .offset = 0,
+        .time.tv_sec = adjust_ns > 0 || (adjust_ns % NS_IN_SECOND == 0.0) ?
+            (long long) floor(adjust_ns / NS_IN_SECOND):
+            (long long) floor(adjust_ns / NS_IN_SECOND) - 1,
+        .time.tv_usec = adjust_ns > 0 || (adjust_ns % NS_IN_SECOND == 0.0) ?
+            adjust_ns % NS_IN_SECOND:
+            adjust_ns % NS_IN_SECOND + NS_IN_SECOND,
+    };
+
+    // Adjust ptp clock time
+    log_info("\t- Applying phase offset correction of %"PRIi32"ns", adjust_ns);
+    ret = clock_adjtime(clkid, &timex);
+    // Wait for change to take effect
+    sleep(2);
+
+    ret = clock_gettime(CLOCK_REALTIME, &ts_real);
+    if (ret != 0) {
+        log_error("\t- Could not read time of ptp clock\n");
+        return false;
+    }
+    ret = clock_gettime(clkid, &ts_after_adjustment);
+    if (ret != 0) {
+        log_error("\t- Could not read clock realtime on server\n");
+        return false;
+    }
+
+    timespec_diff(&ts_after_adjustment, &ts_real, &diff_ns);
+    log_info(
+        "\t- Diff time between clock real time and adjusted ptp clock time is: %lldns", diff_ns - diff_ns_before_adjustment);
+    if (diff_ns - diff_ns_before_adjustment > adjust_ns + SET_TIME_PHASE_ERROR
+        || diff_ns - diff_ns_before_adjustment < adjust_ns - SET_TIME_PHASE_ERROR) {
+        log_error("\t- Error making an adjustment of %lld  to ptp clock time");
+        return false;
+    }
+    log_info("\t- Adjustment of %lldns passed\n", adjust_ns);
+    return true;
+}
+
 /*
  * Get current time from server and set ptp clock to this time
  * Check time is correctly written
+ * Also tests adjust time func
  */
 static bool test_ptp_device(int ptp)
 {
@@ -228,7 +308,16 @@ static bool test_ptp_device(int ptp)
     clockid_t clkid;
     struct timespec ts_real;
     struct timespec ts_set;
-    struct timespec ts_diff;
+    int64_t diff_ns;
+    int64_t adjust_time_ns_test[7] = {
+        -2 * NS_IN_SECOND,
+        -1 * NS_IN_SECOND - 500000000,
+        -1 * NS_IN_SECOND,
+        -500000000,
+        1 * NS_IN_SECOND,
+        1 * NS_IN_SECOND + 500000,
+        2 * NS_IN_SECOND
+    };
 
     ret = clock_gettime(CLOCK_REALTIME, &ts_real);
     if (ret != 0) {
@@ -248,13 +337,18 @@ static bool test_ptp_device(int ptp)
         return false;
     }
 
-    timespec_diff(&ts_real, &ts_set, &ts_diff);
-    log_debug(
-        "\t- Diff time between time set and time read is: %lus %luns",
-        ts_diff.tv_sec,
-        ts_diff.tv_nsec
-    );
+    // Test diff between gettime and settime is inferior to 250µs
+    timespec_diff(&ts_real, &ts_set, &diff_ns);
+    if (diff_ns > SET_TIME_PHASE_ERROR || diff_ns < -SET_TIME_PHASE_ERROR) {
+        log_error("\t- Timespec between get and settime is to big");
+        return false;
+    }
     log_info("\t- PTP Clock time correctly set\n");
+
+    for (int i = 0; i < 7; i++)
+        if (!test_ptp_adjtime(clkid, adjust_time_ns_test[i]))
+            log_warn("Error adjusting ptp clock time");
+
     return true;
 }
 
@@ -293,14 +387,14 @@ static bool test_gnss_serial(char * path)
             if(epochCollect(&coll, msg, &epoch))
             {
                 if(epoch.haveFix) {
-                    log_info("\t\t- Got fix !");
+                    log_info("\t- Got fix !");
                     got_gnss_fix = true;
                 }
             } else {
                 uint8_t clsId = UBX_CLSID(msg->data);
                 uint8_t msgId = UBX_MSGID(msg->data);
                 if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
-                    log_info("\t\t- Got UBX-MON-RF message");
+                    log_info("\t- Got UBX-MON-RF message");
                     got_mon_rf_message = true;
                 }
             }
@@ -320,7 +414,7 @@ static bool test_gnss_serial(char * path)
     return false;
 }
 
-static bool test_ocp_directory(char * ocp_path) {
+static bool test_ocp_directory(char * ocp_path, char * dir_name) {
     bool mro50_passed = false;
     bool ptp_passed = false;
     bool gnss_receiver_passed = false;
@@ -385,13 +479,24 @@ static bool test_ocp_directory(char * ocp_path) {
         entry = readdir(ocp_dir);
     }
 
+    // Small hack to test mRO50 while not being in sysfs
+    char mRO_pathname[1024] = "/dev/mro50.";
+    mRO_pathname[11] = dir_name[3];
+    mRO_pathname[12] = '\0';
+    int mro50= open(mRO_pathname, O_RDWR);
+    if (mro50 > 0) {
+        mro50_passed = test_mro50_device(mro50);
+        close(mro50);
+    } else {
+        log_error("\t- Error opening mro50 device");
+    }
     if (!found_eeprom) {
         log_warn("Could not find EEPROM file.");
         log_warn("The card may work without eeprom storage,"\
         "but configuration will not be stored on the device");
     }
 
-    if (!(/* mro50_passed && */ ptp_passed && gnss_receiver_passed)) {
+    if (!(mro50_passed && ptp_passed && gnss_receiver_passed)) {
         log_error("At least one test failed");
         return false;
     }
@@ -423,10 +528,10 @@ int main(int argc, char *argv[])
             snprintf(ocp_path, sizeof(ocp_path), "%s/%s", "/sys/class/timecard", entry->d_name);
             log_info("Found directory %s", ocp_path);
 
-            if(test_ocp_directory(ocp_path))
+            if(test_ocp_directory(ocp_path, entry->d_name))
                 log_info("ART Card in %s passed all tests", ocp_path);
             else
-                log_error("ART Card in %S did not pass all tests", ocp_path);
+                log_error("ART Card in %s did not pass all tests", ocp_path);
         }
     }
     closedir(driver_fs);
