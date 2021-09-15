@@ -163,6 +163,20 @@ int main(int argc, char *argv[])
 	}
 	log_info("oscillator model %s", oscillator->class->name);
 
+	/* Start Monitoring Thread */
+	if (monitoring_mode) {
+		monitoring = monitoring_init(&config);
+		if (monitoring == NULL) {
+			log_error("Error creating monitoring socket thread");
+			return -EINVAL;
+		}
+		log_info("Starting monitoring socket");
+		pthread_mutex_lock(&monitoring->mutex);
+		monitoring->oscillator_model = oscillator->class->name;
+		pthread_mutex_unlock(&monitoring->mutex);
+	}
+
+
 	/* Open PTP clock file descriptor */
 	if (ptp_clock == NULL) {
 		fd_clock = -1;
@@ -249,15 +263,6 @@ int main(int argc, char *argv[])
 		ntpshm_link_activate(&session);
 	} else {
 		log_warn("No pps-device provided, NTPSHM will no be filled");
-	}
-
-	/* Start Monitoring Thread */
-	if (monitoring_mode) {
-		monitoring = monitoring_init(&config);
-		if (monitoring == NULL) {
-			log_error("Error creating monitoring socket thread");
-			return -EINVAL;
-		}
 	}
 
 	/* Main Loop */
@@ -354,13 +359,23 @@ int main(int argc, char *argv[])
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
 			pthread_mutex_lock(&monitoring->mutex);
+			pthread_mutex_lock(&gnss->mutex_data);
+			monitoring->antenna_power = gnss->session->antenna_power;
+			monitoring->antenna_status = gnss->session->antenna_status;
+			monitoring->fix = gnss->session->fix;
+			monitoring->fixOk = gnss->session->fixOk;
+			monitoring->leap_seconds = gnss->session->context->leap_seconds;
+			monitoring->lsChange = gnss->session->context->lsChange;
+			pthread_mutex_unlock(&gnss->mutex_data);
 
-			monitoring->status = od_get_status(od);
-			monitoring->phase_error = input.phase_error.tv_nsec;
+			monitoring->disciplining_status = od_get_status(od);
+			monitoring->temperature = temperature;
+			monitoring->ctrl_values = ctrl_values;
+			if (disciplining_mode)
+				monitoring->phase_error = input.phase_error.tv_nsec;
 			if (monitoring->request == REQUEST_CALIBRATION)
 				input.calibration_requested = true;
 
-			pthread_cond_signal(&monitoring->cond);
 			pthread_mutex_unlock(&monitoring->mutex);
 		}
 	} while (loop);
