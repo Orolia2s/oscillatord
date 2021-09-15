@@ -53,7 +53,21 @@ struct monitoring* monitoring_init(const struct config *config)
 	}
 
 	monitoring->stop = false;
+	monitoring->disciplining_mode = config_get_bool_default(config, "disciplining", false);
 
+	monitoring->disciplining_status = 4;
+	monitoring->ctrl_values.fine_ctrl = -1;
+	monitoring->ctrl_values.coarse_ctrl = -1;
+	monitoring->ctrl_values.lock = false;
+	monitoring->temperature = -400.0;
+
+	monitoring->antenna_power = -1;
+	monitoring->antenna_status = -1;
+	monitoring->leap_seconds = -1;
+	monitoring->phase_error = 0;
+	monitoring->fix = -1;
+	monitoring->fixOk = false;
+	monitoring->lsChange = -10;
 	pthread_mutex_init(&monitoring->mutex, NULL);
 	pthread_cond_init(&monitoring->cond, NULL);
 
@@ -138,7 +152,6 @@ static void handle_client(struct monitoring *monitoring, int fd)
 				/* Notify main loop about the request */
 				pthread_mutex_lock(&monitoring->mutex);
 				monitoring->request = (enum monitoring_request) json_object_get_int(json_req);
-				pthread_cond_wait(&monitoring->cond, &monitoring->mutex);
 				if (monitoring->stop) {
 					pthread_mutex_unlock(&monitoring->mutex);
 					break;
@@ -146,25 +159,51 @@ static void handle_client(struct monitoring *monitoring, int fd)
 
 				json_resp = json_object_new_object();
 				if (monitoring->request == REQUEST_CALIBRATION) {
-					json_object_object_add(
-						json_resp,
-						"calibration",
-						json_object_new_string("requested")
-					);
-
+					json_object_object_add(json_resp, "calibration",
+						json_object_new_string("requested"));
 				}
-				json_object_object_add(
-					json_resp,
-					"status",
-					json_object_new_string(
-						status_string[monitoring->status]
-					)
-				);
-				json_object_object_add(
-					json_resp,
-					"phase_error",
-					json_object_new_int(monitoring->phase_error)
-				);
+
+				if (monitoring->disciplining_mode) {
+					struct json_object *disciplining = json_object_new_object();
+					json_object_object_add(disciplining, "status",
+						json_object_new_string(
+							status_string[monitoring->disciplining_status]
+						)
+					);
+					json_object_object_add(disciplining, "phase_error",
+						json_object_new_int(monitoring->phase_error));
+					json_object_object_add(json_resp, "disciplining", disciplining);
+				}
+
+				struct json_object *oscillator = json_object_new_object();
+				json_object_object_add(oscillator, "model",
+					json_object_new_string(monitoring->oscillator_model));
+				json_object_object_add(oscillator, "fine_ctrl",
+					json_object_new_int(monitoring->ctrl_values.fine_ctrl));
+				json_object_object_add(oscillator, "coarse_ctrl",
+					json_object_new_int(monitoring->ctrl_values.coarse_ctrl));
+				json_object_object_add(oscillator, "lock",
+					json_object_new_boolean(monitoring->ctrl_values.lock));
+				json_object_object_add(oscillator, "temperature",
+					json_object_new_double(monitoring->temperature));
+
+				json_object_object_add(json_resp, "oscillator", oscillator);
+
+				struct json_object *gnss = json_object_new_object();
+				json_object_object_add(gnss, "fix",
+					json_object_new_int(monitoring->fix));
+				json_object_object_add(gnss, "fixOk",
+					json_object_new_boolean(monitoring->fixOk));
+				json_object_object_add(gnss, "antenna_power",
+					json_object_new_int(monitoring->antenna_power));
+				json_object_object_add(gnss, "antenna_status",
+					json_object_new_int(monitoring->antenna_status));
+				json_object_object_add(gnss, "lsChange",
+					json_object_new_int(monitoring->lsChange));
+				json_object_object_add(gnss, "leap_seconds",
+					json_object_new_int(monitoring->leap_seconds));
+
+				json_object_object_add(json_resp, "gnss", gnss);
 
 				monitoring->request = REQUEST_NONE;
 				pthread_mutex_unlock(&monitoring->mutex);
