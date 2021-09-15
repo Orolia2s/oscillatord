@@ -110,6 +110,8 @@ int main(int argc, char *argv[])
 	int ret;
 	int sign;
 	int log_level;
+	bool disciplining_mode;
+	bool monitoring_mode;
 	bool opposite_phase_error;
 	bool ignore_next_irq = false;
 	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
@@ -133,44 +135,43 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
+	/* Get disciplining and monitoring values from config
+	 * to know how oscillatord should behave
+	 */
+	disciplining_mode = config_get_bool_default(&config, "disciplining", false);
+	monitoring_mode = config_get_bool_default(&config, "monitoring", false);
+	if (!disciplining_mode && !monitoring_mode) {
+		log_error("No disciplining and no monitoring requested, Exiting.");
+		return -EINVAL;
+	}
+
 	/* Set log level according to configuration */
 	log_level = config_get_unsigned_number(&config, "debug");
 	log_set_level(log_level >= 0 ? log_level : 0);
 
 	ptp_clock = config_get(&config, "ptp-clock");
 	if (ptp_clock == NULL) {
-		error(EXIT_FAILURE, errno, "ptp-clock not defined in "
-				"config %s", path);
-		return -EINVAL;
+		log_warn("ptp-clock not defined in config %s", path);
 	}
 	log_info("PTP Clock: %s", ptp_clock);
 
-	/* Get path to disciplining shared library */
-	libod_conf_path = config_get_default(&config, "libod-config-path",
-		path);
-
-	opposite_phase_error = config_get_bool_default(&config,
-			"opposite-phase-error", false);
-	sign = opposite_phase_error ? -1 : 1;
-
-
+	/* Create oscillator object */
 	oscillator = oscillator_factory_new(&config);
-	if (oscillator == NULL)
+	if (oscillator == NULL) {
 		error(EXIT_FAILURE, errno, "oscillator_factory_new");
-	log_info("oscillator model %s", oscillator->class->name);
-
-	/* Create shared library oscillator object */
-	od = od_new_from_config(libod_conf_path, err_msg);
-	if (od == NULL) {
-		error(EXIT_FAILURE, errno, "od_new %s", err_msg);
 		return -EINVAL;
 	}
+	log_info("oscillator model %s", oscillator->class->name);
 
 	/* Open PTP clock file descriptor */
-	fd_clock = open(ptp_clock, O_RDWR);
-	if (fd_clock == -1) {
-		error(EXIT_FAILURE, errno, "open(%s)", ptp_clock);
-		return -EINVAL;
+	if (ptp_clock == NULL) {
+		fd_clock = -1;
+	} else {
+		fd_clock = open(ptp_clock, O_RDWR);
+		if (fd_clock == -1) {
+			error(EXIT_FAILURE, errno, "open(%s)", ptp_clock);
+			return -EINVAL;
+		}
 	}
 
 	/* Init GPS session and context */
@@ -188,36 +189,51 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	/* Start Phasemeter Thread */
-	phasemeter = phasemeter_init(fd_clock);
-	if (phasemeter == NULL) {
-		return -EINVAL;
-	}
+	if (disciplining_mode) {
+		/* Get path to disciplining shared library */
+		libod_conf_path = config_get_default(&config, "libod-config-path", path);
 
-	/* Wait for all thread to get at least one piece of data */
-	sleep(2);
+		opposite_phase_error = config_get_bool_default(&config,
+				"opposite-phase-error", false);
+		sign = opposite_phase_error ? -1 : 1;
 
-	/* Apply initial phase jump before setting PTP clock time */
-	do {
-		phasemeter_status = get_phase_error(phasemeter, &phase_error);
-	} while (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS);
-	log_debug("Initial phase error to apply is %d", phase_error);
-	log_info("Applying initial phase jump before setting PTP clock time");
-	ret = apply_phase_offset(
-		fd_clock,
-		ptp_clock,
-		-phase_error * sign
-	);
-	if (ret < 0)
-		error(EXIT_FAILURE, -ret, "apply_phase_offset");
-	sleep(SETTLING_TIME);
+		/* Create shared library oscillator object */
+		od = od_new_from_config(libod_conf_path, err_msg);
+		if (od == NULL) {
+			error(EXIT_FAILURE, errno, "od_new %s", err_msg);
+			return -EINVAL;
+		}
 
-	/* Init PTP clock time */
-	log_info("Initialize time of ptp clock %s", ptp_clock);
-	ret = gnss_set_ptp_clock_time(gnss);
-	if (ret != 0) {
-		log_error("Could not set ptp clock time");
-		return -EINVAL;
+		/* Start Phasemeter Thread */
+		phasemeter = phasemeter_init(fd_clock);
+		if (phasemeter == NULL) {
+			return -EINVAL;
+		}
+		/* Wait for all thread to get at least one piece of data */
+		sleep(2);
+
+		/* Apply initial phase jump before setting PTP clock time */
+		do {
+			phasemeter_status = get_phase_error(phasemeter, &phase_error);
+		} while (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS);
+		log_debug("Initial phase error to apply is %d", phase_error);
+		log_info("Applying initial phase jump before setting PTP clock time");
+		ret = apply_phase_offset(
+			fd_clock,
+			ptp_clock,
+			-phase_error * sign
+		);
+		if (ret < 0)
+			error(EXIT_FAILURE, -ret, "apply_phase_offset");
+		sleep(SETTLING_TIME);
+
+		/* Init PTP clock time */
+		log_info("Initialize time of ptp clock %s", ptp_clock);
+		ret = gnss_set_ptp_clock_time(gnss);
+		if (ret != 0) {
+			log_error("Could not set ptp clock time");
+			return -EINVAL;
+		}
 	}
 
 	/* Start NTP SHM session */
@@ -231,31 +247,21 @@ int main(int argc, char *argv[])
 		log_info("Init NTP SHM session");
 		ntpshm_session_init(&session);
 		ntpshm_link_activate(&session);
+	} else {
+		log_warn("No pps-device provided, NTPSHM will no be filled");
 	}
 
 	/* Start Monitoring Thread */
-	monitoring = monitoring_init(&config);
-	if (monitoring == NULL) {
-		log_error("Error creating monitoring socket thread");
-		return -EINVAL;
+	if (monitoring_mode) {
+		monitoring = monitoring_init(&config);
+		if (monitoring == NULL) {
+			log_error("Error creating monitoring socket thread");
+			return -EINVAL;
+		}
 	}
 
 	/* Main Loop */
 	do {
-		/* Get Phase error and status*/
-		phasemeter_status = get_phase_error(phasemeter, &phase_error);
-
-		if (ignore_next_irq) {
-			log_debug("ignoring 1 input due to phase jump");
-			ignore_next_irq = false;
-			continue;
-		}
-
-		/* For now continue if we do not have a valid phase error */
-		if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS) {
-			continue;
-		}
-
 		ret = oscillator_get_temp(oscillator, &temperature);
 		if (ret == -ENOSYS)
 			temperature = 0;
@@ -271,86 +277,108 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		input = (struct od_input) {
-			.calibration_requested = false,
-			.coarse_setpoint = ctrl_values.coarse_ctrl,
-			.fine_setpoint = ctrl_values.fine_ctrl,
-			.lock = ctrl_values.lock,
-			.phase_error = (struct timespec) {
-				.tv_sec = sign * phase_error / NS_IN_SECOND,
-				.tv_nsec = sign * phase_error % NS_IN_SECOND,
-			},
-			.valid = gnss_get_valid(gnss),
-			.temperature = temperature,
-		};
-		log_info("input: phase_error = (%lds, %09ldns),"
-			"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %.1f°C",
-			input.phase_error.tv_sec,
-			input.phase_error.tv_nsec,
-			input.valid ? "true" : "false",
-			input.lock ? "true" : "false",
-			input.fine_setpoint,
-			input.coarse_setpoint,
-			input.temperature);
 
-		/* Check for monitoring requests */
-		pthread_mutex_lock(&monitoring->mutex);
+		if (disciplining_mode) {
+			/* Get Phase error and status*/
+			phasemeter_status = get_phase_error(phasemeter, &phase_error);
 
-		monitoring->status = od_get_status(od);
-		monitoring->phase_error = input.phase_error.tv_nsec;
-		if (monitoring->request == REQUEST_CALIBRATION)
-			input.calibration_requested = true;
+			if (ignore_next_irq) {
+				log_debug("ignoring 1 input due to phase jump");
+				ignore_next_irq = false;
+				continue;
+			}
+			/* For now continue if we do not have a valid phase error */
+			if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS) {
+				continue;
+			}
 
-		pthread_cond_signal(&monitoring->cond);
-		pthread_mutex_unlock(&monitoring->mutex);
+			input = (struct od_input) {
+				.calibration_requested = false,
+				.coarse_setpoint = ctrl_values.coarse_ctrl,
+				.fine_setpoint = ctrl_values.fine_ctrl,
+				.lock = ctrl_values.lock,
+				.phase_error = (struct timespec) {
+					.tv_sec = sign * phase_error / NS_IN_SECOND,
+					.tv_nsec = sign * phase_error % NS_IN_SECOND,
+				},
+				.valid = gnss_get_valid(gnss),
+				.temperature = temperature,
+			};
+			log_info("input: phase_error = (%lds, %09ldns),"
+				"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %.1f°C",
+				input.phase_error.tv_sec,
+				input.phase_error.tv_nsec,
+				input.valid ? "true" : "false",
+				input.lock ? "true" : "false",
+				input.fine_setpoint,
+				input.coarse_setpoint,
+				input.temperature);
 
-		/* Call disciplining algorithm process loop */
-		ret = od_process(od, &input, &output);
-		if (ret < 0)
-			error(EXIT_FAILURE, -ret, "od_process");
-
-		/* Process output result of the algorithm */
-		if (output.action == PHASE_JUMP) {
-			log_info("Phase jump requested");
-			ret = apply_phase_offset(
-				fd_clock,
-				ptp_clock,
-				-output.value_phase_ctrl
-			);
-
+			/* Call disciplining algorithm process loop */
+			ret = od_process(od, &input, &output);
 			if (ret < 0)
-				error(EXIT_FAILURE, -ret, "apply_phase_offset");
-			ignore_next_irq = true;
+				error(EXIT_FAILURE, -ret, "od_process");
 
-		} else if (output.action == CALIBRATE) {
-			log_info("Calibration requested");
-			struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
-			if (calib_params == NULL)
-				error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
+			/* Process output result of the algorithm */
+			if (output.action == PHASE_JUMP) {
+				log_info("Phase jump requested");
+				ret = apply_phase_offset(
+					fd_clock,
+					ptp_clock,
+					-output.value_phase_ctrl
+				);
 
-			struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, calib_params, sign);
-			if (results == NULL)
-				error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
+				if (ret < 0)
+					error(EXIT_FAILURE, -ret, "apply_phase_offset");
+				ignore_next_irq = true;
 
-			od_calibrate(od, calib_params, results);
-		} else {
-			ret = oscillator_apply_output(oscillator, &output);
-			if (ret < 0)
-				error(EXIT_FAILURE, -ret, "oscillator_apply_output");
+			} else if (output.action == CALIBRATE) {
+				log_info("Calibration requested");
+				struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
+				if (calib_params == NULL)
+					error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
+
+				struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, calib_params, sign);
+				if (results == NULL)
+					error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
+
+				od_calibrate(od, calib_params, results);
+			} else {
+				ret = oscillator_apply_output(oscillator, &output);
+				if (ret < 0)
+					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
+			}
+			sleep(SETTLING_TIME);
 		}
 
-		sleep(SETTLING_TIME);
+		if (monitoring_mode) {
+			/* Check for monitoring requests */
+			pthread_mutex_lock(&monitoring->mutex);
+
+			monitoring->status = od_get_status(od);
+			monitoring->phase_error = input.phase_error.tv_nsec;
+			if (monitoring->request == REQUEST_CALIBRATION)
+				input.calibration_requested = true;
+
+			pthread_cond_signal(&monitoring->cond);
+			pthread_mutex_unlock(&monitoring->mutex);
+		}
 	} while (loop);
 
 	enable_pps(fd_clock, false);
-	ntpshm_link_deactivate(&session);
+	if (pps_thread->devicename != NULL)
+		ntpshm_link_deactivate(&session);
 
 	gnss_stop(gnss);
-	phasemeter_stop(phasemeter);
-	monitoring_stop(monitoring);
 
-	od_destroy(&od);
-	close(fd_clock);
+	if (disciplining_mode) {
+		phasemeter_stop(phasemeter);
+		od_destroy(&od);
+	}
+	if (monitoring_mode)
+		monitoring_stop(monitoring);
+	if (fd_clock != -1)
+		close(fd_clock);
 
 	return EXIT_SUCCESS;
 }
