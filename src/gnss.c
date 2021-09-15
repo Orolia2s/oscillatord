@@ -312,6 +312,10 @@ static bool gnss_check_ptp_clock_time(struct gnss *gnss)
 	struct timespec ts;
 	time_t gnss_time;
 	int ret;
+	if (gnss->fd_clock < 0) {
+		log_warn("Bad clock file descriptor");
+		return -1;
+	}
 	if (gnss_get_valid(gnss)) {
 		gnss_time = gnss_get_next_fix_time(gnss);
 		ret = clock_gettime(FD_TO_CLOCKID(gnss->fd_clock), &ts);
@@ -343,7 +347,7 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	bool clock_valid = false;
 		
 	if (gnss->fd_clock < 0) {
-		log_warn("Could not open ptp clock fd");
+		log_warn("Bad clock file descriptor");
 		return -1;
 	}
 	clkid = FD_TO_CLOCKID(gnss->fd_clock);
@@ -397,7 +401,7 @@ static int gnss_adjust_ptp_clock_time(struct gnss *gnss, int64_t ns)
 	clockid_t clkid;
 
 	if (gnss->fd_clock < 0) {
-		log_warn("Could not open ptp clock fd");
+		log_warn("Bad clock file descriptor");
 		return -1;
 	}
 	clkid = FD_TO_CLOCKID(gnss->fd_clock);
