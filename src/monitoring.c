@@ -81,7 +81,7 @@ struct monitoring* monitoring_init(const struct config *config)
 	setsockopt(monitoring->sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = port;
+	server_addr.sin_port = htons(port);
 	server_addr.sin_addr.s_addr = inet_addr(address);
 
 	ret = bind(monitoring->sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
