@@ -353,8 +353,9 @@ int main(int argc, char *argv[])
 				if (ret < 0)
 					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
 			}
-			sleep(SETTLING_TIME);
 		}
+		
+		sleep(SETTLING_TIME);
 
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
