@@ -48,12 +48,11 @@ static int dummy_oscillator_save(struct oscillator *oscillator)
 	return 0;
 }
 
-static int dummy_oscillator_get_temp(struct oscillator *oscillator,
-		uint16_t *temp)
+static int dummy_oscillator_get_temp(struct oscillator *oscillator, double *temp)
 {
 	*temp = (rand() % (55 - 10)) + 10;
 
-	log_info("%s(%p, %u)", __func__, oscillator, *temp);
+	log_info("%s(%p, %g)", __func__, oscillator, *temp);
 
 	return 0;
 }
