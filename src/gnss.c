@@ -381,7 +381,7 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 			/* PHC time has been set, check time is correctly set */
 			} else {
 				if (gnss_check_ptp_clock_time(gnss)) {
-					log_error("PHC time correctly set");
+					log_debug("PHC time correctly set");
 					clock_valid = true;
 				} else {
 					log_warn("PHC time is not valid, resetting it");
