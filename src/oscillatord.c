@@ -226,6 +226,14 @@ int main(int argc, char *argv[])
 		/* Wait for all thread to get at least one piece of data */
 		sleep(2);
 
+		/* Init PTP clock time */
+		log_info("Initialize time of ptp clock %s", ptp_clock);
+		ret = gnss_set_ptp_clock_time(gnss);
+		if (ret != 0) {
+			log_error("Could not set ptp clock time");
+			return -EINVAL;
+		}
+
 		/* Apply initial phase jump before setting PTP clock time */
 		do {
 			phasemeter_status = get_phase_error(phasemeter, &phase_error);
@@ -242,7 +250,7 @@ int main(int argc, char *argv[])
 		sleep(SETTLING_TIME);
 
 		/* Init PTP clock time */
-		log_info("Initialize time of ptp clock %s", ptp_clock);
+		log_info("Reset PTP Clock time after rough alignment to GNSS");
 		ret = gnss_set_ptp_clock_time(gnss);
 		if (ret != 0) {
 			log_error("Could not set ptp clock time");
