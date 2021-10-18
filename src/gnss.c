@@ -398,36 +398,6 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	return 0;
 }
 
-static int gnss_adjust_ptp_clock_time(struct gnss *gnss, int64_t ns)
-{
-	int ret = 0;
-	clockid_t clkid;
-
-	if (gnss->fd_clock < 0) {
-		log_warn("Bad clock file descriptor");
-		return -1;
-	}
-	clkid = FD_TO_CLOCKID(gnss->fd_clock);
-
-	struct timex timex = {
-		.modes = ADJ_SETOFFSET | ADJ_NANO,
-		.offset = 0,
-		.time.tv_sec = ns > 0  || (ns % NS_IN_SECOND == 0.0) ?
-			(long long) floor(ns / NS_IN_SECOND):
-			(long long) floor(ns / NS_IN_SECOND) - 1,
-		.time.tv_usec = ns > 0 || (ns % NS_IN_SECOND == 0.0) ?
-			ns % NS_IN_SECOND:
-			ns % NS_IN_SECOND + NS_IN_SECOND,
-	};
-
-	log_info("Adusjting ptp_clock time: adjustment: %"PRIi32"ns", ns);
-	log_debug("adjust tv_sec %lld tv_usec %lld", timex.time.tv_sec, timex.time.tv_usec);
-	ret = clock_adjtime(clkid, &timex);
-	log_debug("ret is %d", ret);
-	return ret;
-
-}
-
 static void * gnss_thread(void * p_data)
 {
 	EPOCH_t coll;
@@ -471,15 +441,6 @@ static void * gnss_thread(void * p_data)
 					ntp_latch(session, &td);
 					log_gnss_data(session);
 					pthread_cond_signal(&gnss->cond_time);
-					if (session->context->leap_notify && session->context->timeToLsEvent == 1) {
-						/* Leap second will occur in one second */
-						log_warn("Leap second event detected");
-						ret = gnss_adjust_ptp_clock_time(gnss, - session->context->lsChange * NS_IN_SECOND);
-						if (ret != 0)
-							log_error("Error occured while adjusting ptp clock time due to leap second event");
-						else
-							log_info("Leap second event correctly handled");
-					}
 				}
 
 			// Analyze msg to parse UBX-MON-RF to get antenna status
