@@ -26,6 +26,8 @@
 
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
+#define GPS_TO_TAI_TIME 19
+
 enum AntennaStatus {
 	ANT_STATUS_INIT,
 	ANT_STATUS_DONT_KNOW,
@@ -72,7 +74,7 @@ static int gnss_get_fix(int fix)
 	return -1;
 }
 
-static time_t gnss_get_time(EPOCH_t *epoch)
+static time_t gnss_get_utc_time(EPOCH_t *epoch)
 {
 	struct tm t = {
 		// Year - 1900
@@ -166,7 +168,7 @@ static void log_gnss_data(struct gps_device_t *session)
 		session->fixOk ? "True" : "False",
 		session->antenna_status,
 		session->valid,
-		session->last_fixtime.tv_sec,
+		session->last_fix_utc_time.tv_sec,
 		session->context->leap_seconds,
 		session->context->leap_notify,
 		session->context->lsChange,
@@ -181,13 +183,13 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
 {
 
     /* this should be an invariant of the way this function is called */
-    if (0 >= device->last_fixtime.tv_sec) {
+    if (0 >= device->last_fix_utc_time.tv_sec) {
         return;
     }
 
     (void)clock_gettime(CLOCK_REALTIME, &td->clock);
     /* structure copy of time from GPS */
-    td->real = device->last_fixtime;
+    td->real = device->last_fix_utc_time;
 
     /* thread-safe update */
     pps_thread_fixin(&device->pps_thread, td);
@@ -287,12 +289,13 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	return gnss;
 }
 
-time_t gnss_get_next_fix_time(struct gnss * gnss)
+time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
 {
 	time_t time;
 	pthread_mutex_lock(&gnss->mutex_data);
 	pthread_cond_wait(&gnss->cond_time, &gnss->mutex_data);
-	time = gnss->session->last_fixtime.tv_sec;
+	// Get last UTC time and add leap seconds + diff between GPS and TAI
+	time = gnss->session->last_fix_utc_time.tv_sec + gnss->session->context->leap_seconds + GPS_TO_TAI_TIME;
 	pthread_mutex_unlock(&gnss->mutex_data);
 	return time;
 
@@ -317,11 +320,11 @@ static bool gnss_check_ptp_clock_time(struct gnss *gnss)
 		return -1;
 	}
 	if (gnss_get_valid(gnss)) {
-		gnss_time = gnss_get_next_fix_time(gnss);
+		gnss_time = gnss_get_next_fix_tai_time(gnss);
 		ret = clock_gettime(FD_TO_CLOCKID(gnss->fd_clock), &ts);
 		if (ret == 0) {
-			log_debug("GNSS TIME %ld", gnss_time);
-			log_debug("PHC TIME  %ld", ts.tv_sec);
+			log_debug("GNSS TAI TIME %ld", gnss_time);
+			log_debug("PHC TAI TIME  %ld", ts.tv_sec);
 			if (ts.tv_sec == gnss_time) {
 				log_info("PHC time is set to GNSS one");
 				return true;
@@ -357,8 +360,8 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 			/* Set clock time according to gnss data */
 			if (!clock_set) {
 				/* Configure PHC time */
-				/* Wait to get next gnss time */
-				gnss_time = gnss_get_next_fix_time(gnss);
+				/* Wait to get next gnss TAI time */
+				gnss_time = gnss_get_next_fix_tai_time(gnss);
 				/* Then get clock time to preserve nanoseconds */
 				ret = clock_gettime(clkid, &ts);
 				if (ret == 0) {
@@ -451,7 +454,7 @@ static void * gnss_thread(void * p_data)
 			if(epochCollect(&coll, msg, &epoch))
 			{
 				if(epoch.haveFix) {
-					session->last_fixtime.tv_sec = gnss_get_time(&epoch);
+					session->last_fix_utc_time.tv_sec = gnss_get_utc_time(&epoch);
 					session->fix = epoch.fix;
 					session->fixOk = epoch.fixOk;
 					session->context->leap_seconds = gnss_get_leap_seconds(&epoch);

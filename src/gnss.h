@@ -107,7 +107,7 @@ struct gps_device_t {
     volatile struct shmTime *shm_pps;
     volatile struct pps_thread_t pps_thread;
     int fixcnt;                         /* count of fixes from this device */
-	struct timespec last_fixtime;
+	struct timespec last_fix_utc_time;
 	int fix;
 	bool fixOk;
 	bool leap_second_occured;
