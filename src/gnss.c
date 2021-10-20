@@ -27,7 +27,6 @@
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
 #define GPS_TO_TAI_TIME 19
-#define TIME_TEMP_FIX 1 // Hack to fix current issue regarding time set on PHC
 
 enum AntennaStatus {
 	ANT_STATUS_INIT,
@@ -296,7 +295,7 @@ time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
 	pthread_mutex_lock(&gnss->mutex_data);
 	pthread_cond_wait(&gnss->cond_time, &gnss->mutex_data);
 	// Get last UTC time and add leap seconds + diff between GPS and TAI
-	time = gnss->session->last_fix_utc_time.tv_sec + gnss->session->context->leap_seconds + GPS_TO_TAI_TIME + TIME_TEMP_FIX;
+	time = gnss->session->last_fix_utc_time.tv_sec + gnss->session->context->leap_seconds + GPS_TO_TAI_TIME;
 	pthread_mutex_unlock(&gnss->mutex_data);
 	return time;
 
