@@ -23,6 +23,8 @@
 
 #define GNSS_TIMEOUT_MS 1500
 #define GNSS_RECONFIGURE_MAX_TRY 5
+#define SEC_IN_WEEK 604800
+#define GPS_EPOCH_TO_TAI 315964819
 
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
@@ -61,19 +63,6 @@ static const char *fix_log[11] = {
 
 static void * gnss_thread(void * p_data);
 
-static int gnss_get_fix(int fix)
-{
-	switch(fix) {
-		case EPOCH_FIX_NOFIX: return MODE_NO_FIX;
-		case EPOCH_FIX_DRONLY: return MODE_NO_FIX;
-		case EPOCH_FIX_S2D: return MODE_2D;
-		case EPOCH_FIX_S3D: return MODE_3D;
-		case EPOCH_FIX_S3D_DR: return MODE_3D;
-		case EPOCH_FIX_TIME: return MODE_NO_FIX;
-	}
-	return -1;
-}
-
 static time_t gnss_get_utc_time(EPOCH_t *epoch)
 {
 	struct tm t = {
@@ -101,31 +90,18 @@ static time_t gnss_get_utc_time(EPOCH_t *epoch)
 	return time;
 }
 
-
-static int gnss_get_leap_seconds(EPOCH_t *epoch)
-{
-	if (epoch->haveLeapSeconds) {
-		return epoch->leapSeconds;
-	}
-	return 0;
-}
-
-
 static int gnss_get_leap_notify(EPOCH_t *epoch)
 {
-	if (epoch->haveLeapSecondEvent) {
-		if ((0 != epoch->lsChange) && (0 < epoch->timeToLsEvent) &&
-			((60 * 60 * 23) > epoch->timeToLsEvent)) {
-			if (1 == epoch->lsChange) {
-				return LEAP_ADDSECOND;
-			} else if (-1 == epoch->lsChange) {
-				return LEAP_DELSECOND;
-			}
-		} else {
-			return LEAP_NOWARNING;
+	if ((0 != epoch->lsChange) && (0 < epoch->timeToLsEvent) &&
+		((60 * 60 * 23) > epoch->timeToLsEvent)) {
+		if (1 == epoch->lsChange) {
+			return LEAP_ADDSECOND;
+		} else if (-1 == epoch->lsChange) {
+			return LEAP_DELSECOND;
 		}
+	} else {
+		return LEAP_NOWARNING;
 	}
-	return LEAP_NOWARNING;
 }
 
 static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *msg)
@@ -289,13 +265,12 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	return gnss;
 }
 
-time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
+static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
 {
 	time_t time;
 	pthread_mutex_lock(&gnss->mutex_data);
 	pthread_cond_wait(&gnss->cond_time, &gnss->mutex_data);
-	// Get last UTC time and add leap seconds + diff between GPS and TAI
-	time = gnss->session->last_fix_utc_time.tv_sec + gnss->session->context->leap_seconds + GPS_TO_TAI_TIME;
+	time = gnss->session->tai_time;
 	pthread_mutex_unlock(&gnss->mutex_data);
 	return time;
 
@@ -423,25 +398,36 @@ static void * gnss_thread(void * p_data)
 			// Epoch collect is used to fetch navigation data such as time and leap seconds
 			if(epochCollect(&coll, msg, &epoch))
 			{
-				if(epoch.haveFix) {
+				if (epoch.haveFix) {
 					session->last_fix_utc_time.tv_sec = gnss_get_utc_time(&epoch);
 					session->fix = epoch.fix;
 					session->fixOk = epoch.fixOk;
-					session->context->leap_seconds = gnss_get_leap_seconds(&epoch);
-					session->context->leap_notify = gnss_get_leap_notify(&epoch);
-					session->context->timeToLsEvent = epoch.timeToLsEvent;
-					session->context->lsChange = epoch.lsChange;
-					if (session->fix > MODE_NO_FIX)
-						session->fixcnt++;
-					else
-						session->fixcnt = 0;
-
-
 					struct timedelta_t td;
 					ntp_latch(session, &td);
 					log_gnss_data(session);
-					pthread_cond_signal(&gnss->cond_time);
+				} else {
+					session->fix = MODE_NO_FIX;
+					session->fixOk = false;
 				}
+				session->fix = session->fix > MODE_NO_FIX ? session->fixcnt++ : 0;
+
+				session->context->leap_seconds = epoch.haveLeapSeconds ? epoch.leapSeconds : 0;
+
+				if (epoch.haveLeapSecondEvent) {
+					session->context->leap_notify = gnss_get_leap_notify(&epoch);
+
+				} else {
+					session->context->leap_notify = LEAP_NOWARNING;
+					session->context->timeToLsEvent = epoch.timeToLsEvent;
+					session->context->lsChange = epoch.lsChange;
+				}
+
+				if (epoch.haveGpsWeek && epoch.haveGpsTow) {
+					session->tai_time = (int) round(((double) epoch.gpsWeek * SEC_IN_WEEK) + epoch.gpsTow) + GPS_EPOCH_TO_TAI;
+					session->tai_time_set = true;
+					pthread_cond_signal(&gnss->cond_time);
+				} else
+					log_warn("Could not get gpsWeek and/or time of week, please check GNSS Configuration if this message keeps appearing");
 
 			// Analyze msg to parse UBX-MON-RF to get antenna status
 			} else {

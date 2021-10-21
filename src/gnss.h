@@ -114,6 +114,8 @@ struct gps_device_t {
 	int8_t antenna_status;
 	int8_t antenna_power;
 	bool valid;
+	bool tai_time_set;
+	int tai_time;
 };
 
 struct gnss {
@@ -128,7 +130,6 @@ struct gnss {
 };
 
 struct gnss* gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock);
-time_t gnss_get_next_fix_time(struct gnss * gnss);
 bool gnss_get_valid(struct gnss *gnss);
 void gnss_stop(struct gnss *gnss);
 int gnss_set_ptp_clock_time(struct gnss *gnss);
