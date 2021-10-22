@@ -30,6 +30,10 @@
 
 #define GPS_TO_TAI_TIME 19
 
+#ifndef FLAG
+#define FLAG(field, flag) ( ((field) & (flag)) == (flag) )
+#endif
+
 enum AntennaStatus {
 	ANT_STATUS_INIT,
 	ANT_STATUS_DONT_KNOW,
@@ -90,19 +94,41 @@ static time_t gnss_get_utc_time(EPOCH_t *epoch)
 	return time;
 }
 
-static int gnss_get_leap_notify(EPOCH_t *epoch)
+static void gnss_parse_ubx_nav_timels(struct gps_device_t *session, PARSER_MSG_t *msg)
 {
-	if ((0 != epoch->lsChange) && (0 < epoch->timeToLsEvent) &&
-		((60 * 60 * 23) > epoch->timeToLsEvent)) {
-		if (1 == epoch->lsChange) {
-			return LEAP_ADDSECOND;
-		} else if (-1 == epoch->lsChange) {
-			return LEAP_DELSECOND;
+	UBX_NAV_TIMELS_V0_GROUP0_t nav_timels_msg;
+	if (msg->size == UBX_NAV_TIMELS_V0_SIZE) {
+		memcpy(&nav_timels_msg, &msg->data[UBX_HEAD_SIZE], sizeof(nav_timels_msg));
+
+		session->context->leap_seconds =
+			FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_CURRLSVALID) ?
+			nav_timels_msg.currLs :
+			0;
+
+		if (FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_TIMETOLSEVENTVALID))
+		{
+			session->context->timeToLsEvent = nav_timels_msg.timeToLsEvent;
+			session->context->lsChange = nav_timels_msg.lsChange;
+
+			if ((0 != session->context->lsChange) &&
+				(0 < session->context->timeToLsEvent) &&
+				((60 * 60 * 23) > session->context->timeToLsEvent)) {
+				if (1 == session->context->lsChange) {
+					session->context->leap_notify = LEAP_ADDSECOND;
+				} else if (-1 == session->context->lsChange) {
+					session->context->leap_notify = LEAP_DELSECOND;
+				}
+			} else {
+				session->context->leap_notify = LEAP_NOWARNING;
+			}
+			return;
 		}
-	} else {
-		return LEAP_NOWARNING;
 	}
-}
+	session->context->timeToLsEvent = 0;
+	session->context->lsChange = 0;
+	session->context->leap_notify = LEAP_NOWARNING;
+
+};
 
 static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *msg)
 {
@@ -411,17 +437,6 @@ static void * gnss_thread(void * p_data)
 				}
 				session->fix = session->fix > MODE_NO_FIX ? session->fixcnt++ : 0;
 
-				session->context->leap_seconds = epoch.haveLeapSeconds ? epoch.leapSeconds : 0;
-
-				if (epoch.haveLeapSecondEvent) {
-					session->context->leap_notify = gnss_get_leap_notify(&epoch);
-
-				} else {
-					session->context->leap_notify = LEAP_NOWARNING;
-					session->context->timeToLsEvent = epoch.timeToLsEvent;
-					session->context->lsChange = epoch.lsChange;
-				}
-
 				if (epoch.haveGpsWeek && epoch.haveGpsTow) {
 					session->tai_time = (int) round(((double) epoch.gpsWeek * SEC_IN_WEEK) + epoch.gpsTow) + GPS_EPOCH_TO_TAI;
 					session->tai_time_set = true;
@@ -429,14 +444,16 @@ static void * gnss_thread(void * p_data)
 				} else
 					log_warn("Could not get gpsWeek and/or time of week, please check GNSS Configuration if this message keeps appearing");
 
-			// Analyze msg to parse UBX-MON-RF to get antenna status
 			} else {
+				// Analyze msg to parse UBX-MON-RF to get antenna status
 				uint8_t clsId = UBX_CLSID(msg->data);
 				uint8_t msgId = UBX_MSGID(msg->data);
 				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
 					gnss_get_antenna_data(session, msg);
 					session->valid = session->fix >= EPOCH_FIX_S2D && session->fixOk && (session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN);
-				}
+				// Parse UBX-NAV-TIMELS messages there because library does not do it
+				} else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
+					gnss_parse_ubx_nav_timels(session, msg);
 			}
 			pthread_mutex_unlock(&gnss->mutex_data);
 		} else {
