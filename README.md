@@ -111,6 +111,7 @@ Then a small random noise is added to the phase error.
 
     .
     ├── example_configurations : per oscillator type configuration examples
+    ├── gnss_config            : GNSS default config file as output by libubloxcfg
     ├── src                    : main oscillatord source code
     │   └── oscillators        : oscillator implementations
     ├── systemd                : systemd service file
