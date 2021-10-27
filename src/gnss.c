@@ -435,7 +435,6 @@ static void * gnss_thread(void * p_data)
 					session->fix = MODE_NO_FIX;
 					session->fixOk = false;
 				}
-				session->fix = session->fix > MODE_NO_FIX ? session->fixcnt++ : 0;
 
 				if (epoch.haveGpsWeek && epoch.haveGpsTow) {
 					session->tai_time = (int) round(((double) epoch.gpsWeek * SEC_IN_WEEK) + epoch.gpsTow) + GPS_EPOCH_TO_TAI;
@@ -451,6 +450,14 @@ static void * gnss_thread(void * p_data)
 				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
 					gnss_get_antenna_data(session, msg);
 					session->valid = session->fix >= EPOCH_FIX_S2D && session->fixOk && (session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN);
+					if (!session->valid) {
+						if (session->fix < EPOCH_FIX_S2D)
+							log_debug("Fix is to low: %d", session->fix);
+						if (!session->fixOk)
+							log_debug("Fix is not OK");
+						if (!(session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN))
+							log_debug("Antenna is in bad state %d", session->antenna_status);
+					}
 				// Parse UBX-NAV-TIMELS messages there because library does not do it
 				} else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
 					gnss_parse_ubx_nav_timels(session, msg);
