@@ -254,7 +254,12 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 				if (!ret) {
 				} else if (i == ARRAY_SIZE(ubxCfgValsetMsgs) - 1) {
 					log_info("Successfully reconfigured gnss receiver");
-					receiver_reconfigured = true;
+					log_debug("Performing software reset");
+					bool reset = rxReset(gnss->rx, RX_RESET_SOFT);
+					if (reset) {
+						log_info("Software reset performed");
+						receiver_reconfigured = true;
+					}
 				}
 			}
 
@@ -441,7 +446,7 @@ static void * gnss_thread(void * p_data)
 					session->tai_time_set = true;
 					pthread_cond_signal(&gnss->cond_time);
 				} else
-					log_warn("Could not get gpsWeek and/or time of week, please check GNSS Configuration if this message keeps appearing");
+					log_warn("Could not get gpsWeek and/or time of week, please check GNSS Configuration if this message keeps appearing more than a minute");
 
 			} else {
 				// Analyze msg to parse UBX-MON-RF to get antenna status
@@ -452,11 +457,11 @@ static void * gnss_thread(void * p_data)
 					session->valid = session->fix >= EPOCH_FIX_S2D && session->fixOk && (session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN);
 					if (!session->valid) {
 						if (session->fix < EPOCH_FIX_S2D)
-							log_debug("Fix is to low: %d", session->fix);
+							log_trace("Fix is to low: %d", session->fix);
 						if (!session->fixOk)
-							log_debug("Fix is not OK");
+							log_trace("Fix is not OK");
 						if (!(session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN))
-							log_debug("Antenna is in bad state %d", session->antenna_status);
+							log_trace("Antenna is in bad state %d", session->antenna_status);
 					}
 				// Parse UBX-NAV-TIMELS messages there because library does not do it
 				} else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
