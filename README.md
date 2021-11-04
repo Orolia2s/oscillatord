@@ -4,6 +4,7 @@
 
 * cmake
 * libgps26/28
+* pps-tools
 * [disciplining-minipod](https://github.com/Orolia2s/disciplining-minipod)
 * [ubloxcfg](https://github.com/Orolia2s/ubloxcfgs) : use commit **2c37136c15d0f75cfc0db52433b8d945b403eec6**
 
