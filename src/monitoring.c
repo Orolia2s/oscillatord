@@ -114,6 +114,8 @@ struct monitoring* monitoring_init(const struct config *config)
 
 void monitoring_stop(struct monitoring *monitoring)
 {
+	if (monitoring == NULL)
+		return;
 	pthread_mutex_lock(&monitoring->mutex);
 	monitoring->stop = true;
 	pthread_cond_signal(&monitoring->cond);

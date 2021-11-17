@@ -42,8 +42,6 @@ static struct gps_context_t context;
  */
 #define LOOP_TIMEOUT 4
 
-static volatile int loop = true;
-
 /*
  * Signal Handler to kill program gracefully
  */
@@ -93,11 +91,11 @@ static int enable_pps(int fd, bool enable)
 int main(int argc, char *argv[])
 {
 	struct config config;
-	struct gps_device_t session;
-	struct phasemeter *phasemeter;
+	struct gps_device_t session = {};
+	struct phasemeter *phasemeter = NULL;
 	struct oscillator_ctrl ctrl_values;
 	struct gnss *gnss;
-	struct monitoring *monitoring;
+	struct monitoring *monitoring = NULL;
 	struct od_input input;
 	struct od_output output;
 	const char *ptp_clock;
@@ -118,6 +116,7 @@ int main(int argc, char *argv[])
 	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	__attribute__((cleanup(oscillator_factory_destroy)))
 		struct oscillator *oscillator = NULL;
+	volatile struct pps_thread_t * pps_thread = NULL;
 
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
@@ -193,7 +192,7 @@ int main(int argc, char *argv[])
 	(void)memset(&context, '\0', sizeof(struct gps_context_t));
 	context.leap_notify = LEAP_NOWARNING;
 	session.sourcetype = source_pps;
-	volatile struct pps_thread_t * pps_thread = &(session.pps_thread);
+	pps_thread = &(session.pps_thread);
 	pps_thread->context = &session;
 
 	/* Start GNSS Thread */
@@ -203,7 +202,7 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (disciplining_mode) {
+	if (disciplining_mode && loop) {
 		/* Get path to disciplining shared library */
 		libod_conf_path = config_get_default(&config, "libod-config-path", path);
 
@@ -234,47 +233,53 @@ int main(int argc, char *argv[])
 			return -EINVAL;
 		}
 
-		/* Apply initial phase jump before setting PTP clock time */
-		do {
-			phasemeter_status = get_phase_error(phasemeter, &phase_error);
-		} while (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS);
-		log_debug("Initial phase error to apply is %d", phase_error);
-		log_info("Applying initial phase jump before setting PTP clock time");
-		ret = apply_phase_offset(
-			fd_clock,
-			ptp_clock,
-			-phase_error * sign
-		);
-		if (ret < 0)
-			error(EXIT_FAILURE, -ret, "apply_phase_offset");
-		sleep(SETTLING_TIME);
+		/* Check if program is still supposed to be running or has been requested to terminate */
+		if(loop) {
+			/* Apply initial phase jump before setting PTP clock time */
+			do {
+				phasemeter_status = get_phase_error(phasemeter, &phase_error);
+			} while (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS);
+			log_debug("Initial phase error to apply is %d", phase_error);
+			log_info("Applying initial phase jump before setting PTP clock time");
+			ret = apply_phase_offset(
+				fd_clock,
+				ptp_clock,
+				-phase_error * sign
+			);
+			if (ret < 0)
+				error(EXIT_FAILURE, -ret, "apply_phase_offset");
+			sleep(SETTLING_TIME);
 
-		/* Init PTP clock time */
-		log_info("Reset PTP Clock time after rough alignment to GNSS");
-		ret = gnss_set_ptp_clock_time(gnss);
-		if (ret != 0) {
-			log_error("Could not set ptp clock time");
-			return -EINVAL;
+			/* Init PTP clock time */
+			log_info("Reset PTP Clock time after rough alignment to GNSS");
+			ret = gnss_set_ptp_clock_time(gnss);
+			if (ret != 0) {
+				log_error("Could not set ptp clock time");
+				return -EINVAL;
+			}
 		}
 	}
 
-	/* Start NTP SHM session */
-	enable_pps(fd_clock, true);
-	(void)ntpshm_context_init(&context);
+	/* Check if program is still intend to run before continuing */
+	if (loop) {
+		/* Start NTP SHM session */
+		enable_pps(fd_clock, true);
+		(void)ntpshm_context_init(&context);
 
-	/* Start PPS Thread that triggers writes in NTP SHM */
-	pps_thread->devicename = config_get(&config, "pps-device");
-	if (pps_thread->devicename != NULL) {
-		pps_thread->log_hook = ppsthread_log;
-		log_info("Init NTP SHM session");
-		ntpshm_session_init(&session);
-		ntpshm_link_activate(&session);
-	} else {
-		log_warn("No pps-device provided, NTPSHM will no be filled");
+		/* Start PPS Thread that triggers writes in NTP SHM */
+		pps_thread->devicename = config_get(&config, "pps-device");
+		if (pps_thread->devicename != NULL) {
+			pps_thread->log_hook = ppsthread_log;
+			log_info("Init NTP SHM session");
+			ntpshm_session_init(&session);
+			ntpshm_link_activate(&session);
+		} else {
+			log_warn("No pps-device provided, NTPSHM will no be filled");
+		}
 	}
 
 	/* Main Loop */
-	do {
+	while(loop) {
 		ret = oscillator_get_temp(oscillator, &temperature);
 		if (ret == -ENOSYS)
 			temperature = 0;
@@ -352,10 +357,15 @@ int main(int argc, char *argv[])
 					error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
 
 				struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, calib_params, sign);
-				if (results == NULL)
-					error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
+				if (results != NULL)
+					od_calibrate(od, calib_params, results);
+				else {
+					if (!loop)
+						break;
+					else
+						error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
+				}
 
-				od_calibrate(od, calib_params, results);
 			} else {
 				ret = oscillator_apply_output(oscillator, &output);
 				if (ret < 0)
@@ -387,10 +397,10 @@ int main(int argc, char *argv[])
 
 			pthread_mutex_unlock(&monitoring->mutex);
 		}
-	} while (loop);
+	}
 
 	enable_pps(fd_clock, false);
-	if (pps_thread->devicename != NULL)
+	if (pps_thread != NULL && pps_thread->devicename != NULL)
 		ntpshm_link_deactivate(&session);
 
 	gnss_stop(gnss);

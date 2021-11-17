@@ -361,7 +361,7 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	}
 	clkid = FD_TO_CLOCKID(gnss->fd_clock);
 
-	while(!clock_valid) {
+	while(!clock_valid && loop) {
 		if (gnss_get_valid(gnss)) {
 			/* Set clock time according to gnss data */
 			if (!clock_set) {

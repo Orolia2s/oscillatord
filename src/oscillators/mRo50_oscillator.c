@@ -229,6 +229,8 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 	}
 	log_info("Starting measure for calibration");
 	for (int i = 0; i < results->length; i ++) {
+		if (!loop)
+			goto clean_calibration;
 		uint32_t ctrl_point = (uint32_t) calib_params->ctrl_points[i];
 		log_info("Applying fine adjustment of %d", ctrl_point);
 		ret = ioctl(mRo50->osc_fd, MRO50_ADJUST_FINE, &ctrl_point);
@@ -251,6 +253,8 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 
 		log_info("Starting phase error measures %d/%d", i+1, results->length);
 		for (int j = 0; j < results->nb_calibration; j++) {
+			if (!loop)
+				goto clean_calibration;
 			int phasemeter_status = get_phase_error(phasemeter, &phase_error);
 			if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS) {
 				log_error("Could not get phase error during calibration, aborting");
@@ -270,6 +274,13 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 	}
 
 	return results;
+
+clean_calibration:
+	free(results->measures);
+	results->measures = NULL;
+	free(results);
+	results = NULL;
+	return NULL;
 }
 
 static const struct oscillator_factory mRo50_oscillator_factory = {

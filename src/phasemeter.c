@@ -239,6 +239,8 @@ struct phasemeter* phasemeter_init(int fd)
 
 void phasemeter_stop(struct phasemeter *phasemeter)
 {
+	if (phasemeter == NULL)
+		return;
 	pthread_mutex_lock(&phasemeter->mutex);
 	phasemeter->stop = true;
 	pthread_mutex_unlock(&phasemeter->mutex);

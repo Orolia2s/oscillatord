@@ -10,6 +10,7 @@
 #include "log.h"
 #include "utils.h"
 
+volatile int loop = true;
 
 static int read_file(const char *path, char **argz, size_t *argz_len)
 {

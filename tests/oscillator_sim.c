@@ -36,8 +36,6 @@
 
 #define SETPOINT_AMPLITUDE ((SETPOINT_MAX - SETPOINT_MIN) + 1)
 
-static volatile int loop = true;
-
 static void signal_handler(int signum)
 {
 	log_info("Caught signal %s.\n", strsignal(signum));
