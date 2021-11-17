@@ -1,4 +1,4 @@
-# TIM 2.01 (ZED-F9T), layer RAM
+# TIM 2.01 (ZED-F9T), layer Flash
 UART1     115200  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3      # default:   115200  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3
 UART2      38400  RTCM3                RTCM3               # default:    38400  RTCM3                RTCM3
 SPI            -  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3      # default:        -  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3
@@ -59,7 +59,7 @@ UBX-NAV-TIMEGAL            0   0   0   0   0               # default:   0   0   
 UBX-NAV-TIMEGLO            0   0   0   0   0               # default:   0   0   0   0   0
 UBX-NAV-TIMEGPS            1   1   1   1   1               # default:   0   0   0   0   0
 UBX-NAV-TIMELS             1   1   1   1   1               # default:   0   0   0   0   0
-UBX-NAV-TIMEUTC            0   0   0   0   0               # default:   0   0   0   0   0
+UBX-NAV-TIMEUTC            1   1   1   1   1               # default:   0   0   0   0   0
 UBX-NAV-VELECEF            0   0   0   0   0               # default:   0   0   0   0   0
 UBX-NAV-VELNED             0   0   0   0   0               # default:   0   0   0   0   0
 UBX-RXM-MEASX              0   0   0   0   0               # default:   0   0   0   0   0
@@ -68,7 +68,7 @@ UBX-RXM-RLM                0   0   0   0   0               # default:   0   0   
 UBX-RXM-RTCM               0   0   0   0   0               # default:   0   0   0   0   0
 UBX-RXM-SFRBX              0   0   0   0   0               # default:   0   0   0   0   0
 UBX-TIM-TM2                0   0   0   0   0               # default:   0   0   0   0   0
-UBX-TIM-TP                 0   0   0   0   0               # default:   0   0   0   0   0
+UBX-TIM-TP                 1   1   1   1   1               # default:   0   0   0   0   0
 UBX-TIM-VRFY               0   0   0   0   0               # default:   0   0   0   0   0
 CFG-GEOFENCE-CONFLVL               L000                    # default: L000                      (type E1)
 CFG-GEOFENCE-USE_PIO               false                   # default: false                     (type L)
