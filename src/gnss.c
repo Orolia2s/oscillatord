@@ -67,6 +67,14 @@ static const char *fix_log[11] = {
 
 static void * gnss_thread(void * p_data);
 
+static int gnss_get_satellites(EPOCH_t *epoch)
+{
+	if (epoch->haveNumSv) {
+		return epoch->numSv;
+	}
+	return 0;
+}
+
 static time_t gnss_get_utc_time(EPOCH_t *epoch)
 {
 	struct tm t = {
@@ -162,12 +170,13 @@ static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *ms
 
 static void log_gnss_data(struct gps_device_t *session)
 {
-	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, antenna status: %d, valid %d,"
+	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, antenna status: %d, valid %d,"
 		" time %lld, leapm_seconds %d, leap_notify %d, lsChange %d "
 		"timeToLsChange %d",
 		fix_log[session->fix],
 		session->fix,
 		session->fixOk ? "True" : "False",
+		session->satellites_count,
 		session->antenna_status,
 		session->valid,
 		session->last_fix_utc_time.tv_sec,
@@ -354,7 +363,7 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	int ret;
 	bool clock_set = false;
 	bool clock_valid = false;
-		
+
 	if (gnss->fd_clock < 0) {
 		log_warn("Bad clock file descriptor");
 		return -1;
@@ -440,6 +449,8 @@ static void * gnss_thread(void * p_data)
 					session->fix = MODE_NO_FIX;
 					session->fixOk = false;
 				}
+				// if epoch has no fix there will be no Nav solution and 0 satellites
+				session->satellites_count = gnss_get_satellites(&epoch);
 
 				if (epoch.haveGpsWeek && epoch.haveGpsTow) {
 					session->tai_time = (int) round(((double) epoch.gpsWeek * SEC_IN_WEEK) + epoch.gpsTow) + GPS_EPOCH_TO_TAI;

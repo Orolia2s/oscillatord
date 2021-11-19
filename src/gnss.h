@@ -116,6 +116,7 @@ struct gps_device_t {
 	bool valid;
 	bool tai_time_set;
 	int tai_time;
+	int satellites_count;
 };
 
 struct gnss {
