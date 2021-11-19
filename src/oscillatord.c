@@ -372,7 +372,7 @@ int main(int argc, char *argv[])
 					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
 			}
 		}
-		
+
 		sleep(SETTLING_TIME);
 
 		if (monitoring_mode) {
@@ -385,6 +385,7 @@ int main(int argc, char *argv[])
 			monitoring->fixOk = gnss->session->fixOk;
 			monitoring->leap_seconds = gnss->session->context->leap_seconds;
 			monitoring->lsChange = gnss->session->context->lsChange;
+			monitoring->satellites_count = gnss->session->satellites_count;
 			pthread_mutex_unlock(&gnss->mutex_data);
 
 			monitoring->disciplining_status = od_get_status(od);
