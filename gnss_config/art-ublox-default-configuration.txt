@@ -1,5 +1,5 @@
 # TIM 2.01 (ZED-F9T), layer Flash
-UART1     115200  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3      # default:   115200  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3
+UART1     115200  UBX                  UBX                 # default:   115200  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3
 UART2      38400  RTCM3                RTCM3               # default:    38400  RTCM3                RTCM3
 SPI            -  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3      # default:        -  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3
 I2C            -  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3      # default:        -  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3
@@ -246,23 +246,23 @@ CFG-TMODE-FIXED_POS_ACC            0                       # default: 0         
 CFG-TMODE-SVIN_MIN_DUR             0                       # default: 0                         (type U4 [s])
 CFG-TMODE-SVIN_ACC_LIMIT           0                       # default: 0                         (type U4 [mm])
 CFG-TP-PULSE_DEF                   PERIOD                  # default: PERIOD                    (type E1)
-CFG-TP-PULSE_LENGTH_DEF            RATIO                   # default: RATIO                     (type E1)
+CFG-TP-PULSE_LENGTH_DEF            LENGTH                  # default: RATIO                     (type E1)
 CFG-TP-ANT_CABLEDELAY              50                      # default: 50                        (type I2 [s])
-CFG-TP-PERIOD_TP1                  1000000                 # default: 1000000                   (type U4 [s])
+CFG-TP-PERIOD_TP1                  0                       # default: 1000000                   (type U4 [s])
 CFG-TP-PERIOD_LOCK_TP1             1000000                 # default: 1000000                   (type U4 [s])
-CFG-TP-FREQ_TP1                     0                       # default: 1                         (type U4 [Hz])
+CFG-TP-FREQ_TP1                    0                       # default: 1                         (type U4 [Hz])
 CFG-TP-FREQ_LOCK_TP1               1                       # default: 1                         (type U4 [Hz])
 CFG-TP-LEN_TP1                     0                       # default: 0                         (type U4 [s])
 CFG-TP-LEN_LOCK_TP1                100000                  # default: 100000                    (type U4 [s])
-CFG-TP-DUTY_TP1                    10                      # default: 10                        (type R8 [%])
-CFG-TP-DUTY_LOCK_TP1               20                      # default: 20                        (type R8 [%])
+CFG-TP-DUTY_TP1                    0                       # default: 10                        (type R8 [%])
+CFG-TP-DUTY_LOCK_TP1               100000                  # default: 20                        (type R8 [%])
 CFG-TP-USER_DELAY_TP1              0                       # default: 0                         (type I4 [s])
 CFG-TP-TP1_ENA                     true                    # default: true                      (type L)
 CFG-TP-SYNC_GNSS_TP1               true                    # default: true                      (type L)
 CFG-TP-USE_LOCKED_TP1              true                    # default: true                      (type L)
 CFG-TP-ALIGN_TO_TOW_TP1            true                    # default: true                      (type L)
 CFG-TP-POL_TP1                     true                    # default: true                      (type L)
-CFG-TP-TIMEGRID_TP1                UTC                     # default: UTC                       (type E1)
+CFG-TP-TIMEGRID_TP1                GPS                     # default: UTC                       (type E1)
 CFG-TXREADY-ENABLED                false                   # default: false                     (type L)
 CFG-TXREADY-POLARITY               false                   # default: false                     (type L)
 CFG-TXREADY-PIN                    0                       # default: 0                         (type U1)
