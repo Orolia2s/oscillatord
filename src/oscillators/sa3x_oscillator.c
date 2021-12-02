@@ -5,6 +5,7 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <poll.h>
 
 #include "config.h"
 #include "log.h"
@@ -17,7 +18,7 @@
 
 struct sa3x_oscillator {
 	struct oscillator oscillator;
-	FILE *osc_fd;
+	int osc_fd;
 };
 
 struct sa3x_attributes {
@@ -47,8 +48,8 @@ static void sa3x_oscillator_destroy(struct oscillator **oscillator)
 
 	o = *oscillator;
 	r = container_of(o, struct sa3x_oscillator, oscillator);
-	if (r->osc_fd != NULL) {
-		fclose(r->osc_fd);
+	if (r->osc_fd != -1) {
+		close(r->osc_fd);
 		log_info("Closed oscillator's serial port");
 	}
 	memset(o, 0, sizeof(*o));
@@ -56,11 +57,11 @@ static void sa3x_oscillator_destroy(struct oscillator **oscillator)
 	*oscillator = NULL;
 }
 
-static int set_serial_attributes(FILE *fd)
+static int set_serial_attributes(int fd)
 {
 	struct termios tty;
 
-	if (tcgetattr(fileno(fd), &tty) != 0){
+	if (tcgetattr(fd, &tty) != 0){
 		log_error("error from tcgetattr\n");
 		return -1;
 	}
@@ -84,7 +85,7 @@ static int set_serial_attributes(FILE *fd)
 	tty.c_cflag &= ~CSTOPB;
 	tty.c_cflag &= ~CRTSCTS;
 
-	if (tcsetattr(fileno(fd), TCSANOW, &tty) != 0){
+	if (tcsetattr(fd, TCSANOW, &tty) != 0){
 		log_error("error from tcsetattr\n");
 		return -1;
 	}
@@ -95,7 +96,7 @@ static int set_serial_attributes(FILE *fd)
 static struct oscillator *sa3x_oscillator_new(struct config *config)
 {
 	struct sa3x_oscillator *sa3x;
-	FILE *fd;
+	int fd;
 	char *osc_device_name;
 	struct oscillator *oscillator;
 
@@ -103,16 +104,16 @@ static struct oscillator *sa3x_oscillator_new(struct config *config)
 	if (sa3x == NULL)
 		return NULL;
 	oscillator = &sa3x->oscillator;
-	sa3x->osc_fd = NULL;
+	sa3x->osc_fd = -1;
 
 	osc_device_name = (char *) config_get(config, "sa3x-device");
 	if (osc_device_name == NULL) {
 		log_error("sa3x-device config key must be provided");
 		goto error;
 	}
-	
-	fd = fopen(osc_device_name, "r+");
-	if (fd == NULL) {
+
+	fd = open(osc_device_name, O_RDWR|O_NONBLOCK);
+	if (fd == -1) {
 		log_error("Could not open sa3x device\n");
 		goto error;
 	}
@@ -129,6 +130,8 @@ static struct oscillator *sa3x_oscillator_new(struct config *config)
 
 	return oscillator;
 error:
+	if (fd != -1)
+		close(fd);
 	sa3x_oscillator_destroy(&oscillator);
 	return NULL;
 }
@@ -146,29 +149,61 @@ static int sa3x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 {
 	struct sa3x_oscillator *sa3x;
 	sa3x = container_of(oscillator, struct sa3x_oscillator, oscillator);
+	struct pollfd pfd = {};
+	int err;
 
 	char *command = "^";
-	fwrite(command, 1, 1, sa3x->osc_fd);
+	if (write(sa3x->osc_fd, command, 1) != 1) {
+		log_error("oscillator_get_attributes send command error: %d (%s)", errno, strerror(errno));
+		return -1;
+	}
 
-	char line[64];
-	char *l = line;
-	size_t n;
-	getline(&l, &n, sa3x->osc_fd);
+	pfd.fd = sa3x->osc_fd;
+	pfd.events = POLLIN;
+	// give MAC 100ms to respond with telemetry
+	err = poll(&pfd, 1, 100);
+	if (!err) {
+		// poll call timed out
+		log_error("oscillator_get_attributes timed out");
+		return -1;
 
-	sscanf(line, "%c,%[^,],%[^,],%d,%d,%d,%d,%d,%d,%d,%c,%d",
-		&a->bite, a->version, a->serial, &a->teccontrol, &a->rfcontrol, &a->ddscurrent,
-		&a->cellcurrent, &a->dcsignal, &a->temperature, &a->digitaltuning, &a->analogtuningon,
-		&a->analogtuning);
+	}
+	if (err == -1) {
+		log_error("oscillator_get_attributes poll error: %d (%s)", errno, strerror(errno));
+		return -1;
+	}
+	// Datasheet states that answer will be no more than 128 characters
+	char line[128] = {0};
+	size_t n = 128;
 
+	if ((err = read(sa3x->osc_fd, line, n)) > 0) {
+
+		err = sscanf(line, "%c,%[^,],%[^,],%d,%d,%d,%d,%d,%d,%d,%c,%d",
+			&a->bite, a->version, a->serial, &a->teccontrol, &a->rfcontrol, &a->ddscurrent,
+			&a->cellcurrent, &a->dcsignal, &a->temperature, &a->digitaltuning, &a->analogtuningon,
+			&a->analogtuning);
+		if (err < 9) {
+			log_error("oscillator_get_attributes parse telemetry error: only %d attributes read", err);
+			return -1;
+		}
+	} else {
+		log_error("oscillator_get_attributes read telemetry error: %d (%s)", errno, strerror(errno));
+		return -1;
+	}
 	return 0;
 }
 
 static int sa3x_oscillator_get_temp(struct oscillator *oscillator, double *temp)
 {
 	struct sa3x_attributes a;
-	sa3x_oscillator_get_attributes(oscillator, &a);
-	// mDegC to DegC
-	*temp = a.temperature / 1000.0;
+	int err = sa3x_oscillator_get_attributes(oscillator, &a);
+	if (!err) {
+		// mDegC to DegC
+		*temp = a.temperature / 1000.0;
+	} else {
+		*temp = -400.0;
+	}
+	// we cannot propagate error further
 	return 0;
 }
 
