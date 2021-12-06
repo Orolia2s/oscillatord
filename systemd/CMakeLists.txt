@@ -1,5 +1,4 @@
 pkg_get_variable(SYSTEMD_UNIT_DIR systemd systemdsystemunitdir)
 
-find_package(Systemd)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/oscillatord.service
         DESTINATION ${SYSTEMD_UNIT_DIR})

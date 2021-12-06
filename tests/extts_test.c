@@ -41,7 +41,7 @@ static int read_extts(int fd, int64_t *nsec)
 
 	log_info(
 		"%s timestamp: %llu",
-		event.index == 1? "Internal" : "GNSS    ",
+		event.index == EXTTS_INDEX_TS_INTERNAL? "Internal" : "GNSS    ",
 		*nsec);
 
 	return 0;

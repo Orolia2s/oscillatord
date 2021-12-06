@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.20)
 find_package(PkgConfig)
 
 set(PROJECT_NAME "oscillatord")
+set(BUILD_TESTS true)
 
 file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/version PACKAGE_VERSION)
 message("${PROJECT_NAME} version is ${PACKAGE_VERSION}")
@@ -19,7 +20,6 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 pkg_check_modules(oscillator-disciplining REQUIRED liboscillator-disciplining)
-pkg_check_modules(SYSTEMD systemd REQUIRED)
 pkg_check_modules(ubloxcfg REQUIRED libubloxcfg)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/)

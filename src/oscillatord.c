@@ -96,8 +96,8 @@ int main(int argc, char *argv[])
 	struct oscillator_ctrl ctrl_values;
 	struct gnss *gnss;
 	struct monitoring *monitoring = NULL;
-	struct od_input input;
-	struct od_output output;
+	struct od_input input = {0};
+	struct od_output output = {0};
 	const char *ptp_clock;
 	const char *path;
 	const char *libod_conf_path;
@@ -310,32 +310,34 @@ int main(int argc, char *argv[])
 				continue;
 			}
 
-			input = (struct od_input) {
-				.calibration_requested = false,
-				.coarse_setpoint = ctrl_values.coarse_ctrl,
-				.fine_setpoint = ctrl_values.fine_ctrl,
-				.lock = ctrl_values.lock,
-				.phase_error = (struct timespec) {
-					.tv_sec = sign * phase_error / NS_IN_SECOND,
-					.tv_nsec = sign * phase_error % NS_IN_SECOND,
-				},
-				.valid = gnss_get_valid(gnss),
-				.temperature = temperature,
+			/* Fills in input structure for disciplining algorithm */
+			input.coarse_setpoint = ctrl_values.coarse_ctrl;
+			input.fine_setpoint = ctrl_values.fine_ctrl;
+			input.lock = ctrl_values.lock;
+			input.phase_error = (struct timespec) {
+				.tv_sec = sign * phase_error / NS_IN_SECOND,
+				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
+			input.valid = gnss_get_valid(gnss);
+			input.temperature = temperature;
+
 			log_info("input: phase_error = (%lds, %09ldns),"
-				"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %.1f°C",
+				"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %.1f°C, calibration requested: %s",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
 				input.valid ? "true" : "false",
 				input.lock ? "true" : "false",
 				input.fine_setpoint,
 				input.coarse_setpoint,
-				input.temperature);
+				input.temperature,
+				input.calibration_requested ? "true" : "false");
 
 			/* Call disciplining algorithm process loop */
 			ret = od_process(od, &input, &output);
 			if (ret < 0)
 				error(EXIT_FAILURE, -ret, "od_process");
+			/* Resets input structure to empty values */
+			input = (struct od_input) {0};
 
 			/* Process output result of the algorithm */
 			if (output.action == PHASE_JUMP) {
@@ -387,14 +389,16 @@ int main(int argc, char *argv[])
 			monitoring->lsChange = gnss->session->context->lsChange;
 			monitoring->satellites_count = gnss->session->satellites_count;
 			pthread_mutex_unlock(&gnss->mutex_data);
-
 			monitoring->disciplining_status = od_get_status(od);
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
 			if (disciplining_mode)
-				monitoring->phase_error = input.phase_error.tv_nsec;
-			if (monitoring->request == REQUEST_CALIBRATION)
+				monitoring->phase_error = sign * phase_error;
+			if (monitoring->request == REQUEST_CALIBRATION) {
+				log_info("Calibration requested through monitoring interface");
 				input.calibration_requested = true;
+				monitoring->request = REQUEST_NONE;
+			}
 
 			pthread_mutex_unlock(&monitoring->mutex);
 		}

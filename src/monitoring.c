@@ -32,14 +32,14 @@ struct monitoring* monitoring_init(const struct config *config)
 
 	const char *address = config_get(config, "socket-address");
 	if (address == NULL) {
-		log_error("socket-address not defined in config %s", config->path);
+		log_error("Monitoring: socket-address not defined in config %s", config->path);
 		return NULL;
 	}
 
 	port = config_get_unsigned_number(config, "socket-port");
 	if (port < 0) {
 		log_error(
-			"Error %d fetching socket-port from config %s",
+			"Monitoring: Error %d fetching socket-port from config %s",
 			port,
 			config->path
 		);
@@ -48,7 +48,7 @@ struct monitoring* monitoring_init(const struct config *config)
 
 	monitoring = (struct monitoring *) malloc(sizeof(struct monitoring));
 	if (monitoring == NULL) {
-		log_error("Could not allocate memory for monitoring struct");
+		log_error("Monitoring: Could not allocate memory for monitoring struct");
 		return NULL;
 	}
 
@@ -74,7 +74,7 @@ struct monitoring* monitoring_init(const struct config *config)
 
 	monitoring->sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (monitoring->sockfd == -1) {
-		log_error("Error creating monitoring socket");
+		log_error("Monitoring: Error creating monitoring socket");
 		free(monitoring);
 		return NULL;
 	}
@@ -88,7 +88,7 @@ struct monitoring* monitoring_init(const struct config *config)
 	ret = bind(monitoring->sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 	if (ret == -1)
 	{
-		log_error("Error binding socket to address %s", address);
+		log_error("Monitoring: Error binding socket to address %s", address);
 		free(monitoring);
 		return NULL;
 	}
@@ -101,12 +101,12 @@ struct monitoring* monitoring_init(const struct config *config)
 	);
 
 	log_info(
-		"INITIALIZATION: Successfully started monitoring thread, listening on %s:%d",
+		"Monitoring: INITIALIZATION: Successfully started monitoring thread, listening on %s:%d",
 		address,
 		port
 	);
 	if (ret != 0) {
-		log_error("Error creating monitoring thread: %d", ret);
+		log_error("Monitoring: Error creating monitoring thread: %d", ret);
 		free(monitoring);
 		return NULL;
 	}
@@ -131,6 +131,7 @@ static void handle_client(struct monitoring *monitoring, int fd)
 {
 	struct json_object *json_req;
 	struct json_object *json_resp;
+	enum monitoring_request request_type = REQUEST_NONE;
 	int ret;
 	bool stop;
 	fd_set read_sd;
@@ -154,16 +155,17 @@ static void handle_client(struct monitoring *monitoring, int fd)
 
 				/* Notify main loop about the request */
 				pthread_mutex_lock(&monitoring->mutex);
-				monitoring->request = (enum monitoring_request) json_object_get_int(json_req);
+				request_type = (enum monitoring_request) json_object_get_int(json_req);
 				if (monitoring->stop) {
 					pthread_mutex_unlock(&monitoring->mutex);
 					break;
 				}
 
 				json_resp = json_object_new_object();
-				if (monitoring->request == REQUEST_CALIBRATION) {
+				if (request_type == REQUEST_CALIBRATION) {
 					json_object_object_add(json_resp, "calibration",
 						json_object_new_string("requested"));
+					monitoring->request = REQUEST_CALIBRATION;
 				}
 
 				if (monitoring->disciplining_mode) {
@@ -210,18 +212,17 @@ static void handle_client(struct monitoring *monitoring, int fd)
 
 				json_object_object_add(json_resp, "gnss", gnss);
 
-				monitoring->request = REQUEST_NONE;
 				pthread_mutex_unlock(&monitoring->mutex);
 
 				const char *resp = json_object_to_json_string(json_resp);
 				ret = send(fd, resp, strlen(resp), 0);
 				if (ret == -1)
-					log_error("Error sending response: %d", ret);
+					log_error("Monitoring: Error sending response: %d", ret);
 			} else if (ret == 0) {
-				log_debug("Client disconnected, closing connection");
+				log_debug("Monitoring: client disconnected, closing connection");
 				break;
 			} else {
-				log_error("Error receving data from client, closing connection");
+				log_error("Monitoring: Error receving data from client, closing connection");
 				break;
 			}
 		} else {
@@ -249,10 +250,10 @@ static void *monitoring_thread(void * p_data)
 
 	while (!stop)
 	{
-		log_trace("Listening on socket...");
+		log_trace("Monitoring: Listening on socket...");
 		ret = listen(monitoring->sockfd, 1);
 		if (ret == -1) {
-			log_error("Error listening to socket");
+			log_error("Monitoring: Error listening to socket");
 			return NULL;
 		}
 
@@ -264,7 +265,7 @@ static void *monitoring_thread(void * p_data)
 			length = sizeof(client_addr);
 			fd = accept(monitoring->sockfd, (struct sockaddr *)&client_addr, &length);
 			if (fd == -1) {
-				log_error("Error accepting client connection");
+				log_error("Monitoring: Error accepting client connection");
 				continue;
 			}
 
@@ -276,7 +277,7 @@ static void *monitoring_thread(void * p_data)
 		stop = monitoring->stop;
 		pthread_mutex_unlock(&monitoring->mutex);
 	}
-	log_info("Exiting monitoring thread");
+	log_info("Monitoring: Exiting thread");
 
 	return NULL;
 }

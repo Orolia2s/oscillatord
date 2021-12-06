@@ -1,4 +1,3 @@
-#include <arpa/inet.h>
 #include <assert.h>
 #include <json-c/json.h>
 #include <netinet/in.h>

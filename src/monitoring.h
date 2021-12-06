@@ -18,7 +18,7 @@ struct monitoring {
 	struct oscillator_ctrl ctrl_values;
 	const char *oscillator_model;
 	int disciplining_status;
-	int phase_error;
+	int64_t phase_error;
 	int fix;
 	int satellites_count;
 	int leap_seconds;
