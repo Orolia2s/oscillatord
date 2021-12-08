@@ -1,3 +1,7 @@
+/*
+ * Test checking how monitoring socket works and which data it displays
+ */
+#include <arpa/inet.h>
 #include <assert.h>
 #include <json-c/json.h>
 #include <netinet/in.h>
@@ -15,6 +19,7 @@ enum monitoring_request {
 	REQUEST_CALIBRATION,
 };
 
+/* Send json formatted request and returns json response */
 static struct json_object *json_send_and_receive(int sockfd, int request)
 {
 	int ret;
@@ -45,8 +50,6 @@ static struct json_object *json_send_and_receive(int sockfd, int request)
 }
 
 int main(int argc, char *argv[]) {
-	
-	
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd == -1)
 	{
@@ -61,7 +64,7 @@ int main(int argc, char *argv[]) {
 	server_addr.sin_port = htons(2958);
 	server_addr.sin_addr.s_addr = inet_addr("0.0.0.0");
 	
-	//Initiate a connection to the server
+	/* Initiate a connection to the server */
 	int ret = connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 	if (ret == -1)
 	{
@@ -70,14 +73,14 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	/* REQUEST PHASE ERROR */
+	/* Request data through socket */
 	struct json_object *obj = json_send_and_receive(sockfd, REQUEST_NONE);
 	struct json_object *layer_1;
 	struct json_object *layer_2;
 
 	log_info(json_object_to_json_string(obj));
 	
-	// Disciplining
+	/* Disciplining */
 	json_object_object_get_ex(obj, "disciplining", &layer_1);
 	if (layer_1 != NULL) {
 		json_object_object_get_ex(layer_1, "phase_error", &layer_2);
@@ -89,11 +92,11 @@ int main(int argc, char *argv[]) {
 		log_info("\t- Phase error: %d", phase_error);
 	}
 
-	// Disciplining
+	/* Oscillator */
 	json_object_object_get_ex(obj, "oscillator", &layer_1);
 	if (layer_1 != NULL) {
 		json_object_object_get_ex(layer_1, "model", &layer_2);
-		char * model = json_object_get_string(layer_2);
+		const char * model = json_object_get_string(layer_2);
 		json_object_object_get_ex(layer_1, "fine_ctrl", &layer_2);
 		uint32_t fine_ctrl = json_object_get_int(layer_2);
 		json_object_object_get_ex(layer_1, "coarse_ctrl", &layer_2);
@@ -110,7 +113,7 @@ int main(int argc, char *argv[]) {
 		log_info("\t- temperature: %f", temperature);
 	}
 
-	// GNSS
+	/* GNSS */
 	json_object_object_get_ex(obj, "gnss", &layer_1);
 	if (layer_1 != NULL) {
 		json_object_object_get_ex(layer_1, "fix", &layer_2);
@@ -134,7 +137,8 @@ int main(int argc, char *argv[]) {
 		log_info("\t- leap_seconds: %u", leap_seconds);
 	}
 	free(obj);
-	/* REQUEST CALIBRATION */
+
+	/* Request calibration from monitoring socket */
 	// obj = json_send_and_receive(sockfd, REQUEST_CALIBRATION);
 	close(sockfd);
 	log_info("PASSED !");
