@@ -1,5 +1,7 @@
 # oscillatord - daemon for disciplining an oscillator
 
+Oscillatord aims at disciplining an oscillator to an external reference. It is responsible for fetching oscillator and reference data and pass them to a disciplining algorithm, and apply the decision of the algorithm regarding the oscillator.
+
 ## Requirements
 
 * cmake
