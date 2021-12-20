@@ -110,6 +110,22 @@ static int enable_pps(int fd, bool enable)
 	return 0;
 }
 
+static void prepare_minipod_config(struct minipod_config* minipod_config, struct config * config)
+{
+	minipod_config->calibrate_first = config_get_bool_default(config, "calibrate_first", false);
+	minipod_config->debug = config_get_unsigned_number(config, "debug");
+	minipod_config->fine_stop_tolerance = config_get_unsigned_number(config, "fine_stop_tolerance");
+	minipod_config->max_allowed_coarse = config_get_unsigned_number(config, "max_allowed_coarse");
+	minipod_config->nb_calibration = config_get_unsigned_number(config, "nb_calibration");
+	minipod_config->phase_jump_threshold_ns = config_get_unsigned_number(config, "phase_jump_threshold_ns");
+	minipod_config->phase_resolution_ns = config_get_unsigned_number(config, "phase_resolution_ns");
+	minipod_config->reactivity_max = config_get_unsigned_number(config, "reactivity_max");
+	minipod_config->reactivity_min = config_get_unsigned_number(config, "reactivity_min");
+	minipod_config->reactivity_power = config_get_unsigned_number(config, "reactivity_power");
+	minipod_config->ref_fluctuations_ns = config_get_unsigned_number(config, "ref_fluctuations_ns");
+	minipod_config->oscillator_factory_settings = config_get_bool_default(config, "oscillator_factory_settings", true);
+}
+
 /**
  * @brief Main program function
  *
@@ -126,9 +142,10 @@ int main(int argc, char *argv[])
 	struct monitoring *monitoring = NULL;
 	struct od_input input = {0};
 	struct od_output output = {0};
+	struct minipod_config minipod_config = {0};
+	struct disciplining_parameters disciplining_parameters = {0};
 	const char *ptp_clock;
 	const char *path;
-	const char *libod_conf_path;
 	char err_msg[OD_ERR_MSG_LEN];
 	double temperature;
 	int64_t phase_error;
@@ -231,15 +248,16 @@ int main(int argc, char *argv[])
 	}
 
 	if (disciplining_mode && loop) {
-		/* Get path to disciplining shared library */
-		libod_conf_path = config_get_default(&config, "libod-config-path", path);
+		/* Get disciplining parameters from mRO50  device */
 
 		opposite_phase_error = config_get_bool_default(&config,
 				"opposite-phase-error", false);
 		sign = opposite_phase_error ? -1 : 1;
 
+		prepare_minipod_config(&minipod_config, &config);
+
 		/* Create shared library oscillator object */
-		od = od_new_from_config(libod_conf_path, err_msg);
+		od = od_new_from_config(&minipod_config, &disciplining_parameters, err_msg);
 		if (od == NULL) {
 			error(EXIT_FAILURE, errno, "od_new %s", err_msg);
 			return -EINVAL;
