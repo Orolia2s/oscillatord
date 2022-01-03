@@ -57,7 +57,7 @@ UBX-NAV-SVIN               0   0   0   0   0               # default:   0   0   
 UBX-NAV-TIMEBDS            0   0   0   0   0               # default:   0   0   0   0   0
 UBX-NAV-TIMEGAL            0   0   0   0   0               # default:   0   0   0   0   0
 UBX-NAV-TIMEGLO            0   0   0   0   0               # default:   0   0   0   0   0
-UBX-NAV-TIMEGPS            1   1   1   1   1               # default:   0   0   0   0   0
+UBX-NAV-TIMEGPS            0   0   0   0   0               # default:   0   0   0   0   0
 UBX-NAV-TIMELS             1   1   1   1   1               # default:   0   0   0   0   0
 UBX-NAV-TIMEUTC            1   1   1   1   1               # default:   0   0   0   0   0
 UBX-NAV-VELECEF            0   0   0   0   0               # default:   0   0   0   0   0
