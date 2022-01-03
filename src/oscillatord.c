@@ -419,5 +419,7 @@ int main(int argc, char *argv[])
 	if (fd_clock != -1)
 		close(fd_clock);
 
+	config_cleanup(&config);
+
 	return EXIT_SUCCESS;
 }
