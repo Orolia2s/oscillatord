@@ -420,7 +420,6 @@ static void * gnss_thread(void * p_data)
 	struct gnss *gnss = (struct gnss*) p_data;
 	struct gps_device_t * session;
 	bool stop;
-	int ret;
 
 	epochInit(&coll);
 
