@@ -494,6 +494,7 @@ static void * gnss_thread(void * p_data)
 	log_debug("Closing gnss session");
 	rxClose(gnss->rx);
 	free(gnss->rx);
+	free(gnss);
 	return NULL;
 }
 
