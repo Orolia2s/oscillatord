@@ -135,8 +135,36 @@ static void gnss_parse_ubx_nav_timels(struct gps_device_t *session, PARSER_MSG_t
 	session->context->timeToLsEvent = 0;
 	session->context->lsChange = 0;
 	session->context->leap_notify = LEAP_NOWARNING;
-
 };
+
+static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *msg) {
+	if (msg->size == (int) UBX_TIM_TP_V0_SIZE) {
+		UBX_TIME_TP_V0_GROUP0_t gr0;
+		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
+		log_trace("UBX-TIM-TP: towMS %lu, towSubMs %lu, qErr %ld, week %ld, flags %x; refInfo %x",
+			gr0.towMs,
+			gr0.towSubMS,
+			gr0.qErr,
+			gr0.week,
+			gr0.flags,
+			gr0.refInfo
+		);
+		if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_GNSS
+			&& UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo) == UBX_TIM_TP_V0_REFINFO_GPS) {
+			session->tai_time = (int) round(
+				((double) gr0.towMs / 1000)
+				+ ((double) gr0.week * SEC_IN_WEEK)
+				+ GPS_EPOCH_TO_TAI
+				- 1 // UBX-TIM-TP gives time at next pulse
+			);
+
+			session->tai_time_set = true;
+		} else if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_UTC) {
+			log_warn("Time Base is UTC, not implemented yet !");
+		}
+	}
+}
+
 
 static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *msg)
 {
@@ -452,10 +480,13 @@ static void * gnss_thread(void * p_data)
 				session->satellites_count = gnss_get_satellites(&epoch);
 
 				if (epoch.haveGpsWeek && epoch.haveGpsTow) {
-					session->tai_time = (int) round(((double) epoch.gpsWeek * SEC_IN_WEEK) + epoch.gpsTow) + GPS_EPOCH_TO_TAI;
-					session->tai_time_set = true;
+					log_debug("TIME NAV-TIME_GPS TAI: %d", (int) round(((double) epoch.gpsWeek * SEC_IN_WEEK) + epoch.gpsTow) + GPS_EPOCH_TO_TAI);
+				}
+				log_debug("Time TAI: %d", session->tai_time);
+
+				if (session->tai_time_set)
 					pthread_cond_signal(&gnss->cond_time);
-				} else
+				else
 					log_warn("Could not get gpsWeek and/or time of week, please check GNSS Configuration if this message keeps appearing more than a minute");
 
 			} else {
@@ -476,6 +507,8 @@ static void * gnss_thread(void * p_data)
 				// Parse UBX-NAV-TIMELS messages there because library does not do it
 				} else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
 					gnss_parse_ubx_nav_timels(session, msg);
+				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_TP_MSGID)
+					gnss_parse_ubx_tim_tp(session, msg);
 			}
 			pthread_mutex_unlock(&gnss->mutex_data);
 		} else {
