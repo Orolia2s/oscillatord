@@ -85,6 +85,7 @@ struct gps_context_t {
 #define LEAP_NOTINSYNC  0x3     /* overload, clock is free running */
 	int lsChange;
 	int timeToLsEvent;
+	bool lsset;
 	/* we need the volatile here to tell the C compiler not to
 		* 'optimize' as 'dead code' the writes to SHM */
 	volatile struct shmTime *shmTime[NTPSHMSEGS];

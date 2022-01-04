@@ -24,11 +24,19 @@
 #define GNSS_TIMEOUT_MS 1500
 #define GNSS_RECONFIGURE_MAX_TRY 5
 #define SEC_IN_WEEK 604800
+
 #define GPS_EPOCH_TO_TAI 315964819
+
+#define GAL_EPOCH_TO_GPS 619315200
+#define GAL_EPOCH_TO_TAI GAL_EPOCH_TO_GPS + GPS_EPOCH_TO_TAI
+
+#define BDS_EPOCH_TO_GPS 820108814
+#define BDS_EPOCH_TO_TAI BDS_EPOCH_TO_GPS + GPS_EPOCH_TO_TAI
+
+#define GLO_EPOCH_TO_TAI 315954019
 
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
-#define GPS_TO_TAI_TIME 19
 
 #ifndef FLAG
 #define FLAG(field, flag) ( ((field) & (flag)) == (flag) )
@@ -112,6 +120,7 @@ static void gnss_parse_ubx_nav_timels(struct gps_device_t *session, PARSER_MSG_t
 			FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_CURRLSVALID) ?
 			nav_timels_msg.currLs :
 			0;
+		session->context->lsset = FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_CURRLSVALID);
 
 		if (FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_TIMETOLSEVENTVALID))
 		{
@@ -149,19 +158,48 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 			gr0.flags,
 			gr0.refInfo
 		);
-		if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_GNSS
-			&& UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo) == UBX_TIM_TP_V0_REFINFO_GPS) {
-			session->tai_time = (int) round(
-				((double) gr0.towMs / 1000)
-				+ ((double) gr0.week * SEC_IN_WEEK)
-				+ GPS_EPOCH_TO_TAI
-				- 1 // UBX-TIM-TP gives time at next pulse
-			);
 
-			session->tai_time_set = true;
+		int offset = 0;
+		if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_GNSS) {
+			switch(UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo)) {
+				case UBX_TIM_TP_V0_REFINFO_GPS:
+					offset = GPS_EPOCH_TO_TAI; 
+					break;
+				case UBX_TIM_TP_V0_REFINFO_BDS:
+					offset = BDS_EPOCH_TO_TAI;
+					break;
+				case UBX_TIM_TP_V0_REFINFO_GAL:
+					offset = GAL_EPOCH_TO_TAI;
+					break;
+				case UBX_TIM_TP_V0_REFINFO_GLO:
+					if (session->context->lsset) {
+						offset = GLO_EPOCH_TO_TAI + session->context->leap_seconds;
+					} else {
+						log_warn("Cannot compute TAI time from GLONASS without leap second information. Waiting for leap second data");
+						return;
+					}
+					break;
+				default:
+					log_error("Unhandled Constellations %d", UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo));
+					return;
+			}
 		} else if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_UTC) {
-			log_warn("Time Base is UTC, not implemented yet !");
+			if (session->context->lsset) {
+				offset = GPS_EPOCH_TO_TAI + session->context->leap_seconds;
+			} else {
+				log_warn("Cannot compute TAI time from UTC without leap second information. Waiting for leap second data");
+				return;
+			}
 		}
+
+		session->tai_time = (int) round(
+			((double) gr0.towMs / 1000)
+			+ ((double) gr0.week * SEC_IN_WEEK)
+			+ offset
+			- 1 // UBX-TIM-TP gives time at next pulse
+		);
+		session->tai_time_set = true;
+		return;
 	}
 }
 
@@ -199,8 +237,8 @@ static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *ms
 static void log_gnss_data(struct gps_device_t *session)
 {
 	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, antenna status: %d, valid %d,"
-		" time %lld, leapm_seconds %d, leap_notify %d, lsChange %d "
-		"timeToLsChange %d",
+		" time %lld, leapm_seconds %d, leap_notify %d, lsChange %d, "
+		"timeToLsChange %d, lsSet: %s",
 		fix_log[session->fix],
 		session->fix,
 		session->fixOk ? "True" : "False",
@@ -211,7 +249,8 @@ static void log_gnss_data(struct gps_device_t *session)
 		session->context->leap_seconds,
 		session->context->leap_notify,
 		session->context->lsChange,
-		session->context->timeToLsEvent
+		session->context->timeToLsEvent,
+		session->context->lsset ? "True" : "False"
 	);
 }
 
@@ -366,8 +405,8 @@ static bool gnss_check_ptp_clock_time(struct gnss *gnss)
 		gnss_time = gnss_get_next_fix_tai_time(gnss);
 		ret = clock_gettime(FD_TO_CLOCKID(gnss->fd_clock), &ts);
 		if (ret == 0) {
-			log_debug("GNSS TAI TIME %ld", gnss_time);
-			log_debug("PHC TAI TIME  %ld", ts.tv_sec);
+			log_debug("GNSS tai time is %ld", gnss_time);
+			log_debug("Time set on PHC is %ld", ts.tv_sec);
 			if (ts.tv_sec == gnss_time) {
 				log_info("PHC time is set to GNSS one");
 				return true;
@@ -479,15 +518,10 @@ static void * gnss_thread(void * p_data)
 				// if epoch has no fix there will be no Nav solution and 0 satellites
 				session->satellites_count = gnss_get_satellites(&epoch);
 
-				if (epoch.haveGpsWeek && epoch.haveGpsTow) {
-					log_debug("TIME NAV-TIME_GPS TAI: %d", (int) round(((double) epoch.gpsWeek * SEC_IN_WEEK) + epoch.gpsTow) + GPS_EPOCH_TO_TAI);
-				}
-				log_debug("Time TAI: %d", session->tai_time);
-
 				if (session->tai_time_set)
 					pthread_cond_signal(&gnss->cond_time);
 				else
-					log_warn("Could not get gpsWeek and/or time of week, please check GNSS Configuration if this message keeps appearing more than a minute");
+					log_warn("Could not tai time from gnss, please check GNSS Configuration if this message keeps appearing more than 25 minutes");
 
 			} else {
 				// Analyze msg to parse UBX-MON-RF to get antenna status
