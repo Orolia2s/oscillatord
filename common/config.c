@@ -1,3 +1,7 @@
+/**
+ * @file config.c
+ * @brief Header for function handling parsing of configuration file
+ */
 #include <errno.h>
 #include <stdlib.h>
 #include <inttypes.h>

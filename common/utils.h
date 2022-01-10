@@ -1,3 +1,11 @@
+/**
+ * @file utils.h
+ * @brief Utility function to cleanup structures and compute temperature
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
+ *
+ */
 #ifndef UTILS_H_
 #define UTILS_H_
 #include <stddef.h>

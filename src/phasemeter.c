@@ -1,5 +1,11 @@
-/*
- * Phasemeter computing phase difference between two PPS
+/**
+ * @file phasemeter.c
+ * @author your name (you@domain.com)
+ * @brief Phasemeter computing phase difference between two PPS
+ * @version 0.1
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
  * Both PPS's timestamps are received through a PTP clock event
  */
 #include <errno.h>
@@ -24,7 +30,13 @@ struct external_timestamp {
 	int index;
 };
 
-/* Return index of external timestamp received on success, -1 on error */
+/**
+ * @brief Read an external timestamp
+ *
+ * @param fd handle of PHS
+ * @param nsec pointer where timestamp will be stored
+ * @return int index of external timestamp received on success, -1 on error
+ */
 static int read_extts(int fd, int64_t *nsec)
 {	
 	struct ptp_extts_event event = {0};
@@ -52,6 +64,13 @@ static int read_extts(int fd, int64_t *nsec)
 	return event.index;
 }
 
+/**
+ * @brief Activate an external timestamp
+ *
+ * @param fd PHC handler
+ * @param extts_index Index of extts to enable
+ * @return int 0 on success, -1 on failure
+ */
 static int enable_extts(int fd, unsigned int extts_index)
 {
 	struct ptp_extts_request extts_request = {
@@ -67,6 +86,13 @@ static int enable_extts(int fd, unsigned int extts_index)
 	return 0;
 }
 
+/**
+ * @brief Disable an external timestamp
+ *
+ * @param fd PHC handler
+ * @param extts_index Index of extts to enable
+ * @return int 0 on success, -1 on failure
+ */
 static int disable_extts(int fd, unsigned int extts_index)
 {
 	struct ptp_extts_request extts_request = {
@@ -76,12 +102,18 @@ static int disable_extts(int fd, unsigned int extts_index)
 
 	if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request) < 0) {
 		log_error("PTP_EXTTS_REQUEST disable");
-		return 1;
+		return -1;
 	}
 
 	return 0;
 }
 
+/**
+ * @brief Phasemeter thread routine
+ *
+ * @param p_data
+ * @return void*
+ */
 static void* phasemeter_thread(void *p_data)
 {
 	int ret;
@@ -203,6 +235,12 @@ static void* phasemeter_thread(void *p_data)
 	return NULL;
 }
 
+/**
+ * @brief Create phasemeter structure from PHC handler
+ *
+ * @param fd PHC handler
+ * @return struct phasemeter*
+ */
 struct phasemeter* phasemeter_init(int fd)
 {
 	int ret;
@@ -237,6 +275,11 @@ struct phasemeter* phasemeter_init(int fd)
 	return phasemeter;
 }
 
+/**
+ * @brief Stop phasemeter thread
+ *
+ * @param phasemeter
+ */
 void phasemeter_stop(struct phasemeter *phasemeter)
 {
 	if (phasemeter == NULL)
@@ -250,7 +293,13 @@ void phasemeter_stop(struct phasemeter *phasemeter)
 	return;
 }
 
-
+/**
+ * @brief Get phase error from the thread
+ *
+ * @param phasemeter thread structure data
+ * @param phase_error pointer where phase error will be stored
+ * @return int phasemeter status
+ */
 int get_phase_error(struct phasemeter *phasemeter, int64_t *phase_error)
 {
 	int status;

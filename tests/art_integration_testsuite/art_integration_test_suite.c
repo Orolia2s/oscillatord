@@ -1,5 +1,10 @@
-/*
- * Integration test suite program for art card.
+/**
+ * @file art_integration_test_suite.c
+ * @brief Integration test suite program for art card.
+ * @version 0.1
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
  * Check wether art card handled by ptp_ocp driver works 
  * by interacting will all its devices
  */

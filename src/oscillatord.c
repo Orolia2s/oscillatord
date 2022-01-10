@@ -1,4 +1,14 @@
-#include <sys/ioctl.h>
+/**
+ * @file oscillatord.c
+ * @brief Main file of the program
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
+ *
+ * Oscillatord aims at disciplining an oscillator to an external reference.
+ * It is responsible for fetching oscillator and reference data and pass them
+ * to a disciplining algorithm, and apply the decision of the algorithm regarding the oscillator.
+ */
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/timex.h>
@@ -35,15 +45,11 @@
 
 static struct gps_context_t context;
 
-/*
- * The driver has a watchdog which resets the 1PPS device if no interrupt has
- * been received in the last two seconds, so a timeout of more than 4 seconds
- * means that even the watchdog couldn't "repair" the 1PPS device.
- */
-#define LOOP_TIMEOUT 4
-
-/*
- * Signal Handler to kill program gracefully
+/**
+ * @brief Signal Handler to kill program gracefully
+ *
+ * @param signum
+ * @return * Signal
  */
 static void signal_handler(int signum)
 {
@@ -55,6 +61,14 @@ static void signal_handler(int signum)
 	loop = false;
 }
 
+/**
+ * @brief Phase jump: Apply a phase offset to the PHC
+ *
+ * @param fd_clock handler of PHC
+ * @param device_name device name for logs
+ * @param phase_error phase offset to apply
+ * @return int 0 on success
+ */
 static int apply_phase_offset(int fd_clock, const char *device_name,
 	int64_t phase_error)
 {
@@ -79,6 +93,13 @@ static int apply_phase_offset(int fd_clock, const char *device_name,
 	return ret;
 }
 
+/**
+ * @brief Enable/disable PPS output of PHC
+ *
+ * @param fd handler of PHC
+ * @param enable boolean to enable/disable
+ * @return int 0 on success, -1 on failure
+ */
 static int enable_pps(int fd, bool enable)
 {
 	if (ioctl(fd, PTP_ENABLE_PPS, enable ? 1 : 0) < 0) {
@@ -88,6 +109,12 @@ static int enable_pps(int fd, bool enable)
 	return 0;
 }
 
+/**
+ * @brief Main program function
+ *
+ * @param argc
+ * @param argv used to ge config file path
+ */
 int main(int argc, char *argv[])
 {
 	struct config config;

@@ -1,3 +1,17 @@
+/**
+ * @file gnss.h
+ * @brief File handling Ublox F9 gnss receiver
+ * @version 0.1
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
+ *
+ * Ublox F9 is handled by a thread that will configure it if requested and
+ * parse incoming messages.
+ * When enough data is collected to get a precise mesure of the time, a signal is generated
+ * to tell the rest program that PHC time can be set.
+ * Thread uses ubloxcfg library to manage and decode data from the receiver.
+ */
 #ifndef OSCILLATORD_GNSS_H
 #define OSCILLATORD_GNSS_H
 
@@ -101,25 +115,42 @@ struct gps_context_t {
 		const char *buf, const size_t len);
 };
 
+/**
+ * @struct gps_device_t
+ * @brief Structure containing data about the gnss device
+ */
 struct gps_device_t {
-    struct gps_context_t        *context;
-    sourcetype_t sourcetype;
-    volatile struct shmTime *shm_clock;
-    volatile struct shmTime *shm_pps;
-    volatile struct pps_thread_t pps_thread;
-    int fixcnt;                         /* count of fixes from this device */
+	/** gps context as defined in gpsd */
+	struct gps_context_t        *context;
+	sourcetype_t sourcetype;
+	volatile struct shmTime *shm_clock;
+	volatile struct shmTime *shm_pps;
+	/** pointer to thread catching PPS event to fill the NTP SHM*/
+	volatile struct pps_thread_t pps_thread;
+	/** count of fixes from this device */
+	int fixcnt;
+	/** UTC time of last fix */
 	struct timespec last_fix_utc_time;
+	/** GNSS fix value */
 	int fix;
+	/** Indicate if fix is OK */
 	bool fixOk;
-	bool leap_second_occured;
 	int8_t antenna_status;
 	int8_t antenna_power;
+	/** General indicator that GNSS data are valid */
 	bool valid;
+	/** Indicate TAI time as been set from a constellation time of UTC */
 	bool tai_time_set;
+	/** TAI time */
 	int tai_time;
+	/** Number of satellites used */
 	int satellites_count;
 };
 
+/**
+ * @struct gnss
+ * @brief General thread structure
+ */
 struct gnss {
 	bool session_open;
 	RX_t *rx;

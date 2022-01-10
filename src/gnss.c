@@ -83,6 +83,12 @@ static int gnss_get_satellites(EPOCH_t *epoch)
 	return 0;
 }
 
+/**
+ * @brief Convert time from epoch to UTC time
+ *
+ * @param epoch
+ * @return time_t
+ */
 static time_t gnss_get_utc_time(EPOCH_t *epoch)
 {
 	struct tm t = {
@@ -110,6 +116,12 @@ static time_t gnss_get_utc_time(EPOCH_t *epoch)
 	return time;
 }
 
+/**
+ * @brief Parse UBX-NAV-TIMELS msg to get leap second data
+ *
+ * @param session gps device data of the session
+ * @param msg msg received from the receiver
+ */
 static void gnss_parse_ubx_nav_timels(struct gps_device_t *session, PARSER_MSG_t *msg)
 {
 	UBX_NAV_TIMELS_V0_GROUP0_t nav_timels_msg;
@@ -146,6 +158,12 @@ static void gnss_parse_ubx_nav_timels(struct gps_device_t *session, PARSER_MSG_t
 	session->context->leap_notify = LEAP_NOWARNING;
 };
 
+/**
+ * @brief Parse UBX-TIM-TP msg to get time from a constellation or UTC time and compute TAR
+ *
+ * @param session gps device data of the session
+ * @param msg msg received from the receiver
+ */
 static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *msg) {
 	if (msg->size == (int) UBX_TIM_TP_V0_SIZE) {
 		UBX_TIME_TP_V0_GROUP0_t gr0;
@@ -203,7 +221,12 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 	}
 }
 
-
+/**
+ * @brief Parse UBX-MON-RF msg to get antenna status data
+ *
+ * @param session gps device data of the session
+ * @param msg msg received from the receiver
+ */
 static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *msg)
 {
 	if (msg->size > (UBX_FRAME_SIZE + 4)) {
@@ -254,9 +277,13 @@ static void log_gnss_data(struct gps_device_t *session)
 	);
 }
 
-// Copied from GPSD
-/* Latch the fact that we've saved a fix.
- * And add in the device fudge */
+/**
+ * @brief Latch the fact that we've saved a fix and add in the device fudge
+ *
+ * @param device
+ * @param td
+ * Copied from GPSD
+ */
 static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
 {
 
@@ -274,6 +301,14 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
 }
 
 
+/**
+ * @brief Create gnss struct handler for thread
+ *
+ * @param config config structure of the program
+ * @param session device session structure
+ * @param fd_clock file pointer to PHC
+ * @return struct gnss*
+ */
 struct gnss * gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock)
 {
 	struct gnss *gnss;
@@ -372,6 +407,12 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	return gnss;
 }
 
+/**
+ * @brief Wait for next TAI time retrieved from the device
+ *
+ * @param gnss thread structure
+ * @return time_t
+ */
 static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
 {
 	time_t time;
@@ -383,6 +424,13 @@ static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
 
 }
 
+/**
+ * @brief Return if gnss data is valid
+ *
+ * @param gnss thread structure
+ * @return true
+ * @return false
+ */
 bool gnss_get_valid(struct gnss *gnss)
 {
 	bool valid;
@@ -392,6 +440,13 @@ bool gnss_get_valid(struct gnss *gnss)
 	return valid;
 }
 
+/**
+ * @brief Check that time set in PHC is the same as the one coming from the GNSS receiver
+ *
+ * @param gnss
+ * @return true
+ * @return false
+ */
 static bool gnss_check_ptp_clock_time(struct gnss *gnss)
 {
 	struct timespec ts;
@@ -422,6 +477,12 @@ static bool gnss_check_ptp_clock_time(struct gnss *gnss)
 
 }
 
+/**
+ * @brief Set PHC time to GNSS receiver time
+ *
+ * @param gnss
+ * @return int: 0 on success, -1 on error
+ */
 int gnss_set_ptp_clock_time(struct gnss *gnss)
 {
 	clockid_t clkid;
@@ -480,6 +541,12 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	return 0;
 }
 
+/**
+ * @brief Thread routine
+ *
+ * @param p_data
+ * @return void*
+ */
 static void * gnss_thread(void * p_data)
 {
 	EPOCH_t coll;
@@ -564,6 +631,11 @@ static void * gnss_thread(void * p_data)
 	return NULL;
 }
 
+/**
+ * @brief Stop gnss thread
+ *
+ * @param gnss
+ */
 void gnss_stop(struct gnss *gnss)
 {
 	pthread_mutex_lock(&gnss->mutex_data);

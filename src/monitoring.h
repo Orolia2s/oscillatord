@@ -1,3 +1,13 @@
+/**
+ * @file monitoring.h
+ * @brief Header for monitoring part of the program
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
+ *
+ * Program expose a socket other processes can connect to and
+ * request data as well as requesting a calibartion
+ */
 #ifndef MONITORING_H
 #define MONITORING_H
 
@@ -10,6 +20,9 @@ enum monitoring_request {
 	REQUEST_CALIBRATION,
 };
 
+/**
+ * @brief General structure for monitoring thread
+ */
 struct monitoring {
 	pthread_t thread;
 	pthread_mutex_t mutex;

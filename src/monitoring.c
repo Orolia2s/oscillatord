@@ -22,6 +22,12 @@ const char *status_string[5] = {
 
 static void * monitoring_thread(void * p_data);
 
+/**
+ * @brief Create monitoring structure from config
+ *
+ * @param config
+ * @return struct monitoring*
+ */
 struct monitoring* monitoring_init(const struct config *config)
 {
 	int port;
@@ -113,6 +119,11 @@ struct monitoring* monitoring_init(const struct config *config)
 	return monitoring;
 }
 
+/**
+ * @brief Stop moniroting thread
+ *
+ * @param monitoring
+ */
 void monitoring_stop(struct monitoring *monitoring)
 {
 	if (monitoring == NULL)
@@ -127,6 +138,12 @@ void monitoring_stop(struct monitoring *monitoring)
 	return;
 }
 
+/**
+ * @brief Handle request from a socket client
+ *
+ * @param monitoring
+ * @param fd
+ */
 static void handle_client(struct monitoring *monitoring, int fd)
 {
 	struct json_object *json_req;
@@ -236,6 +253,12 @@ static void handle_client(struct monitoring *monitoring, int fd)
 	return;
 }
 
+/**
+ * @brief Monitoring thread routine
+ *
+ * @param p_data
+ * @return void*
+ */
 static void *monitoring_thread(void * p_data)
 {
 	struct monitoring *monitoring;

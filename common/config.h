@@ -1,8 +1,16 @@
+/**
+ * @file config.h
+ * @brief Header for function handling parsing of configuration file
+ */
 #ifndef CONFIG_H_
 #define CONFIG_H_
 #include <stddef.h>
 #include <stdbool.h>
 
+/**
+ * @struct config
+ * @brief structure holding config file values.
+ */
 struct config {
 	char *argz;
 	size_t len;

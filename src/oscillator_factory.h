@@ -1,3 +1,12 @@
+/**
+ * @file oscillator_factory.h
+ * @brief oscillator factory pattern
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
+ *
+ * Pattern is used to support multiple oscillator while having a common interface
+ */
 #ifndef SRC_OSCILLATOR_FACTORY_H_
 #define SRC_OSCILLATOR_FACTORY_H_
 #include "oscillator.h"

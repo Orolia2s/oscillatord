@@ -1,3 +1,13 @@
+/**
+ * @file f9_defvalsets.h
+ * @brief File containing default GNSS configuration for UBLOX-F9 receivers.
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
+ *
+ * Configuration is written as UBX-CFG-VALSET commands to be sent directory to the receiver via serial
+ */
+
 #ifndef OSCILLATORD_GNSS_F9_DEFVALSETS
 #define OSCILLATORD_GNSS_F9_DEFVALSETS
 

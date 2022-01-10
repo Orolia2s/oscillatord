@@ -1,3 +1,11 @@
+/**
+ * @file oscillator.h
+ * @brief Generic structure for oscillators supported by the program
+ * @date 2022-01-10
+ *
+ * @copyright Copyright (c) 2022
+ *
+ */
 #ifndef SRC_OSCILLATOR_H_
 #define SRC_OSCILLATOR_H_
 #include <inttypes.h>
