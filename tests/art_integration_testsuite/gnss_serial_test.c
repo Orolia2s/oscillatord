@@ -18,7 +18,7 @@ bool test_gnss_serial(char * path)
     bool got_mon_rf_message = false;
     bool got_nav_timels_message = false;
     bool got_tim_tp_message = false;
-    int i = 0;
+    uint i = 0;
     int ret = -1;
     int tries = 0;
 
