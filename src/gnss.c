@@ -300,6 +300,11 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
     pps_thread_fixin(&device->pps_thread, td);
 }
 
+static bool gnss_set_time_scale(RX_t *rx, uint8_t time_scale) {
+	const UBLOXCFG_KEYVAL_t tp_timegrid_tp1 = UBLOXCFG_KEYVAL_ANY(CFG_TP_TIMEGRID_TP1, time_scale);
+	return rxSetConfig(rx, &tp_timegrid_tp1, 1, true, false, false);
+}
+
 
 /**
  * @brief Create gnss struct handler for thread
@@ -312,9 +317,11 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
 struct gnss * gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock)
 {
 	struct gnss *gnss;
+	const char * preferred_constellation;
 	int ret;
 	size_t i;
 	bool do_reconfiguration;
+	bool config_set = false;
 
 	RX_ARGS_t args = RX_ARGS_DEFAULT();
 	args.autobaud = true;
@@ -389,6 +396,32 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 		}
 	}
 	gnss->stop = false;
+
+	/** Set preferred time scale */
+	preferred_constellation = config_get(config, "gnss-preferred-time-scale");
+	if (preferred_constellation == NULL) {
+		log_info("No preferred timescale, assuming GNSS receiver is correctly set");
+	} else {
+		if (strlen(preferred_constellation) != 3)
+			log_warn("Unknown preferred time scale, assuming GNSS receiver is correctly set");
+		else if (strncmp(preferred_constellation, "GPS", 3) == 0)
+			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_GPS);
+		else if (strncmp(preferred_constellation, "GAL", 3) == 0)
+			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_GAL);
+		else if (strncmp(preferred_constellation, "GLO", 3) == 0)
+			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_GLO);
+		else if (strncmp(preferred_constellation, "BDS", 3) == 0)
+			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_BDS);
+		else if (strncmp(preferred_constellation, "UTC", 3) == 0)
+			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_UTC);
+
+		if (config_set) {
+			log_info("Preferred time scale set to %s", preferred_constellation);
+		} else {
+			log_warn("Preferred time scale has not been set, assuming GNSS receiver is correctly set");
+		}
+	}
+
 
 	pthread_mutex_init(&gnss->mutex_data, NULL);
 	pthread_cond_init(&gnss->cond_time, NULL);
