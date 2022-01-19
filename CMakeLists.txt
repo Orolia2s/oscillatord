@@ -44,6 +44,7 @@ add_definitions("
     -DLOG_USE_COLOR")
 add_definitions("-DOD_REVISION=\"${PACKAGE_VERSION}\"")
 
-add_subdirectory(tests)
 add_subdirectory(src)
 add_subdirectory(systemd)
+add_subdirectory(tests)
+add_subdirectory(utils)
