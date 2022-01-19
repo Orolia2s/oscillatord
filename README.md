@@ -2,6 +2,13 @@
 
 Oscillatord aims at disciplining an oscillator to an external reference. It is responsible for fetching oscillator and reference data and pass them to a disciplining algorithm, and apply the decision of the algorithm regarding the oscillator.
 
+It can be used to discipline the [Atomic Reference Card](https://www.orolia.com/about-the-atomic-reference-time-card-art-card/) from Orolia
+
+Oscillatord can either be used to discipline and/or monitor a oscillatord a GNSS external reference.
+
+For now only the following oscillators are supported:
+- Orolia's mRO50
+- Microsemi's SA3X
 ## Requirements
 
 * cmake
@@ -13,11 +20,12 @@ Oscillatord aims at disciplining an oscillator to an external reference. It is r
 
 ## Installation
 
-This program is build using **cmake**:
+This program is built using **cmake**:
 
 ```
 mkdir build
 cd build
+cmake ..
 make
 sudo make install
 ```
@@ -46,7 +54,7 @@ The phase error read is then used as an input to the
 **oscillatord** to control an oscillator and discipline it to the 1PPS from a GNSS receiver.
 **Oscillatord** also sets PHC'stime at start up, using Output from a GNSS receiver.
 
-To communicate with GNSS receiver's serial it uses [ubloxcfg](https://github.com/Orolia2s/ubloxcfg)
+To communicate with GNSS receiver's serial it uses [ubloxcfg](https://github.com/Orolia2s/ubloxcfg). This library handles the serial connection to the GNSS receiver and parses Ublox messages.
 
 ## Operation
 
@@ -94,39 +102,35 @@ Any other value means **false**.
 
 It also contains configuration keys for disciplining-minipod program (check [default config](./example_configurationns/oscillatord_default.conf) for description of parameters)
 
-## The oscillator simulator
+## ART Integration tests
 
-Usage example:
+ART Integration tests check wether art card handled by ptp_ocp driver works by interacting will all its devices
+Integration tests can be run to test the behaviour an ART Card. they are located in *tests/art_integration_testsuite*.
+Integration test do the following:
+- Analyze filesystem to scan for */sys/class/timecard/\** directories
+- Test GNSS Receiver
+- Test PTP Hardware clock primary and auxillary fnctions
+- Test mRO50 oscillator
+- Check for EEPROM presence
+- Start oscillatord service and check that phase error is not upon a threshold during 10 minutes.
 
-    OD_CSV=oscillatord.sim.csv LD_PRELOAD=libosc_sim_stubs.so oscillatord ./example_sim.conf
+## Build tests
 
-Will run **oscillatord** using the simulator and generating a CSV data record
-file **oscillatord.sim.csv** in the current directory.
-
-Multiple instances can run in parallel provided they are ran in different
-directories.
-
-It simulates an oscillator by reporting a phase error which increase
-proportionally to the distance between the current setpoint and the middle of
-the admissible setpoints range [31500, 1016052].
-Then a small random noise is added to the phase error.
+```
+mkdir build
+cmake -D BUILD_TESTS=true ..
+make
+```
 
 ## Source tree organisation
 
     .
-    ├── example_configurations : per oscillator type configuration examples
-    ├── gnss_config            : GNSS default config file as output by libubloxcfg
-    ├── src                    : main oscillatord source code
-    │   └── oscillators        : oscillator implementations
-    ├── systemd                : systemd service file
-    └── tests                  : code of the oscillator simulator
-        └── lib_osc_sim_stubs  : code of the lib_osc_sim_stubs library
+    ├── example_configurations        : per oscillator type configuration examples
+    ├── gnss_config                   : GNSS default config file as output by libubloxcfg
+    ├── src                           : main oscillatord source code
+    │   └── oscillators               : oscillator implementations
+    ├── systemd                       : systemd service file
+    └── tests                         : code of the oscillator simulator and integration tests
+        └── art_integration_testsuite : Integration tests for the ART card
+        └── lib_osc_sim_stubs         : code of the lib_osc_sim_stubs library
 
-### Coding style
-
-This project follows the linux kernel coding style everywhere relevant.
-In order to check the code is conformant, please execute:
-
-    for f in $(find . -name '*.c' -o -name '*.h')
-        do ../linux/scripts/checkpatch.pl $f
-    done
