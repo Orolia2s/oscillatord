@@ -34,6 +34,8 @@ typedef void (*oscillator_destroy_cb)(struct oscillator **oscillator);
 typedef struct calibration_results* (*oscillator_calibrate_cb)(struct oscillator *oscillator,
 		struct phasemeter *phasemeter, struct calibration_parameters *calib_params,
 		int phase_sign);
+typedef int (*oscillator_get_disciplining_parameters_cb)(struct oscillator *oscillator,
+		struct disciplining_parameters *disciplining_parameters);
 
 struct oscillator_class {
 	const char *name;
@@ -42,6 +44,7 @@ struct oscillator_class {
 	oscillator_get_temp_cb get_temp;
 	oscillator_apply_output_cb apply_output;
 	oscillator_calibrate_cb calibrate;
+	oscillator_get_disciplining_parameters_cb get_disciplining_parameters;
 	/* default values use if per-instance ones haven't been set */
 	uint32_t dac_max;
 	uint32_t dac_min;
@@ -72,6 +75,7 @@ int oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *c
 int oscillator_save(struct oscillator *oscillator);
 int oscillator_get_temp(struct oscillator *oscillator, double *temp);
 int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output);
+int oscillator_get_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters * disciplining_parameters);
 struct calibration_results * oscillator_calibrate(
 	struct oscillator *oscillator,
 	struct phasemeter *phasemeter,

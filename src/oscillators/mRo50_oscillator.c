@@ -29,6 +29,7 @@
 #define MRO50_READ_TEMP		_IOR('M', 5, u32 *)
 #define MRO50_READ_CTRL		_IOR('M', 6, u32 *)
 #define MRO50_SAVE_COARSE	_IO('M', 7)
+#define ART_CALIBRATION_READ_PARAMETERS _IOR('M', 8, struct disciplining_parameters *)
 
 #endif /* MRO50_IOCTL_H */
 /*---------------------------------------------------------------------------*/
@@ -278,6 +279,20 @@ clean_calibration:
 	return NULL;
 }
 
+static int mRo50_oscillator_get_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)
+{
+	struct mRo50_oscillator *mRo50;
+	int ret;
+	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
+
+	ret = ioctl(mRo50->osc_fd, ART_CALIBRATION_READ_PARAMETERS, disciplining_parameters);
+	if (ret != 0) {
+		log_error("Fail reading disciplining parameters, err %d", ret);
+		return -1;
+	}
+	return 0;
+}
+
 static const struct oscillator_factory mRo50_oscillator_factory = {
 	.class = {
 			.name = FACTORY_NAME,
@@ -286,6 +301,7 @@ static const struct oscillator_factory mRo50_oscillator_factory = {
 			.get_temp = mRO50_oscillator_get_temp,
 			.apply_output = mRo50_oscillator_apply_output,
 			.calibrate = mRo50_oscillator_calibrate,
+			.get_disciplining_parameters = mRo50_oscillator_get_disciplining_parameters,
 			.dac_min = MRO50_SETPOINT_MIN,
 			.dac_max = MRO50_SETPOINT_MAX,
 	},
