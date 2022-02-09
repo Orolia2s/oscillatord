@@ -30,6 +30,7 @@
 #define MRO50_READ_CTRL		_IOR('M', 6, u32 *)
 #define MRO50_SAVE_COARSE	_IO('M', 7)
 #define ART_CALIBRATION_READ_PARAMETERS _IOR('M', 8, struct disciplining_parameters *)
+#define ART_CALIBRATION_WRITE_PARAMETERS _IOW('M', 9, struct disciplining_parameters *)
 
 #endif /* MRO50_IOCTL_H */
 /*---------------------------------------------------------------------------*/
@@ -292,6 +293,50 @@ static int mRo50_oscillator_get_disciplining_parameters(struct oscillator *oscil
 	}
 	return 0;
 }
+static inline void print_disciplining_parameters(struct disciplining_parameters *params)
+{
+	log_debug("Discipining Parameters:");
+	log_debug("\t- ctrl_nodes_length: %d", params->ctrl_nodes_length);
+
+	log_debug("\t- ctrl_load_nodes:");
+	for (int i = 0; i < params->ctrl_nodes_length; i++)
+		log_debug("\t\t- [%d]: %f", i, params->ctrl_load_nodes[i]);
+
+	log_debug("\t- ctrl_drift_coeffs]:");
+	for (int i = 0; i < params->ctrl_nodes_length; i++)
+		log_debug("\t\t- [%d]: %f", i, params->ctrl_drift_coeffs[i]);
+
+	log_debug("\t- coarse_equilibrium: %d", params->coarse_equilibrium);
+
+
+	log_debug("\t- ctrl_nodes_length_factory: %d", params->ctrl_nodes_length_factory);
+
+	log_debug("\t- ctrl_load_nodes_factory:");
+	for (int i = 0; i < params->ctrl_nodes_length_factory; i++)
+		log_debug("\t\t- [%d]: %f", i, params->ctrl_load_nodes_factory[i]);
+	log_debug("\t- ctrl_drift_coeffs_factory:");
+	for (int i = 0; i < params->ctrl_nodes_length_factory; i++)
+		log_debug("\t\t- [%d]: %f", i, params->ctrl_drift_coeffs_factory[i]);
+	log_debug("\t- coarse_equilibrium_factory: %d", params->coarse_equilibrium_factory);
+
+	log_debug("\t- calibration_valid: %s", params->calibration_valid ? "true" : "false");
+}
+
+
+static int mRo50_oscillator_update_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)
+{
+	struct mRo50_oscillator *mRo50;
+	int ret;
+	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
+
+	print_disciplining_parameters(disciplining_parameters);
+	ret = ioctl(mRo50->osc_fd, ART_CALIBRATION_WRITE_PARAMETERS, disciplining_parameters);
+	if (ret != 0) {
+		log_error("Fail updating disciplining parameters, err %d", ret);
+		return -1;
+	}
+	return 0;
+}
 
 static const struct oscillator_factory mRo50_oscillator_factory = {
 	.class = {
@@ -302,6 +347,7 @@ static const struct oscillator_factory mRo50_oscillator_factory = {
 			.apply_output = mRo50_oscillator_apply_output,
 			.calibrate = mRo50_oscillator_calibrate,
 			.get_disciplining_parameters = mRo50_oscillator_get_disciplining_parameters,
+			.update_disciplining_parameters = mRo50_oscillator_update_disciplining_parameters,
 			.dac_min = MRO50_SETPOINT_MIN,
 			.dac_max = MRO50_SETPOINT_MAX,
 	},

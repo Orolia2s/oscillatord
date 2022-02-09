@@ -88,3 +88,12 @@ int oscillator_get_disciplining_parameters(struct oscillator *oscillator, struct
 		return -ENOSYS;
 	return oscillator->class->get_disciplining_parameters(oscillator, disciplining_parameters);
 }
+
+int oscillator_update_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)
+{
+	if(oscillator == NULL || disciplining_parameters == NULL)
+		return -EINVAL;
+	if(oscillator->class->update_disciplining_parameters == NULL)
+		return -ENOSYS;
+	return oscillator->class->update_disciplining_parameters(oscillator, disciplining_parameters);
+}

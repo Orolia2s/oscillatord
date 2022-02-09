@@ -444,9 +444,18 @@ int main(int argc, char *argv[])
 				}
 
 			} else {
-				ret = oscillator_apply_output(oscillator, &output);
-				if (ret < 0)
-					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
+				if (output.action == SAVE_DISCIPLINING_PARAMETERS) {
+					ret = od_get_disciplining_parameters(od, &disciplining_parameters);
+					if (ret != 0)
+						log_error("Could not get discipling parameters from disciplining algorithm");
+					ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
+					if (ret < 0)
+						error(EXIT_FAILURE, -ret, "oscillator_update_disciplining_parameters");
+				} else {
+					ret = oscillator_apply_output(oscillator, &output);
+					if (ret < 0)
+						error(EXIT_FAILURE, -ret, "oscillator_apply_output");
+				}
 			}
 		}
 
