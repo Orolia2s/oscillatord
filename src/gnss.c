@@ -367,15 +367,24 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	if (do_reconfiguration) {
 		bool receiver_reconfigured = false;
 		int tries = 0;
-		log_info("configuring receiver with ART parameters\n");
 		while (!receiver_reconfigured) {
+			log_info("Configuring receiver with ART parameters...\n");
 			for (i = 0; i < ARRAY_SIZE(ubxCfgValsetMsgs); i++)
 			{
 				ret = rxSendUbxCfg(gnss->rx, ubxCfgValsetMsgs[i].data,
 								ubxCfgValsetMsgs[i].size, 2500);
 				if (!ret) {
+					log_warn("Part of config could not been sent, possible change in baudrate, retrying...");
+					rxClose(gnss->rx);
+					if (gnss->rx == NULL || !rxOpen(gnss->rx)) {
+						free(gnss->rx);
+						printf("rx init failed\n");
+						free(gnss);
+						return NULL;
+					}
+					break;
 				} else if (i == ARRAY_SIZE(ubxCfgValsetMsgs) - 1) {
-					log_info("Successfully reconfigured gnss receiver");
+					log_info("Successfully reconfigured GNSS receiver");
 					log_debug("Performing software reset");
 					bool reset = rxReset(gnss->rx, RX_RESET_SOFT);
 					if (reset) {

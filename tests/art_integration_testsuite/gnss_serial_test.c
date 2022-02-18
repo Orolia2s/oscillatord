@@ -68,7 +68,7 @@ bool test_gnss_serial(char * path)
         }
     }
 
-    log_info("Re opening GNSS serial in case reconfiguration changed baudrate");
+    log_info("Re-opening GNSS serial in case reconfiguration changed baudrate");
     rxClose(rx);
     if (!rxOpen(rx)) {
         free(rx);
