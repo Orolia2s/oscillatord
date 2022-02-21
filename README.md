@@ -12,7 +12,8 @@ For now only the following oscillators are supported:
 ## Requirements
 
 * cmake
-* libgps26/28
+* libgps-dev
+* libjson-c-dev
 * pps-tools
 * [disciplining-minipod](https://github.com/Orolia2s/disciplining-minipod)
 * [ubloxcfg](https://github.com/Orolia2s/ubloxcfgs) : use commit **2c37136c15d0f75cfc0db52433b8d945b403eec6**
