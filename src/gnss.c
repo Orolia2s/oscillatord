@@ -21,6 +21,8 @@
 #include "f9_defvalsets.h"
 #include "utils.h"
 
+#define GNSS_CONNECT_MAX_TRY 5
+
 #define GNSS_TIMEOUT_MS 1500
 #define GNSS_RECONFIGURE_MAX_TRY 5
 #define SEC_IN_WEEK 604800
@@ -305,6 +307,68 @@ static bool gnss_set_time_scale(RX_t *rx, uint8_t time_scale) {
 	return rxSetConfig(rx, &tp_timegrid_tp1, 1, true, false, false);
 }
 
+/**
+ * @brief Connect to serial device of the GNSS Receiver.
+ * Try to connect a maximum of GNSS_CONNECT_MAX_TRY time
+ *
+ * @param rx pointer to serial communication handler
+ * @return boolean indicating connection has been done or not
+ */
+static bool gnss_connect(RX_t *rx) {
+	int tries = 0;
+	while (tries < GNSS_CONNECT_MAX_TRY) {
+		if (rxOpen(rx))
+			return true;
+		else
+			usleep(5000);
+		tries++;
+	}
+	return false;
+}
+
+/**
+ * @brief Send default configuration from f9_defvalsets.h to GNSS receiver
+ *
+ * @param rx pointer to serial communication handler
+ * @return boolean indicating receiver has correctly been reset to default configuration
+ */
+static bool gnss_set_default_configuration(RX_t *rx) {
+	bool receiver_reconfigured = false;
+	int tries = 0;
+	int ret;
+	size_t i;
+	while (!receiver_reconfigured) {
+		log_info("Configuring receiver with ART parameters...\n");
+		for (i = 0; i < ARRAY_SIZE(ubxCfgValsetMsgs); i++)
+		{
+			ret = rxSendUbxCfg(rx, ubxCfgValsetMsgs[i].data,
+							ubxCfgValsetMsgs[i].size, 2500);
+			if (!ret) {
+				log_warn("Part of config could not been sent, possible change in baudrate, retrying...");
+				rxClose(rx);
+				if (!gnss_connect(rx))
+					return false;
+				break;
+			} else if (i == ARRAY_SIZE(ubxCfgValsetMsgs) - 1) {
+				log_info("Successfully reconfigured GNSS receiver");
+				log_debug("Performing software reset");
+				bool reset = rxReset(rx, RX_RESET_SOFT);
+				if (reset) {
+					log_info("Software reset performed");
+					receiver_reconfigured = true;
+				}
+			}
+		}
+
+		if (tries < GNSS_RECONFIGURE_MAX_TRY)
+			tries++;
+		else {
+			log_error("Could not reconfigure GNSS receiver from default config\n");
+			return false;
+		}
+	}
+	return true;
+}
 
 /**
  * @brief Create gnss struct handler for thread
@@ -319,7 +383,6 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	struct gnss *gnss;
 	const char * preferred_constellation;
 	int ret;
-	size_t i;
 	bool do_reconfiguration;
 	bool config_set = false;
 
@@ -350,60 +413,24 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 
 	gnss->fd_clock = fd_clock;
 	gnss->session = session;
-	// Init Antenna Status and Power to undefined values according to UBX Protocol
+	/* Init Antenna Status and Power to undefined values according to UBX Protocol */
 	gnss->session->antenna_status = ANT_STATUS_UNDEFINED;
 	gnss->session->antenna_power = ANT_POWER_UNDEFINED;
 	gnss->rx = rxInit(gnss_device_tty, &args);
-	if (gnss->rx == NULL || !rxOpen(gnss->rx)) {
-		free(gnss->rx);
-		printf("rx init failed\n");
-		free(gnss);
-		return NULL;
-	}
 
+	if (gnss->rx == NULL)
+		goto err_rxInit;
+
+	if (!gnss_connect(gnss->rx))
+		goto err_gnss_connect;
+
+	/* Check if GNSS receiver should reset to default configuraiton */
 	do_reconfiguration = config_get_bool_default(config,
 					"gnss-receiver-reconfigure",
 					false);
-	if (do_reconfiguration) {
-		bool receiver_reconfigured = false;
-		int tries = 0;
-		while (!receiver_reconfigured) {
-			log_info("Configuring receiver with ART parameters...\n");
-			for (i = 0; i < ARRAY_SIZE(ubxCfgValsetMsgs); i++)
-			{
-				ret = rxSendUbxCfg(gnss->rx, ubxCfgValsetMsgs[i].data,
-								ubxCfgValsetMsgs[i].size, 2500);
-				if (!ret) {
-					log_warn("Part of config could not been sent, possible change in baudrate, retrying...");
-					rxClose(gnss->rx);
-					if (gnss->rx == NULL || !rxOpen(gnss->rx)) {
-						free(gnss->rx);
-						printf("rx init failed\n");
-						free(gnss);
-						return NULL;
-					}
-					break;
-				} else if (i == ARRAY_SIZE(ubxCfgValsetMsgs) - 1) {
-					log_info("Successfully reconfigured GNSS receiver");
-					log_debug("Performing software reset");
-					bool reset = rxReset(gnss->rx, RX_RESET_SOFT);
-					if (reset) {
-						log_info("Software reset performed");
-						receiver_reconfigured = true;
-					}
-				}
-			}
+	if (do_reconfiguration && !gnss_set_default_configuration(gnss->rx))
+		goto err_gnss_connect;
 
-			if (tries < GNSS_RECONFIGURE_MAX_TRY) {
-				tries++;
-			} else {
-				log_error("Could not reconfigure GNSS receiver from default config\n");
-				free(gnss->rx);
-				free(gnss);
-				return NULL;
-			}
-		}
-	}
 	gnss->stop = false;
 
 	/** Set preferred time scale */
@@ -444,13 +471,18 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 
 	if (ret != 0) {
 		rxClose(gnss->rx);
-		free(gnss->rx);
-		free(gnss);
-		error(EXIT_FAILURE, -ret, "gnss_init");
-		return NULL;
+		goto err_gnss_connect;
 	}
 
 	return gnss;
+
+err_gnss_connect:
+	free(gnss->rx);
+	log_error("Could not connect to GNSS serial at %s", gnss_device_tty);
+err_rxInit:
+	free(gnss);
+	error(EXIT_FAILURE, -ret, "gnss_init");
+	return NULL;
 }
 
 /**
