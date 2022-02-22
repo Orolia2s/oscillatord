@@ -39,7 +39,6 @@
 #define MRO50_CMD_PROD_ID 0x50
 #define MRO50_CMD_READ_FW_REV 0x51
 #define MRO50_CMD_SET_DAC 0xA0
-#define MRO50_CMD_SAVE 0xc2
 #define MRO50_SETPOINT_MIN 0
 #define MRO50_SETPOINT_MAX 1000000
 #define READ_MAX_TRY 400
@@ -183,10 +182,6 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	} else if (output->action == ADJUST_COARSE) {
 		log_info("Coarse adjustment to value %d requested", output->setpoint);
 		command = MRO50_ADJUST_COARSE;
-	} else if (output->action == SAVE_COARSE) {
-		log_debug("Saving coarse value to mRO50 memory");
-		ioctl(mRo50->osc_fd, MRO50_SAVE_COARSE);
-		return 0;
 	} else {
 		log_error("Calling mRo50_oscillator_apply_output with action different from ADJUST_COARSE or ADJUST_FINE");
 		log_error("Action is %d", output->action);
