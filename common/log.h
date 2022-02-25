@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <time.h>
 
+#include <oscillator-disciplining/oscillator-disciplining.h>
+
 #include "ppsthread.h"
 
 #define LOG_VERSION "0.1.0"
@@ -48,5 +50,42 @@ int log_add_fp(FILE *fp, int level);
 
 void log_log(int level, const char *file, int line, const char *fmt, ...);
 void ppsthread_log(volatile struct pps_thread_t *pps_thread, int level, const char *fmt, ...);
+
+static inline void print_disciplining_parameters(struct disciplining_parameters *calibration, int level)
+{
+    log_log(level, __FILE__, __LINE__, "Calibration parameters:");
+    log_log(level, __FILE__, __LINE__, "ctrl_nodes_length = %d", calibration->ctrl_nodes_length);
+    log_log(level, __FILE__, __LINE__, "ctrl_load_nodes[] =");
+    if (calibration->ctrl_nodes_length > 0 && calibration->ctrl_nodes_length <= CALIBRATION_POINTS_MAX)
+        for (int i = 0; i < calibration->ctrl_nodes_length; i++)
+            log_log(level, __FILE__, __LINE__, " %f",calibration->ctrl_load_nodes[i]);
+
+    log_log(level, __FILE__, __LINE__, "ctrl_drift_coeffs[] =");
+    if (calibration->ctrl_nodes_length > 0 && calibration->ctrl_nodes_length <= CALIBRATION_POINTS_MAX)
+        for (int i = 0; i < calibration->ctrl_nodes_length; i++)
+            log_log(level, __FILE__, __LINE__, " %f", calibration->ctrl_drift_coeffs[i]);
+    char buff[20];
+    struct tm * timeinfo;
+    timeinfo = localtime(&calibration->calibration_date);
+    strftime(buff, sizeof(buff), "%b %d %Y", timeinfo);
+    log_log(level, __FILE__, __LINE__, "Date of calibration: %s", buff);
+
+    log_log(level, __FILE__, __LINE__, "coarse_equilibrium = %d", calibration->coarse_equilibrium);
+    log_log(level, __FILE__, __LINE__, "calibration_valid = %d", calibration->calibration_valid);
+
+    log_log(level, __FILE__, __LINE__, "ctrl_nodes_length_factory = %d", calibration->ctrl_nodes_length_factory);
+    log_log(level, __FILE__, __LINE__, "ctrl_load_nodes_factory[] =");
+    if (calibration->ctrl_nodes_length_factory > 0 && calibration->ctrl_nodes_length_factory <= CALIBRATION_POINTS_MAX)
+        for (int i = 0; i < calibration->ctrl_nodes_length_factory; i++)
+    log_log(level, __FILE__, __LINE__, " %f", calibration->ctrl_load_nodes_factory[i]);
+
+    log_log(level, __FILE__, __LINE__, "ctrl_drift_coeffs_factory[] =");
+    if (calibration->ctrl_nodes_length_factory > 0 && calibration->ctrl_nodes_length_factory <= CALIBRATION_POINTS_MAX)
+        for (int i = 0; i < calibration->ctrl_nodes_length_factory; i++)
+            log_log(level, __FILE__, __LINE__, " %f", calibration->ctrl_drift_coeffs_factory[i]);
+
+    log_log(level, __FILE__, __LINE__, "coarse_equilibrium_factory = %d", calibration->coarse_equilibrium_factory);
+
+}
 
 #endif

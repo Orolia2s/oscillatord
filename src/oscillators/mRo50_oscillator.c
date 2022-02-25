@@ -13,27 +13,11 @@
 
 #include "config.h"
 #include "log.h"
+#include "mRO50_ioctl.h"
 #include "utils.h"
 
 #include "../oscillator.h"
 #include "../oscillator_factory.h"
-
-/*---------------------------------------------------------------------------*/
-#ifndef MRO50_IOCTL_H
-#define MRO50_IOCTL_H
-
-#define MRO50_READ_FINE		_IOR('M', 1, u32 *)
-#define MRO50_READ_COARSE	_IOR('M', 2, u32 *)
-#define MRO50_ADJUST_FINE	_IOW('M', 3, u32)
-#define MRO50_ADJUST_COARSE	_IOW('M', 4, u32)
-#define MRO50_READ_TEMP		_IOR('M', 5, u32 *)
-#define MRO50_READ_CTRL		_IOR('M', 6, u32 *)
-#define MRO50_SAVE_COARSE	_IO('M', 7)
-#define ART_CALIBRATION_READ_PARAMETERS _IOR('M', 8, struct disciplining_parameters *)
-#define ART_CALIBRATION_WRITE_PARAMETERS _IOW('M', 9, struct disciplining_parameters *)
-
-#endif /* MRO50_IOCTL_H */
-/*---------------------------------------------------------------------------*/
 
 #define FACTORY_NAME "mRO50"
 #define MRO50_CMD_READ_TEMP 0x3e
@@ -285,52 +269,24 @@ static int mRo50_oscillator_get_disciplining_parameters(struct oscillator *oscil
 	struct mRo50_oscillator *mRo50;
 	int ret;
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
-
-	ret = ioctl(mRo50->osc_fd, ART_CALIBRATION_READ_PARAMETERS, disciplining_parameters);
+	uint8_t buf[256];
+	ret = ioctl(mRo50->osc_fd, MRO50_READ_EEPROM_BLOB, buf);
 	if (ret != 0) {
 		log_error("Fail reading disciplining parameters, err %d", ret);
 		return -1;
 	}
+	memcpy(disciplining_parameters, buf, sizeof(struct disciplining_parameters));
 	return 0;
 }
-static inline void print_disciplining_parameters(struct disciplining_parameters *params)
-{
-	log_debug("Discipining Parameters:");
-	log_debug("\t- ctrl_nodes_length: %d", params->ctrl_nodes_length);
-
-	log_debug("\t- ctrl_load_nodes:");
-	for (int i = 0; i < params->ctrl_nodes_length; i++)
-		log_debug("\t\t- [%d]: %f", i, params->ctrl_load_nodes[i]);
-
-	log_debug("\t- ctrl_drift_coeffs]:");
-	for (int i = 0; i < params->ctrl_nodes_length; i++)
-		log_debug("\t\t- [%d]: %f", i, params->ctrl_drift_coeffs[i]);
-
-	log_debug("\t- coarse_equilibrium: %d", params->coarse_equilibrium);
-
-
-	log_debug("\t- ctrl_nodes_length_factory: %d", params->ctrl_nodes_length_factory);
-
-	log_debug("\t- ctrl_load_nodes_factory:");
-	for (int i = 0; i < params->ctrl_nodes_length_factory; i++)
-		log_debug("\t\t- [%d]: %f", i, params->ctrl_load_nodes_factory[i]);
-	log_debug("\t- ctrl_drift_coeffs_factory:");
-	for (int i = 0; i < params->ctrl_nodes_length_factory; i++)
-		log_debug("\t\t- [%d]: %f", i, params->ctrl_drift_coeffs_factory[i]);
-	log_debug("\t- coarse_equilibrium_factory: %d", params->coarse_equilibrium_factory);
-
-	log_debug("\t- calibration_valid: %s", params->calibration_valid ? "true" : "false");
-}
-
 
 static int mRo50_oscillator_update_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)
 {
 	struct mRo50_oscillator *mRo50;
 	int ret;
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
-
-	print_disciplining_parameters(disciplining_parameters);
-	ret = ioctl(mRo50->osc_fd, ART_CALIBRATION_WRITE_PARAMETERS, disciplining_parameters);
+	uint8_t buf[256];
+	memcpy(buf, disciplining_parameters, sizeof(struct disciplining_parameters));
+	ret = ioctl(mRo50->osc_fd, MRO50_WRITE_EEPROM_BLOB, buf);
 	if (ret != 0) {
 		log_error("Fail updating disciplining parameters, err %d", ret);
 		return -1;

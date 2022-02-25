@@ -126,35 +126,6 @@ static void prepare_minipod_config(struct minipod_config* minipod_config, struct
 	minipod_config->oscillator_factory_settings = config_get_bool_default(config, "oscillator_factory_settings", true);
 }
 
-static inline void print_disciplining_parameters(struct disciplining_parameters *params)
-{
-	log_debug("Discipining Parameters:");
-	log_debug("\t- ctrl_nodes_length: %d", params->ctrl_nodes_length);
-
-	log_debug("\t- ctrl_load_nodes:");
-	for (int i = 0; i < params->ctrl_nodes_length; i++)
-		log_debug("\t\t- [%d]: %f", i, params->ctrl_load_nodes[i]);
-
-	log_debug("\t- ctrl_drift_coeffs]:");
-	for (int i = 0; i < params->ctrl_nodes_length; i++)
-		log_debug("\t\t- [%d]: %f", i, params->ctrl_drift_coeffs[i]);
-
-	log_debug("\t- coarse_equilibrium: %d", params->coarse_equilibrium);
-
-
-	log_debug("\t- ctrl_nodes_length_factory: %d", params->ctrl_nodes_length_factory);
-
-	log_debug("\t- ctrl_load_nodes_factory:");
-	for (int i = 0; i < params->ctrl_nodes_length_factory; i++)
-		log_debug("\t\t- [%d]: %f", i, params->ctrl_load_nodes_factory[i]);
-	log_debug("\t- ctrl_drift_coeffs_factory:");
-	for (int i = 0; i < params->ctrl_nodes_length_factory; i++)
-		log_debug("\t\t- [%d]: %f", i, params->ctrl_drift_coeffs_factory[i]);
-	log_debug("\t- coarse_equilibrium_factory: %d", params->coarse_equilibrium_factory);
-
-	log_debug("\t- calibration_valid: %s", params->calibration_valid ? "true" : "false");
-}
-
 /**
  * @brief Main program function
  *

@@ -15,10 +15,11 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "utils.h"
+#include <oscillator-disciplining/oscillator-disciplining.h>
 
-typedef u_int32_t u32;
-typedef u_int8_t u8;
+#include "log.h"
+#include "mRO50_ioctl.h"
+#include "utils.h"
 
 /** Minimum possible value of coarse control */
 #define COARSE_RANGE_MIN 0
@@ -28,63 +29,6 @@ typedef u_int8_t u8;
 #define FINE_RANGE_MIN 1600
 /** Maximum possible value of fine control */
 #define FINE_RANGE_MAX 3200
-
-/*---------------------------------------------------------------------------*/
-#ifndef MRO50_IOCTL_H
-#define MRO50_IOCTL_H
-
-#define MRO50_READ_FINE		_IOR('M', 1, u32 *)
-#define MRO50_READ_COARSE	_IOR('M', 2, u32 *)
-#define MRO50_ADJUST_FINE	_IOW('M', 3, u32)
-#define MRO50_ADJUST_COARSE	_IOW('M', 4, u32)
-#define MRO50_READ_TEMP		_IOR('M', 5, u32 *)
-#define MRO50_READ_CTRL		_IOR('M', 6, u32 *)
-#define MRO50_SAVE_COARSE	_IO('M', 7)
-
-#define MRO50_READ_EEPROM_BLOB _IOR('M', 8, u8*)
-#define MRO50_WRITE_EEPROM_BLOB _IOW('M', 8, u8*)
-
-#endif /* MRO50_IOCTL_H */
-/*---------------------------------------------------------------------------*/
-#define CALIBRATION_POINTS_MAX 10
-
-struct disciplining_parameters {
-	/**
-	 * Array containing the control node, in percentage
-	 * value of the control range.
-	 * Array contains ctrl_nodes_length valid values.
-	 */
-	float ctrl_load_nodes[CALIBRATION_POINTS_MAX];
-	/**
-	 * Array of drift coefficients for each control node.
-	 * Array contains ctrl_nodes_length valid values.
-	 */
-	float ctrl_drift_coeffs[CALIBRATION_POINTS_MAX];
-	/** Equilibrium Coarse value define during calibration */
-	/**
-	 * Array containing the control node, in percentage
-	 * value of the control range.
-	 * Array contains ctrl_nodes_length_factory valid values.
-	 */
-	float ctrl_load_nodes_factory[3];
-	/**
-	 * Array of drift coefficients for each control node.
-	 * Array contains ctrl_nodes_length_factory valid values.
-	 */
-	float ctrl_drift_coeffs_factory[3];
-	/** Equilibrium Coarse value for factory_settings */
-	int32_t coarse_equilibrium_factory;
-	int32_t coarse_equilibrium;
-	/** Date at which calibration has been made */
-	time_t calibration_date;
-	/** Factory Settings that can be used with any mRO50 */
-	/** Number of control nodes in ctrl_load_nodes_factory */
-	uint8_t ctrl_nodes_length_factory;
-	/** Number of control nodes in ctrl_load_nodes */
-	uint8_t ctrl_nodes_length;
-	/** Indicate wether calibration parameters are valid */
-	bool calibration_valid;
-};
 
 enum {
     COMMAND_READ,
@@ -112,14 +56,14 @@ static void print_help(void)
 static int check_device(char * device)
 {
     if (device == NULL) {
-        printf("Device path not provided!\n");
+        log_error("Device path not provided!\n");
         return -1;
     }
 
     if (access(device, F_OK ) != -1)
         return 0;
     else {
-        printf("Device path does not exist\n");
+        log_error("Device path does not exist\n");
         return -1;
     }
 }
@@ -128,7 +72,7 @@ static int check_device(char * device)
 static int check_command(char * command)
 {
     if (command == NULL) {
-        printf("Command not specified!\n");
+        log_error("Command not specified!\n");
         return -1;
     }
 
@@ -137,7 +81,7 @@ static int check_command(char * command)
     else if (strcmp(command, "write") == 0)
         return COMMAND_WRITE;
     else {
-        printf("Unknown command %s\n", command);
+        log_error("Unknown command %s\n", command);
         return -1;
     }
 }
@@ -146,7 +90,7 @@ static int check_command(char * command)
 static int check_type(char * type)
 {
     if (type == NULL) {
-        printf("Type not specified!\n");
+        log_error("Type not specified!\n");
         return -1;
     }
 
@@ -159,51 +103,9 @@ static int check_type(char * type)
     else if (strcmp(type, "parameters") == 0)
         return TYPE_PARAM;
     else {
-        printf("Unknown type %s\n", type);
+        log_error("Unknown type %s\n", type);
         return -1;
     }
-}
-
-
-static void print_disciplining_parameters(struct disciplining_parameters *calibration)
-{
-    printf("Calibration parameters:\n");
-    printf("ctrl_nodes_length = %d\n", calibration->ctrl_nodes_length);
-    printf("ctrl_load_nodes[] =");
-    if (calibration->ctrl_nodes_length > 0 && calibration->ctrl_nodes_length <= CALIBRATION_POINTS_MAX)
-        for (int i = 0; i < calibration->ctrl_nodes_length; i++)
-            printf(" %f",calibration->ctrl_load_nodes[i]);
-    printf("\n");
-
-    printf("ctrl_drift_coeffs[] =");
-    if (calibration->ctrl_nodes_length > 0 && calibration->ctrl_nodes_length <= CALIBRATION_POINTS_MAX)
-        for (int i = 0; i < calibration->ctrl_nodes_length; i++)
-            printf(" %f", calibration->ctrl_drift_coeffs[i]);
-    printf("\n");
-    char buff[20];
-    struct tm * timeinfo;
-    timeinfo = localtime(&calibration->calibration_date);
-    strftime(buff, sizeof(buff), "%b %d %Y", timeinfo);
-    printf("Date of calibration: %s\n", buff);
-
-    printf("coarse_equilibrium = %d\n", calibration->coarse_equilibrium);
-    printf("calibration_valid = %d\n", calibration->calibration_valid);
-
-    printf("ctrl_nodes_length_factory = %d\n", calibration->ctrl_nodes_length_factory);
-    printf("ctrl_load_nodes_factory[] =");
-    if (calibration->ctrl_nodes_length_factory > 0 && calibration->ctrl_nodes_length_factory <= CALIBRATION_POINTS_MAX)
-        for (int i = 0; i < calibration->ctrl_nodes_length_factory; i++)
-    printf(" %f", calibration->ctrl_load_nodes_factory[i]);
-    printf("\n");
-
-    printf("ctrl_drift_coeffs_factory[] =");
-    if (calibration->ctrl_nodes_length_factory > 0 && calibration->ctrl_nodes_length_factory <= CALIBRATION_POINTS_MAX)
-        for (int i = 0; i < calibration->ctrl_nodes_length_factory; i++)
-            printf(" %f", calibration->ctrl_drift_coeffs_factory[i]);
-    printf("\n");
-
-    printf("coarse_equilibrium_factory = %d\n", calibration->coarse_equilibrium_factory);
-
 }
 
 int main(int argc, char ** argv)
@@ -219,6 +121,8 @@ int main(int argc, char ** argv)
     int c;
     int err;
     unsigned long ioctl_command = 1;
+
+    log_set_level(LOG_INFO);
 
     while ((c = getopt(argc, argv, "d:c:t:h")) != -1)
     switch (c)
@@ -269,7 +173,7 @@ int main(int argc, char ** argv)
 
     int fd = open(device, O_RDWR);
     if (fd < 0) {
-       printf("Could not open mRo50 serial\n");
+       log_error("Could not open mRo50 serial");
        return -1;
     }
 
@@ -288,12 +192,12 @@ int main(int argc, char ** argv)
         }
 
         if (!write_value_present) {
-            printf("Write value not specified!\n");
+            log_error("Write value not specified!");
             return -1;
         }
     }
 
-    printf ("device = %s, command = %s, type = %s\n",
+    log_info("device = %s, command = %s, type = %s",
         device, command, type);
 
     if (command_int == COMMAND_READ) {
@@ -310,12 +214,12 @@ int main(int argc, char ** argv)
             u8 buf[256] = {0};
             err = ioctl(fd, ioctl_command, buf);
             if (err != 0) {
-                printf("Error executing IOCTL\n");
+                log_error("Error executing IOCTL");
                 close(fd);
                 return -1;
             }
             memcpy(&params, buf, sizeof(struct disciplining_parameters));
-            print_disciplining_parameters(&params);
+            print_disciplining_parameters(&params, LOG_INFO);
             close(fd);
             return 0;
         } else
@@ -323,31 +227,31 @@ int main(int argc, char ** argv)
 
         err = ioctl(fd, ioctl_command, &read_value);
         if (err != 0) {
-            printf("Error reading %s value\n", type);
+            log_error("Error reading %s value", type);
             return -1;
         }
         if (type_int == TYPE_TEMP) {
             double temperature = compute_temp(read_value);
-            printf("Temperature is %f °C", temperature);
+            log_info("Temperature is %f °C", temperature);
         } else
-            printf("%s value read is %d\n", type, read_value);
+            log_info("%s value read is %d", type, read_value);
     } else if (command_int == COMMAND_WRITE) {
         if (type_int == TYPE_FINE) {
             ioctl_command = MRO50_ADJUST_FINE;
             if (write_value < FINE_RANGE_MIN
                 || write_value > FINE_RANGE_MAX) {
-                    printf("value is out of range for fine control !\n");
+                    log_error("value is out of range for fine control !");
                     return -1;
                 }
         }
         else if (type_int == TYPE_COARSE) {
             ioctl_command = MRO50_ADJUST_COARSE;
             if (write_value > COARSE_RANGE_MAX) {
-                    printf("value is out of range for coarse control !\n");
+                    log_error("value is out of range for coarse control !");
                     return -1;
-                }
+            }
         } else if (type_int == TYPE_TEMP) {
-            printf("Cannot write temperature \n");
+            log_warn("Cannot write temperature ");
             return 0;
         } else if (type_int == TYPE_PARAM) {
             ioctl_command = MRO50_WRITE_EEPROM_BLOB;
@@ -363,14 +267,14 @@ int main(int argc, char ** argv)
                 .calibration_valid = true,
                 .calibration_date = 0
             };
-            printf("Disciplining parameters written:\n");
-            print_disciplining_parameters(&params);
+            log_info("Disciplining parameters written:");
+            print_disciplining_parameters(&params, LOG_INFO);
             u8 buf[256] = {0};
             memcpy(buf, &params, sizeof(struct disciplining_parameters));
             err = ioctl(fd, ioctl_command, buf);
             close(fd);
             if (err != 0) {
-                printf("Error occured writing disciplining parameters: %d\n", err);
+                log_error("Error occured writing disciplining parameters: %d", err);
                 return -1;
             }
             return 0;
@@ -380,11 +284,11 @@ int main(int argc, char ** argv)
 
         err = ioctl(fd, ioctl_command, &write_value);
         if (err != 0) {
-            printf("Error Writing %s value\n", type);
+            log_error("Error Writing %s value", type);
             return -1;
         }
 
-        printf("Wrote %s value\n", type);
+        log_info("Wrote %s value", type);
     }
 
     close(fd);
