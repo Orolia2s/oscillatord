@@ -12,11 +12,13 @@
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "utils.h"
 
 typedef u_int32_t u32;
+typedef u_int8_t u8;
 
 /** Minimum possible value of coarse control */
 #define COARSE_RANGE_MIN 0
@@ -39,13 +41,14 @@ typedef u_int32_t u32;
 #define MRO50_READ_CTRL		_IOR('M', 6, u32 *)
 #define MRO50_SAVE_COARSE	_IO('M', 7)
 
-/**
- * Maximum number of points that can be stored in the memory of the card
- */
+#define MRO50_READ_EEPROM_BLOB _IOR('M', 8, u8*)
+#define MRO50_WRITE_EEPROM_BLOB _IOW('M', 8, u8*)
+
+#endif /* MRO50_IOCTL_H */
+/*---------------------------------------------------------------------------*/
 #define CALIBRATION_POINTS_MAX 10
+
 struct disciplining_parameters {
-	/** Number of control nodes in ctrl_load_nodes */
-	uint8_t ctrl_nodes_length;
 	/**
 	 * Array containing the control node, in percentage
 	 * value of the control range.
@@ -58,10 +61,6 @@ struct disciplining_parameters {
 	 */
 	float ctrl_drift_coeffs[CALIBRATION_POINTS_MAX];
 	/** Equilibrium Coarse value define during calibration */
-	int32_t coarse_equilibrium;
-	/** Factory Settings that can be used with any mRO50 */
-	/** Number of control nodes in ctrl_load_nodes_factory */
-	uint8_t ctrl_nodes_length_factory;
 	/**
 	 * Array containing the control node, in percentage
 	 * value of the control range.
@@ -75,16 +74,17 @@ struct disciplining_parameters {
 	float ctrl_drift_coeffs_factory[3];
 	/** Equilibrium Coarse value for factory_settings */
 	int32_t coarse_equilibrium_factory;
+	int32_t coarse_equilibrium;
+	/** Date at which calibration has been made */
+	time_t calibration_date;
+	/** Factory Settings that can be used with any mRO50 */
+	/** Number of control nodes in ctrl_load_nodes_factory */
+	uint8_t ctrl_nodes_length_factory;
+	/** Number of control nodes in ctrl_load_nodes */
+	uint8_t ctrl_nodes_length;
 	/** Indicate wether calibration parameters are valid */
 	bool calibration_valid;
-	int8_t pad_0[4];
 };
-#define ART_CALIBRATION_READ_PARAMETERS _IOR('M', 8, struct disciplining_parameters *)
-#define ART_CALIBRATION_WRITE_PARAMETERS _IOW('M', 9, struct disciplining_parameters *)
-
-
-#endif /* MRO50_IOCTL_H */
-/*---------------------------------------------------------------------------*/
 
 enum {
     COMMAND_READ,
@@ -165,26 +165,44 @@ static int check_type(char * type)
 }
 
 
-static void print_disciplining_parameters(struct disciplining_parameters *params)
+static void print_disciplining_parameters(struct disciplining_parameters *calibration)
 {
-    printf("ctrl_nodes_length = %d\n", params->ctrl_nodes_length);
-    if (params->ctrl_nodes_length >= 0 && params->ctrl_nodes_length <= CALIBRATION_POINTS_MAX) {
-        for (int i = 0; i < params->ctrl_nodes_length; i++) {
-            printf("ctrl_load_nodes[%d] = %f\n", i, params->ctrl_load_nodes[i]);
-            printf("ctrl_drift_coeffs[%d] = %f\n", i, params->ctrl_drift_coeffs[i]);
-        }
-    }
-    printf("coarse_equilibrium = %d\n", params->coarse_equilibrium);
-    printf("calibration_valid = %d\n", params->calibration_valid);
+    printf("Calibration parameters:\n");
+    printf("ctrl_nodes_length = %d\n", calibration->ctrl_nodes_length);
+    printf("ctrl_load_nodes[] =");
+    if (calibration->ctrl_nodes_length > 0 && calibration->ctrl_nodes_length <= CALIBRATION_POINTS_MAX)
+        for (int i = 0; i < calibration->ctrl_nodes_length; i++)
+            printf(" %f",calibration->ctrl_load_nodes[i]);
+    printf("\n");
 
-    printf("ctrl_nodes_length_factory = %d\n", params->ctrl_nodes_length_factory);
-    if (params->ctrl_nodes_length_factory >= 0 && params->ctrl_nodes_length_factory <= CALIBRATION_POINTS_MAX) {
-        for (int i = 0; i < params->ctrl_nodes_length_factory; i++) {
-            printf("ctrl_load_nodes_factory[%d] = %f\n", i, params->ctrl_load_nodes_factory[i]);
-            printf("ctrl_drift_coeffs_factory[%d] = %f\n", i, params->ctrl_drift_coeffs_factory[i]);
-        }
-    }
-    printf("coarse_equilibrium_factory = %d\n", params->coarse_equilibrium_factory);
+    printf("ctrl_drift_coeffs[] =");
+    if (calibration->ctrl_nodes_length > 0 && calibration->ctrl_nodes_length <= CALIBRATION_POINTS_MAX)
+        for (int i = 0; i < calibration->ctrl_nodes_length; i++)
+            printf(" %f", calibration->ctrl_drift_coeffs[i]);
+    printf("\n");
+    char buff[20];
+    struct tm * timeinfo;
+    timeinfo = localtime(&calibration->calibration_date);
+    strftime(buff, sizeof(buff), "%b %d %Y", timeinfo);
+    printf("Date of calibration: %s\n", buff);
+
+    printf("coarse_equilibrium = %d\n", calibration->coarse_equilibrium);
+    printf("calibration_valid = %d\n", calibration->calibration_valid);
+
+    printf("ctrl_nodes_length_factory = %d\n", calibration->ctrl_nodes_length_factory);
+    printf("ctrl_load_nodes_factory[] =");
+    if (calibration->ctrl_nodes_length_factory > 0 && calibration->ctrl_nodes_length_factory <= CALIBRATION_POINTS_MAX)
+        for (int i = 0; i < calibration->ctrl_nodes_length_factory; i++)
+    printf(" %f", calibration->ctrl_load_nodes_factory[i]);
+    printf("\n");
+
+    printf("ctrl_drift_coeffs_factory[] =");
+    if (calibration->ctrl_nodes_length_factory > 0 && calibration->ctrl_nodes_length_factory <= CALIBRATION_POINTS_MAX)
+        for (int i = 0; i < calibration->ctrl_nodes_length_factory; i++)
+            printf(" %f", calibration->ctrl_drift_coeffs_factory[i]);
+    printf("\n");
+
+    printf("coarse_equilibrium_factory = %d\n", calibration->coarse_equilibrium_factory);
 
 }
 
@@ -287,14 +305,16 @@ int main(int argc, char ** argv)
         else if (type_int == TYPE_TEMP)
             ioctl_command = MRO50_READ_TEMP;
         else if (type_int == TYPE_PARAM) {
-            ioctl_command = ART_CALIBRATION_READ_PARAMETERS;
+            ioctl_command = MRO50_READ_EEPROM_BLOB;
             struct disciplining_parameters params = {0};
-            err = ioctl(fd, ioctl_command, &params);
+            u8 buf[256] = {0};
+            err = ioctl(fd, ioctl_command, buf);
             if (err != 0) {
                 printf("Error executing IOCTL\n");
                 close(fd);
                 return -1;
             }
+            memcpy(&params, buf, sizeof(struct disciplining_parameters));
             print_disciplining_parameters(&params);
             close(fd);
             return 0;
@@ -328,39 +348,31 @@ int main(int argc, char ** argv)
                 }
         } else if (type_int == TYPE_TEMP) {
             printf("Cannot write temperature \n");
+            return 0;
         } else if (type_int == TYPE_PARAM) {
-            ioctl_command = ART_CALIBRATION_WRITE_PARAMETERS;
+            ioctl_command = MRO50_WRITE_EEPROM_BLOB;
             struct disciplining_parameters params = {
                 .ctrl_nodes_length = 3,
                 .ctrl_load_nodes = {0.25,0.5,0.75},
                 .ctrl_drift_coeffs = {0.121212,0.424242,-0.181818},
-                .coarse_equilibrium = 4186407,
+                .coarse_equilibrium = 4186417,
                 .ctrl_nodes_length_factory = 3,
                 .ctrl_load_nodes_factory = {0.25,0.5,0.75},
                 .ctrl_drift_coeffs_factory = {1.2,0.0,-1.2},
                 .coarse_equilibrium_factory = -1,
-                .calibration_valid = false
+                .calibration_valid = true,
+                .calibration_date = 0
             };
             printf("Disciplining parameters written:\n");
             print_disciplining_parameters(&params);
-            err = ioctl(fd, ioctl_command, &params);
+            u8 buf[256] = {0};
+            memcpy(buf, &params, sizeof(struct disciplining_parameters));
+            err = ioctl(fd, ioctl_command, buf);
+            close(fd);
             if (err != 0) {
                 printf("Error occured writing disciplining parameters: %d\n", err);
-                close(fd);
                 return -1;
             }
-            sleep(1);
-            struct disciplining_parameters test = {0};
-            ioctl_command = ART_CALIBRATION_READ_PARAMETERS;
-            err = ioctl(fd, ioctl_command, &test);
-            if (err != 0) {
-                printf("Error executing IOCTL\n");
-                close(fd);
-                return -1;
-            }
-            printf("\nDisciplining parameters read on eeprom:\n");
-            print_disciplining_parameters(&test);
-            close(fd);
             return 0;
         }
         else
