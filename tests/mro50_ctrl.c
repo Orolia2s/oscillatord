@@ -123,8 +123,9 @@ int main(int argc, char ** argv)
     char * device;
     char * command;
     int command_int;
-    char * type;
+    char * type = NULL;
     int type_int;
+    long int cmdl_value;
     uint32_t write_value;
     int index = 0;
     int c;
@@ -188,7 +189,12 @@ int main(int argc, char ** argv)
     if (command_int == COMMAND_WRITE) {
         bool write_value_present = false;
         for (index = optind; index < argc; index++) {
-            write_value = atoi(argv[index]);
+            cmdl_value = atol(argv[index]);
+            if (cmdl_value  < 0 ) {
+                printf("Value to write must be positive");
+                return -1;
+            }
+            write_value = (unsigned int)cmdl_value;
             write_value_present = true;
             break;
         }
@@ -234,8 +240,7 @@ int main(int argc, char ** argv)
         }
         else if (type_int == TYPE_COARSE) {
             ioctl_command = MRO50_ADJUST_COARSE;
-            if (write_value < COARSE_RANGE_MIN
-                || write_value > COARSE_RANGE_MAX) {
+            if (write_value > COARSE_RANGE_MAX) {
                     printf("value is out of range for coarse control !\n");
                     return -1;
                 }
