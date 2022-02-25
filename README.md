@@ -9,6 +9,7 @@ Oscillatord can either be used to discipline and/or monitor a oscillatord a GNSS
 For now only the following oscillators are supported:
 - Orolia's mRO50
 - Microsemi's SA3X
+- Microsemi's SA5X
 ## Requirements
 
 * cmake
@@ -123,6 +124,33 @@ cmake -D BUILD_TESTS=true ..
 make
 ```
 
+## Utils
+
+### ART eeprom format
+
+This program write default factory data into ART card's eeprom:
+```
+art-eeprom-format -p PATH -s SERIAL_NUMBER
+```
+* **-p PATH**: path of the file/EEPROM data should be written to
+* **-s SERIAL_NUMBER**: Serial number that should be written within data. Serial must start with an F followed by 8 numerical caracters
+
+### ART Disciplining manager
+
+This program allows user to R/W disciplining parameters from/to a config file such as [art_calibration.conf](utils/art_calibration.conf) to/from EEPROM file of the ART Card.
+
+Reading from disciplining parameters from the EEPROM into a config file allows user to modify the disciplining parameters inside the config file before writing the updated parameters into the EEPROM in order to increase/decrease the number of *ctrl_load_nodes* and *ctrl_drift_coeffs* (which must be *ctrl_nodes_length* at all time)
+
+```
+art_disciplining_manager -p eeprom_path  [-w calibration.conf -r -f -o output_file_path -h]
+```
+* **-p eeprom_path**: Path to the eeprom file
+* **-w calibration.conf**: Path to the calibration paramters file to write in the eeprom
+* **-r**: Read calibration parameters from the eeprom
+* **-f**: force write operation to write factory parameters
+* **-o**: output_file_path: write calibration parameters read in file
+* **-h**: print help
+
 ## Source tree organisation
 
     .
@@ -134,4 +162,4 @@ make
     └── tests                         : code of the oscillator simulator and integration tests
         └── art_integration_testsuite : Integration tests for the ART card
         └── lib_osc_sim_stubs         : code of the lib_osc_sim_stubs library
-
+    └── utils                         : Programs used to configure ART card EEPROM
