@@ -24,7 +24,7 @@
 /* Open file from symlink path */
 static int opensymlink( const char *dirname, struct dirent *dir)
 {
-    char pathname[1024];   /* should alwys be big enough */
+    char pathname[1280];   /* should alwys be big enough */
     int fp;
     sprintf( pathname, "%s/%s", dirname, dir->d_name );
     log_info("Realpath is %s", realpath(pathname, NULL));
@@ -96,7 +96,7 @@ static bool test_ocp_directory(char * ocp_path, char * dir_name) {
         /* I2C TEST: Find EEPROM File */
         if (strncmp(entry->d_name, "i2c", 4) == 0) {
             log_info("I2C device detected");
-            char pathname[1024];   /* should alwys be big enough */
+            char pathname[1280];   /* should alwys be big enough */
             sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
             found_eeprom = find_file(realpath(pathname, NULL), "eeprom");
             if (found_eeprom) {

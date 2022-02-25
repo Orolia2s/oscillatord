@@ -10,6 +10,7 @@ STRING(REGEX REPLACE "^[0-9]+\\.([0-9])+\\.[0-9]+" "\\1" VERSION_MINOR "${PACKAG
 STRING(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" VERSION_PATCH "${PACKAGE_VERSION}")
 set(PACKAGE_NAME "lib${PROJECT_NAME}")
 set(PACKAGE_DESCRIPTION_SUMMARY "Oscillator disciplining daemon.")
+set(CMAKE_C_STANDARD 11)
 
 project(${PROJECT_NAME} C)
 include(GNUInstallDirs)
