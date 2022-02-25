@@ -335,9 +335,9 @@ int main(int argc, char *argv[])
 				continue;
 			}
 			/* For now continue if we do not have a valid phase error */
-			if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS) {
+			if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS
+				&& phasemeter_status != PHASEMETER_NO_GNSS_TIMESTAMPS)
 				continue;
-			}
 
 			/* Fills in input structure for disciplining algorithm */
 			input.coarse_setpoint = ctrl_values.coarse_ctrl;
