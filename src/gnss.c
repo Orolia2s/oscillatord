@@ -326,6 +326,10 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 		return NULL;
 	}
 
+	if (strchr(gnss_device_tty, '@')) {
+		args.autobaud = false;
+	}
+
 	if (session == NULL) {
 		log_error("No gps session provided");
 		return NULL;
