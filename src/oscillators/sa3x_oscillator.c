@@ -118,9 +118,9 @@ static struct oscillator *sa3x_oscillator_new(struct config *config)
 		goto error;
 	}
 
+	sa3x->osc_fd = fd;
 	if (set_serial_attributes(fd) != 0)
 		goto error;
-	sa3x->osc_fd = fd;
 
 	oscillator_factory_init(FACTORY_NAME, oscillator, FACTORY_NAME "-%d",
 			sa3x_oscillator_index);
@@ -130,8 +130,8 @@ static struct oscillator *sa3x_oscillator_new(struct config *config)
 
 	return oscillator;
 error:
-	if (fd != -1)
-		close(fd);
+	if (sa3x->osc_fd != -1)
+		close(sa3x->osc_fd);
 	sa3x_oscillator_destroy(&oscillator);
 	return NULL;
 }

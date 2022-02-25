@@ -13,6 +13,8 @@
 #include <sys/time.h>
 #include <sys/timex.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
+#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -133,7 +135,7 @@ int main(int argc, char *argv[])
 	int64_t phase_error;
 	int phasemeter_status;
 	int ret;
-	int sign;
+	int sign = 0;
 	int log_level;
 	bool disciplining_mode;
 	bool monitoring_mode;
