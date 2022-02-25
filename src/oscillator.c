@@ -18,7 +18,7 @@ int oscillator_set_dac_max(struct oscillator *oscillator, uint32_t dac_max)
 	if (oscillator == NULL)
 		return -EINVAL;
 
-	oscillator->dac_min = dac_max;
+	oscillator->dac_max = dac_max;
 
 	return 0;
 }
