@@ -185,7 +185,7 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	} else {
 		log_error("Calling mRo50_oscillator_apply_output with action different from ADJUST_COARSE or ADJUST_FINE");
 		log_error("Action is %d", output->action);
-		return -1;
+		return 0;
 	}
 
 	ret = ioctl(mRo50->osc_fd, command, &output->setpoint);
