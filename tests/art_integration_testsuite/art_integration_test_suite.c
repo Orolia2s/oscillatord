@@ -21,17 +21,6 @@
 #include "ptp_device_test.h"
 #include "utils.h"
 
-/* Open file from symlink path */
-static int opensymlink( const char *dirname, struct dirent *dir)
-{
-    char pathname[1280];   /* should alwys be big enough */
-    int fp;
-    sprintf( pathname, "%s/%s", dirname, dir->d_name );
-    log_info("Realpath is %s", realpath(pathname, NULL));
-    fp = open(realpath(pathname, NULL), O_RDWR);
-    return fp;
-}
-
 /* find device path in /dev from symlink in sysfs */
 static void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
 {
@@ -51,7 +40,7 @@ static bool find_file(char * path , char * name)
 {
     DIR * directory;
     struct dirent * dp;
-    bool found;
+    bool found = false;
     if(!(directory = opendir(path)))
         return false;
 
@@ -78,11 +67,12 @@ static bool find_file(char * path , char * name)
 }
 
 static bool test_ocp_directory(char * ocp_path, char * dir_name) {
-    bool mro50_passed = false;
-    bool ptp_passed = false;
-    bool gnss_receiver_passed = false;
-    bool found_eeprom = false;
     DIR * ocp_dir = opendir(ocp_path);
+    bool gnss_receiver_passed = false;
+    uint32_t mro50_coarse_value;
+    bool mro50_passed = false;
+    bool found_eeprom = false;
+    bool ptp_passed = false;
 
     if (ocp_dir != NULL) {
         log_info("Directory %s exists\n", ocp_path);
@@ -93,7 +83,9 @@ static bool test_ocp_directory(char * ocp_path, char * dir_name) {
 
     struct dirent * entry = readdir(ocp_dir);
     while (entry != NULL) {
-        /* I2C TEST: Find EEPROM File */
+        /* I2C TEST: Find EEPROM File
+         * EEPROM file will be written if test is successful
+         */
         if (strncmp(entry->d_name, "i2c", 4) == 0) {
             log_info("I2C device detected");
             char pathname[1280];   /* should alwys be big enough */
@@ -105,12 +97,24 @@ static bool test_ocp_directory(char * ocp_path, char * dir_name) {
                 log_warn("\t- Could not find EEPROM file\n");
             }
 
-        /* MRO50 TEST: Perform R/W operations using ioctls */
+        /* MRO50 TEST: Perform R/W operations using ioctls
+         * Also read factory coarse which needs to be written in EEPROM
+         */
         } else if (strncmp(entry->d_name, "mro50", 6) == 0) {
             log_info("mro50 device detected");
-            int mro50 = opensymlink(ocp_path, entry);
+            char dev_path[1024];
+            find_dev_path(ocp_path, entry, dev_path);
+            printf("dev_path is %s\n", dev_path);
+            int mro50 = open(dev_path, O_RDWR);
             if (mro50 > 0) {
                 mro50_passed = test_mro50_device(mro50);
+                if (mro50_passed) {
+                    /* Read factory coarse of the mRO50 which needs to be stored in EEPROM */
+                    if(mro50_read_coarse(mro50, &mro50_coarse_value) != 0) {
+                        log_error("Could not read factory coarse value of mRO50");
+                        mro50_passed = false;
+                    }
+                }
                 close(mro50);
             } else {
                 log_error("\t- Error opening mro50 device");
@@ -129,7 +133,11 @@ static bool test_ocp_directory(char * ocp_path, char * dir_name) {
                 log_error("\t- Error opening ptp device");
             }
 
-        /* SERIAL GNSS TEST: check it can receive a fix and UBX-MON-RF message */
+        /* SERIAL GNSS TEST:
+         * Check serial can be opened
+         * Reconfigure GNSS to default configuration
+         * check it can receive a fix and UBX-MON-RF message
+         */
         } else if (strncmp(entry->d_name, "ttyGNSS", 7) == 0) {
             log_info("ttyGPS detected");
             char dev_path[1024];   /* should alwys be big enough */
@@ -140,28 +148,13 @@ static bool test_ocp_directory(char * ocp_path, char * dir_name) {
         entry = readdir(ocp_dir);
     }
 
-    // Small hack to test mRO50 while not being in sysfs
-    char mRO_pathname[1024] = "/dev/mro50.";
-    mRO_pathname[11] = dir_name[3];
-    mRO_pathname[12] = '\0';
-    int mro50= open(mRO_pathname, O_RDWR);
-    if (mro50 > 0) {
-        mro50_passed = test_mro50_device(mro50);
-        close(mro50);
-    } else {
-        log_error("\t- Error opening mro50 device");
-    }
-    if (!found_eeprom) {
-        log_warn("Could not find EEPROM file.");
-        log_warn("The card may work without eeprom storage,"\
-        "but configuration will not be stored on the device");
-    }
-
-    if (!(mro50_passed && ptp_passed && gnss_receiver_passed)) {
+    if (!(mro50_passed && ptp_passed && gnss_receiver_passed && found_eeprom)) {
         log_error("At least one test failed");
         return false;
+    } else {
+        log_info("All tests passed");
+        // TODO: Add format of eeprom
     }
-    log_info("All tests passed");
     return true;
 }
 

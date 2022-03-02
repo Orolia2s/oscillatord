@@ -1,8 +1,9 @@
-#include <stdint.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 
 #include "log.h"
 #include "mro_device_test.h"
+#include "mRO50_ioctl.h"
 #include "utils.h"
 
 /** Minimum possible value of coarse control */
@@ -13,22 +14,6 @@
 #define FINE_RANGE_MIN 1600
 /** Maximum possible value of fine control */
 #define FINE_RANGE_MAX 3200
-
-typedef uint32_t u32;
-/*---------------------------------------------------------------------------*/
-#ifndef MRO50_IOCTL_H
-#define MRO50_IOCTL_H
-
-#define MRO50_READ_FINE		_IOR('M', 1, u32 *)
-#define MRO50_READ_COARSE	_IOR('M', 2, u32 *)
-#define MRO50_ADJUST_FINE	_IOW('M', 3, u32)
-#define MRO50_ADJUST_COARSE	_IOW('M', 4, u32)
-#define MRO50_READ_TEMP		_IOR('M', 5, u32 *)
-#define MRO50_READ_CTRL		_IOR('M', 6, u32 *)
-#define MRO50_SAVE_COARSE	_IO('M', 7)
-
-#endif /* MRO50_IOCTL_H */
-/*---------------------------------------------------------------------------*/
 
 /*
  * Performs read / write operation on mro50 using ioctl to check wether
@@ -43,7 +28,7 @@ static bool mro50_check_ioctl_read_write(
 {
     int err;
     uint32_t original_value;
-    /* Read current coarse value of mro50 */
+    /* Read current coarse/fine value of mro50 */
     err = ioctl(mro50, read_cmd, &original_value);
     if (err != 0) {
         log_debug("\t\t- Error %d", err);
@@ -55,6 +40,9 @@ static bool mro50_check_ioctl_read_write(
         log_info("\t\t- value is in acceptable range");
     } else {
         return false;
+    }
+    if (read_cmd == MRO50_READ_COARSE) {
+        log_info("Coarse value read on mRO50 is %u", original_value);
     }
     /* try writing value + 1 or value - 1 to check
      * write operation works
@@ -83,6 +71,13 @@ static bool mro50_check_ioctl_read_write(
         return false;
     }
     return true;
+}
+
+int mro50_read_coarse(int mro50, uint32_t *coarse)
+{
+    if (coarse == NULL)
+        return -EFAULT;
+    return ioctl(mro50, MRO50_READ_COARSE, coarse);
 }
 
 bool test_mro50_device(int mro50)
