@@ -56,7 +56,7 @@ struct __attribute__((__packed__)) eeprom_data {
     uint16_t extended_mac_address_size;// 0xAD
     char eeprom_location_on_fabric[20];// 0xAF
     /** Checksum CRC8 */
-    char crc8;// 0xC3
+    uint8_t crc8;// 0xC3
 };
 
 /**
@@ -89,7 +89,7 @@ static inline void print_eeprom_data(struct eeprom_data *data)
     log_info("Extended MAC address: %s", data->extended_mac_address_base);
     log_info("Extended MAC address size: %d", data->extended_mac_address_size);
     log_info("EEPROM Location on fabric: %s", data->eeprom_location_on_fabric);
-    log_info("CRC8: %c", data->crc8);
+    log_info("CRC8: 0x%x", data->crc8);
     return;
 }
 
