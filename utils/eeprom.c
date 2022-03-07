@@ -127,7 +127,7 @@ void init_eeprom_data(struct eeprom_data *data, char *serial_number)
     strncpy(data->system_assembly_part_number, "19002150", min(sizeof("19002150") , 12));
     strncpy(data->fb_pcba_part_number, "13200014401", min(sizeof("13200014401"), 12));
     strncpy(data->fb_pcb_part_number, "13100010901", min(sizeof("13100010901") , 12));
-    strncpy(data->od_pcba_part_number, "1002893", min(sizeof("1002893") , 12));
+    strncpy(data->od_pcba_part_number, "1002893B00", min(sizeof("1002893B00") , 12));
 
     strncpy(data->od_pcba_serial_number, serial_number, min(strlen(serial_number) , 12));
     strncpy(data->product_serial_number, serial_number, min(strlen(serial_number), 13));
