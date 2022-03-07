@@ -1,6 +1,7 @@
 #ifndef MRO50_IOCTL_H
 #define MRO50_IOCTL_H
 
+#include <sys/ioctl.h>
 #include <sys/types.h>
 
 typedef u_int32_t u32;

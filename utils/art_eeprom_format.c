@@ -16,11 +16,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/fcntl.h>
 #include <time.h>
+#include <unistd.h>
 
-
-#include "log.h"
 #include "eeprom.h"
+#include "log.h"
+#include "mRO50_ioctl.h"
 
 static void removeChar(char * str, char charToRemmove){
     int i, j;
@@ -55,23 +57,30 @@ static bool validate_serial(char *serial) {
 }
 
 static void print_help(void) {
-    printf("art-eeprom-format -p PATH -s SERIAL_NUMBER\n");
+    printf("art-eeprom-format -p PATH -s SERIAL_NUMBER -d MRO50_DEVICE\n");
     printf("Parameters:\n");
     printf("PATH: path of the file/EEPROM data should be written from\n");
     printf("SERIAL_NUMBER: Serial number that should be written within data." \
         "Serial must start with an F followed by 8 numerical caracters\n");
+    printf("MRO50_DEVICE: Path to mRO50 device to get mRO50 coarsef actory value\n");
 }
 
 int main(int argc, char *argv[])
 {
     char *serial_number = NULL;
     char *path = NULL;
+    char *mro50_path = NULL;
+    bool factory_coarse_valid = false;
+    uint32_t factory_coarse;
     int ret;
     int c;
 
 
-    while ((c = getopt(argc, argv, "p:s:h")) != -1) {
+    while ((c = getopt(argc, argv, "d:p:s:h")) != -1) {
         switch (c) {
+        case 'd':
+            mro50_path = optarg;
+            break;
         case 'p':
             path = optarg;
             break;
@@ -85,6 +94,8 @@ int main(int argc, char *argv[])
         case '?':
             if (optopt == 'p')
                 fprintf (stderr, "Option -%c requires path to eeprom.\n", optopt);
+            if (optopt == 'd')
+                fprintf (stderr, "Option -%c requires path to mRO50 device.\n", optopt);
             return -1;
             break;
         }
@@ -97,7 +108,24 @@ int main(int argc, char *argv[])
         printf("Serial number is not valid\n");
         return -1;
     }
+
     log_set_level(LOG_INFO);
+
+    if(mro50_path) {
+        int mro50 = open(mro50_path, O_RDWR);
+        if (mro50 > 0) {
+            ret = ioctl(mro50, MRO50_READ_COARSE, &factory_coarse);
+            if (ret != 0)
+                log_error("Error reading factory coarse of mRO50, will not be saved in EEPROM");
+            else
+                factory_coarse_valid = true;
+            close(mro50);
+        } else {
+            log_error("Could not open mRO50 device at %s", mro50_path);
+        }
+    } else {
+        log_warn("No path to mRO50 device provided, factory value of mRO50 will not be written in EEPROM");
+    }
     log_info("Writing data to %s", path);
 
     struct eeprom_data *data = (struct eeprom_data *) calloc(1, sizeof(struct eeprom_data));
@@ -106,6 +134,9 @@ int main(int argc, char *argv[])
 
     print_eeprom_data(data);
     log_info("\n");
+    if (factory_coarse_valid)
+        factory_parameters.coarse_equilibrium_factory = (int32_t) factory_coarse;
+
     ret = write_eeprom(path, data, (struct disciplining_parameters *) &factory_parameters);
     if (ret != 0) {
         log_error("Error writing eeprom data");

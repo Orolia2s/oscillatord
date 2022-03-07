@@ -5,7 +5,7 @@
 
 #define min(a,b) a < b ? a : b
 
-const struct disciplining_parameters factory_parameters = {
+struct disciplining_parameters factory_parameters = {
     .ctrl_nodes_length = 3,
     .ctrl_load_nodes = {0.25,0.5,0.75},
     .ctrl_drift_coeffs = {0.0,0.0,0.0},

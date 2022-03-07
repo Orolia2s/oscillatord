@@ -62,7 +62,7 @@ struct __attribute__((__packed__)) eeprom_data {
 /**
  * @brief Default value for disciplining parameters
  */
-extern const struct disciplining_parameters factory_parameters;
+extern struct disciplining_parameters factory_parameters;
 
 static inline void print_eeprom_data(struct eeprom_data *data)
 {
