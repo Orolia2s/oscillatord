@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     char *mro50_path = NULL;
     bool factory_coarse_valid = false;
     uint32_t factory_coarse;
-    int ret;
+    int ret = 0;
     int c;
 
 
@@ -152,5 +152,5 @@ int main(int argc, char *argv[])
 end:
     free(data);
     data = NULL;
-    return 0;
+    return ret;
 }
