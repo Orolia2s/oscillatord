@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 #include <poll.h>
 
@@ -15,11 +16,6 @@
 #include "../oscillator_factory.h"
 
 #define FACTORY_NAME "sa3x"
-
-struct sa3x_oscillator {
-	struct oscillator oscillator;
-	int osc_fd;
-};
 
 struct sa3x_attributes {
 	char bite;           // BITE
@@ -36,7 +32,20 @@ struct sa3x_attributes {
 	int  analogtuning;   // Analog Tuning (mv)
 };
 
+struct sa3x_oscillator {
+	struct oscillator oscillator;
+	int osc_fd;
+	struct sa3x_attributes attributes;
+	struct timespec attr_time;
+};
+
 static unsigned int sa3x_oscillator_index;
+
+// we need only seconds to account difference
+static inline sa3x_timediff(const struct timespec ts0, const struct timespec ts1)
+{
+	return ts0.tv_sec > ts1.tv_sec ? (ts0.tv_sec - ts1.tv_sec) : (ts1.tv_sec - ts0.tv_sec);
+}
 
 static void sa3x_oscillator_destroy(struct oscillator **oscillator)
 {
@@ -105,6 +114,7 @@ static struct oscillator *sa3x_oscillator_new(struct config *config)
 		return NULL;
 	oscillator = &sa3x->oscillator;
 	sa3x->osc_fd = -1;
+	// calloc sets memory to 0, we don't need to init structures
 
 	osc_device_name = (char *) config_get(config, "sa3x-device");
 	if (osc_device_name == NULL) {
@@ -136,26 +146,24 @@ error:
 	return NULL;
 }
 
-static int sa3x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl)
-{
-	// Used for mRO50
-	ctrl->fine_ctrl = 0;
-	ctrl->coarse_ctrl = 0;
-	ctrl->lock = 0;
-	return 0;
-}
-
-static int sa3x_oscillator_get_attributes(struct oscillator *oscillator, struct sa3x_attributes *a)
+static struct sa3x_attributes *sa3x_oscillator_get_attributes(struct oscillator *oscillator)
 {
 	struct sa3x_oscillator *sa3x;
 	sa3x = container_of(oscillator, struct sa3x_oscillator, oscillator);
+	struct sa3x_attributes *a = &sa3x->attributes;
 	struct pollfd pfd = {};
+	struct timespec ts;
 	int err;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	if (sa3x_timediff(ts, sa3x->attr_time) < SETTLING_TIME) {
+		return a;
+	}
 
 	char *command = "^";
 	if (write(sa3x->osc_fd, command, 1) != 1) {
 		log_error("oscillator_get_attributes send command error: %d (%s)", errno, strerror(errno));
-		return -1;
+		return NULL;
 	}
 
 	pfd.fd = sa3x->osc_fd;
@@ -165,12 +173,12 @@ static int sa3x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	if (!err) {
 		// poll call timed out
 		log_error("oscillator_get_attributes timed out");
-		return -1;
+		return NULL;
 
 	}
 	if (err == -1) {
 		log_error("oscillator_get_attributes poll error: %d (%s)", errno, strerror(errno));
-		return -1;
+		return NULL;
 	}
 	// Datasheet states that answer will be no more than 128 characters
 	char line[128] = {0};
@@ -184,22 +192,38 @@ static int sa3x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 			&a->analogtuning);
 		if (err < 9) {
 			log_error("oscillator_get_attributes parse telemetry error: only %d attributes read", err);
-			return -1;
+			return NULL;
 		}
 	} else {
 		log_error("oscillator_get_attributes read telemetry error: %d (%s)", errno, strerror(errno));
-		return -1;
+		return NULL;
 	}
+	clock_gettime(CLOCK_MONOTONIC, &sa3x->attr_time);
+	return a;
+}
+
+static int sa3x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl)
+{
+	struct sa3x_attributes *a = sa3x_oscillator_get_attributes(oscillator);
+
+	if (a && a->bite == 0) {
+		ctrl->lock = 1;
+	} else {
+		ctrl->lock = 0;
+	}
+	// Used for mRO50
+	ctrl->fine_ctrl = 0;
+	ctrl->coarse_ctrl = 0;
 	return 0;
 }
 
 static int sa3x_oscillator_get_temp(struct oscillator *oscillator, double *temp)
 {
-	struct sa3x_attributes a;
-	int err = sa3x_oscillator_get_attributes(oscillator, &a);
-	if (!err) {
+	struct sa3x_attributes *a = sa3x_oscillator_get_attributes(oscillator);
+
+	if (a) {
 		// mDegC to DegC
-		*temp = a.temperature / 1000.0;
+		*temp = a->temperature / 1000.0;
 	} else {
 		*temp = -400.0;
 	}
