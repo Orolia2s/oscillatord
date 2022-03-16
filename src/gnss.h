@@ -83,6 +83,8 @@ struct gps_context_t {
 	bool batteryRTC;
 	speed_t fixed_port_speed;           // Fixed port speed, if non-zero
 	char fixed_port_framing[4];         // Fixed port framing, if non-blank
+	int32_t qErr;                       // Quantization Error of current Epoch
+	int32_t qErr_last_epoch;                       // Quantization Error of last Epoch
 	/* DGPS status */
 	int fixcnt;                         /* count of good fixes seen */
 	/* timekeeping */
@@ -164,6 +166,7 @@ struct gnss {
 
 struct gnss* gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock);
 bool gnss_get_valid(struct gnss *gnss);
+int32_t gnss_get_qErr_last_epoch(struct gnss *gnss);
 void gnss_stop(struct gnss *gnss);
 int gnss_set_ptp_clock_time(struct gnss *gnss);
 

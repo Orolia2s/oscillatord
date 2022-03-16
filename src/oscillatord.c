@@ -364,14 +364,17 @@ int main(int argc, char *argv[])
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
+			input.qErr = gnss_get_qErr_last_epoch(gnss);
 			input.valid = gnss_get_valid(gnss);
 			input.temperature = temperature;
 
-			log_info("input: phase_error = (%lds, %09ldns),"
-				"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %.1f°C, calibration requested: %s",
+			log_info("input: phase_error = (%lds, %09ldns), "
+				"valid = %s, qErr = %d,lock = %s, fine = %d, "
+				"coarse = %d, temp = %.1f°C, calibration requested: %s",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
 				input.valid ? "true" : "false",
+				input.qErr,
 				input.lock ? "true" : "false",
 				input.fine_setpoint,
 				input.coarse_setpoint,
