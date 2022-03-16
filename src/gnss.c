@@ -218,6 +218,9 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 			+ offset
 			- 1 // UBX-TIM-TP gives time at next pulse
 		);
+		/* Update quantization error and store quantization of last epoch */
+		session->context->qErr_last_epoch = session->context->qErr;
+		session->context->qErr = gr0.qErr;
 		session->tai_time_set = true;
 		return;
 	}
@@ -259,11 +262,20 @@ static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *ms
 	}
 }
 
+int32_t gnss_get_qErr_last_epoch(struct gnss *gnss)
+{
+	int32_t qErr;
+	pthread_mutex_lock(&gnss->mutex_data);
+	qErr = gnss->session->context->qErr_last_epoch;
+	pthread_mutex_unlock(&gnss->mutex_data);
+	return qErr;
+}
+
 static void log_gnss_data(struct gps_device_t *session)
 {
 	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, antenna status: %d, valid %d,"
 		" time %lld, leapm_seconds %d, leap_notify %d, lsChange %d, "
-		"timeToLsChange %d, lsSet: %s",
+		"timeToLsChange %d, lsSet: %s, QErr(n) %d, qErr(n-1) %d",
 		fix_log[session->fix],
 		session->fix,
 		session->fixOk ? "True" : "False",
@@ -275,7 +287,9 @@ static void log_gnss_data(struct gps_device_t *session)
 		session->context->leap_notify,
 		session->context->lsChange,
 		session->context->timeToLsEvent,
-		session->context->lsset ? "True" : "False"
+		session->context->lsset ? "True" : "False",
+		session->context->qErr,
+		session->context->qErr_last_epoch
 	);
 }
 
