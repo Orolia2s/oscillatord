@@ -38,4 +38,5 @@ int config_get_uint8_t(const struct config *config, const char *key);
 void config_cleanup(struct config *config);
 
 void config_dump(const struct config *config, char *buf, size_t buf_len);
+int config_save(struct config *config, const char *path);
 #endif /* CONFIG_H_ */

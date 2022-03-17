@@ -197,3 +197,19 @@ void config_cleanup(struct config *config)
 		free(config->path);
 	memset(config, 0, sizeof(*config));
 }
+
+int config_save(struct config *config, const char *path)
+{
+	FILE __attribute__((cleanup(file_cleanup))) *f= NULL;
+	char data[1024] = {0}; // size of eeprom
+	config_dump(config, data, sizeof(data));
+
+	f = fopen(path, "w+");
+	if (f == NULL) {
+		log_error("Could not open file %s", path);
+		return -EINVAL;
+	}
+	fwrite(data, 1, strlen(data)+1, f);
+	fwrite("\n", 1, 1, f);
+	return 0;
+}

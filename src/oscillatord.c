@@ -422,6 +422,14 @@ int main(int argc, char *argv[])
 					ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
 					if (ret < 0)
 						error(EXIT_FAILURE, -ret, "oscillator_update_disciplining_parameters");
+					log_info("Saved calibration parameters into EEPROM");
+
+					/* Disable calibrate first to prevent a new calibration when rebooting */
+					config_set(&config, "calibrate_first", "false");
+					if (config_save(&config, path) != 0) {
+						log_warn("Could not disable calibration at boot in config at %s", path);
+						log_warn("If you restart oscillatord calibration will be done again !");
+					}
 				} else {
 					ret = oscillator_apply_output(oscillator, &output);
 					if (ret < 0)
