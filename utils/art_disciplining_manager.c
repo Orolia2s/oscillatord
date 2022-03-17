@@ -137,7 +137,10 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
     result->calibration_valid = config_get_bool_default(&config, "calibration_valid", false);
     result->coarse_equilibrium = config_get_unsigned_number(&config, "coarse_equilibrium");
     result->ctrl_nodes_length = config_get_unsigned_number(&config, "ctrl_nodes_length");
-    result->calibration_date = config_get_unsigned_number(&config, "calibration_date");
+    if (config_get(&config, "calibration_date") != NULL)
+        result->calibration_date = config_get_unsigned_number(&config, "calibration_date");
+    else
+        result->calibration_date = time(NULL);
 
     ctrl_load_nodes = get_double_array_from_config(&config, "ctrl_load_nodes", result->ctrl_nodes_length);
     if (ctrl_load_nodes == NULL) {

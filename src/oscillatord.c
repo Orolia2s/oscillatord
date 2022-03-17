@@ -419,6 +419,7 @@ int main(int argc, char *argv[])
 					ret = od_get_disciplining_parameters(od, &disciplining_parameters);
 					if (ret != 0)
 						log_error("Could not get discipling parameters from disciplining algorithm");
+					disciplining_parameters.calibration_date = time(NULL);
 					ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
 					if (ret < 0)
 						error(EXIT_FAILURE, -ret, "oscillator_update_disciplining_parameters");
