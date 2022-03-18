@@ -20,8 +20,8 @@
 #include "log.h"
 #include "phasemeter.h"
 
-#define EXTTS_INDEX_ART_INTERNAL_PPS 0
-#define EXTTS_INDEX_GNSS_PPS 1
+#define EXTTS_INDEX_ART_INTERNAL_PPS 5
+#define EXTTS_INDEX_GNSS_PPS 0
 
 #define MILLISECONDS_500 500000000
 
