@@ -3,7 +3,7 @@ Description=Daemon responsible of disciplining an oscillator based on a 1pps pha
 
 [Service]
 Type=simple
-Environment=LD_LIBRARY_PATH=/usr/lib:/usr/lib64:/usr/local/lib:/usr/local/lib64
+Environment=LD_LIBRARY_PATH=/usr/lib:/usr/lib64:/usr/local/lib:/usr/local/lib64:/usr/local/lib/x86_64-linux-gnu
 ExecStart=/usr/local/bin/oscillatord /etc/oscillatord.conf
 
 [Install]
