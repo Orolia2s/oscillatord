@@ -11,8 +11,15 @@
 
 #include "log.h"
 
-#define EXTTS_INDEX_TS_INTERNAL 0
-#define EXTTS_INDEX_TS_GNSS 1
+enum {
+	EXTTS_INDEX_TS_GNSS,
+	EXTTS_INDEX_TS_1,
+	EXTTS_INDEX_TS_2,
+	EXTTS_INDEX_TS_3,
+	EXTTS_INDEX_TS_4,
+	EXTTS_INDEX_TS_INTERNAL,
+	NUM_EXTTS
+};
 
 static volatile int keepRunning = 1;
 
@@ -41,7 +48,12 @@ static int read_extts(int fd, int64_t *nsec)
 
 	log_info(
 		"%s timestamp: %llu",
-		event.index == EXTTS_INDEX_TS_INTERNAL? "Internal" : "GNSS    ",
+		event.index == EXTTS_INDEX_TS_GNSS? "GNSS" :
+		event.index == EXTTS_INDEX_TS_1 ? "TS1" :
+		event.index == EXTTS_INDEX_TS_2 ? "TS2" :
+		event.index == EXTTS_INDEX_TS_3 ? "TS3" :
+		event.index == EXTTS_INDEX_TS_4 ? "TS4" :
+		event.index == EXTTS_INDEX_TS_INTERNAL ? "Internal PPS": "Unknown",
 		*nsec);
 
 	return 0;
@@ -86,17 +98,15 @@ int main(int argc, char * argv[])
 
 	signal(SIGINT, intHandler);
 	log_set_level(LOG_INFO);
-	fd_clock = open("/dev/ptp2", O_RDWR);
+	fd_clock = open("/dev/ptp0", O_RDWR);
 
-	ret = enable_extts(fd_clock, EXTTS_INDEX_TS_INTERNAL);
-	if (ret != 0) {
-		log_error("Could not enable Internal PPS external events");
-		return -1;
-	}
-	ret = enable_extts(fd_clock, EXTTS_INDEX_TS_GNSS);
-	if (ret != 0) {
-		log_error("Could not enable GNSS PPS external events");
-		return -1;
+	for (int i = 0; i < NUM_EXTTS; i++) {
+		ret = enable_extts(fd_clock, i);
+		if (ret != 0) {
+			log_error("Could not enable external events for index %d", i);
+			return -1;
+		}
+
 	}
 
 	while(keepRunning) {
@@ -108,13 +118,10 @@ int main(int argc, char * argv[])
 	}
 
 	log_debug("Closing extts test program");
-	ret = disable_extts(fd_clock, EXTTS_INDEX_TS_GNSS);
-	if (ret != 0) {
-		log_error("Could not disable GNSS external events");
-	}
-	ret = disable_extts(fd_clock, EXTTS_INDEX_TS_INTERNAL);
-	if (ret != 0) {
-		log_error("Could not disable Internal PPS external events");
+	for (int i = 0; i < NUM_EXTTS; i++) {
+		ret = disable_extts(fd_clock, EXTTS_INDEX_TS_GNSS);
+		if (ret != 0)
+			log_error("Could not disable external events for index %d", i);
 	}
 	return 0;
 }
