@@ -163,12 +163,14 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number) {
         log_error("At least one test failed");
         return false;
     } else {
-        log_info("All tests passed");
+        log_info("All tests passed\n");
+        log_info("Writing EEPROM manufacturing data and factory disciplining parameters");
         char command[2048];
         sprintf(command, "art_eeprom_format -p %s -s %s -c %d", eeprom_path, serial_number, mro50_coarse_value);
-        log_debug("Command is %s", command);
-        int ret = system(command);
-        log_debug("Ret is %d", ret);
+        if (system(command) != 0) {
+            log_error("Could not write EEPROM data");
+            return false;
+        }
     }
     return true;
 }

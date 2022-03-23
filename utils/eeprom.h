@@ -66,30 +66,30 @@ extern struct disciplining_parameters factory_parameters;
 
 static inline void print_eeprom_data(struct eeprom_data *data)
 {
-    log_info("EEPROM data is:");
-    log_info("Magic: 0x%x", data->magic);
-    log_info("Format version: %d", data->format_version);
-    log_info("Product Name: %s", data->product_name);
-    log_info("Product PN: %s", data->product_part_number);
-    log_info("System assembly PN: %s", data->system_assembly_part_number);
-    log_info("FB PCBA PN: %s", data->fb_pcba_part_number);
-    log_info("FB PCB PN: %s", data->fb_pcb_part_number);
-    log_info("OD PCBA PN: %s", data->od_pcba_part_number);
-    log_info("OD PCVA SN: %s", data->od_pcba_serial_number);
-    log_info("Product Production state: %d", data->product_prodution_state);
-    log_info("Product version: %d", data->product_version);
-    log_info("Product subversion: %d", data->product_sub_version);
-    log_info("Product SN: %s", data->product_serial_number);
-    log_info("Product asset tag: %s", data->product_asset_tag);
-    log_info("System manufacturer: %s", data->system_manufacturer);
-    log_info("System manufacturer date: %u-%u-%u", data->system_manufacturing_date_day, data->system_manufacturing_date_month, data->system_manufacturing_date_year);
-    log_info("PCB Manufacturer: %s", data->pcb_manufacturer);
-    log_info("Assembled at: %s", data->assembled_at);
-    log_info("Local MAC address: %s", data->local_mac_address);
-    log_info("Extended MAC address: %s", data->extended_mac_address_base);
-    log_info("Extended MAC address size: %d", data->extended_mac_address_size);
-    log_info("EEPROM Location on fabric: %s", data->eeprom_location_on_fabric);
-    log_info("CRC8: 0x%x", data->crc8);
+    log_debug("EEPROM data is:");
+    log_debug("Magic: 0x%x", data->magic);
+    log_debug("Format version: %d", data->format_version);
+    log_debug("Product Name: %s", data->product_name);
+    log_debug("Product PN: %s", data->product_part_number);
+    log_debug("System assembly PN: %s", data->system_assembly_part_number);
+    log_debug("FB PCBA PN: %s", data->fb_pcba_part_number);
+    log_debug("FB PCB PN: %s", data->fb_pcb_part_number);
+    log_debug("OD PCBA PN: %s", data->od_pcba_part_number);
+    log_debug("OD PCVA SN: %s", data->od_pcba_serial_number);
+    log_debug("Product Production state: %d", data->product_prodution_state);
+    log_debug("Product version: %d", data->product_version);
+    log_debug("Product subversion: %d", data->product_sub_version);
+    log_debug("Product SN: %s", data->product_serial_number);
+    log_debug("Product asset tag: %s", data->product_asset_tag);
+    log_debug("System manufacturer: %s", data->system_manufacturer);
+    log_debug("System manufacturer date: %u-%u-%u", data->system_manufacturing_date_day, data->system_manufacturing_date_month, data->system_manufacturing_date_year);
+    log_debug("PCB Manufacturer: %s", data->pcb_manufacturer);
+    log_debug("Assembled at: %s", data->assembled_at);
+    log_debug("Local MAC address: %s", data->local_mac_address);
+    log_debug("Extended MAC address: %s", data->extended_mac_address_base);
+    log_debug("Extended MAC address size: %d", data->extended_mac_address_size);
+    log_debug("EEPROM Location on fabric: %s", data->eeprom_location_on_fabric);
+    log_debug("CRC8: 0x%x", data->crc8);
     return;
 }
 

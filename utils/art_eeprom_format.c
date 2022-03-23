@@ -133,14 +133,13 @@ int main(int argc, char *argv[])
     } else {
         log_warn("No Coarse value given nor path to mRO50 device provided, factory value of mRO50 will not be written in EEPROM");
     }
-    log_info("Writing data to %s", path);
+    log_info("Writing data to %s...", path);
 
     struct eeprom_data *data = (struct eeprom_data *) calloc(1, sizeof(struct eeprom_data));
 
     init_eeprom_data(data, serial_number);
 
     print_eeprom_data(data);
-    log_info("\n");
     if (factory_coarse_valid)
         factory_parameters.coarse_equilibrium_factory = (int32_t) factory_coarse;
 
@@ -150,8 +149,16 @@ int main(int argc, char *argv[])
         goto end;
     }
 
-    log_info("Reading back data just written:");
-    read_eeprom_data(path, data);
+    log_info("Reading back data just written...");
+    struct eeprom_data data_read;
+    read_eeprom_data(path, &data_read);
+    ret = memcmp(data, &data_read, sizeof(struct eeprom_data));
+    if (ret != 0) {
+        log_error("Error writing data to eeprom");
+        ret = -1;
+    } else {
+        log_info("Data correctly written");
+    }
 
     struct disciplining_parameters dsc_params;
     read_disciplining_parameters(path, &dsc_params);

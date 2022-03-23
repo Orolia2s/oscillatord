@@ -101,7 +101,7 @@ int read_disciplining_parameters(const char *path, struct disciplining_parameter
     if(ret != 1)
         log_error("Could no read calibration parameters from file %s", path);
     else
-        print_disciplining_parameters(dsc_parameters, LOG_INFO);
+        print_disciplining_parameters(dsc_parameters, LOG_DEBUG);
     fclose(fp);
     return ret;
 }
