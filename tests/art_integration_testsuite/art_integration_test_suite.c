@@ -9,6 +9,7 @@
  * by interacting will all its devices
  */
 #include <dirent.h>
+#include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/fcntl.h>
@@ -20,6 +21,17 @@
 #include "phase_error_tracking_test.h"
 #include "ptp_device_test.h"
 #include "utils.h"
+
+static void print_help(void)
+{
+    printf("usage: art_integration_test_suite [-h] -p PATH -s SERIAL_NUMBER\n");
+    printf("Parameters:\n");
+    printf("- -p PATH: path of the file/EEPROM data should be written from\n");
+    printf("- -s SERIAL_NUMBER: Serial number that should be written within data." \
+        "Serial must start with an F followed by 8 numerical caracters\n");
+    printf("- -h: prints help\n");
+    return;
+}
 
 /* find device path in /dev from symlink in sysfs */
 static void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
@@ -66,7 +78,7 @@ static bool find_file(char * path , char * name)
     return found;
 }
 
-static bool test_ocp_directory(char * ocp_path, char * dir_name) {
+static bool test_ocp_directory(char * ocp_path) {
     DIR * ocp_dir = opendir(ocp_path);
     bool gnss_receiver_passed = false;
     uint32_t mro50_coarse_value;
@@ -160,34 +172,45 @@ static bool test_ocp_directory(char * ocp_path, char * dir_name) {
 
 int main(int argc, char *argv[])
 {
+    char *serial_number = NULL;
+    char *sysfs_path = NULL;
+    int c;
+
     log_set_level(LOG_DEBUG);
 
     log_info("ART Program Test Suite");
-    log_info("Checking if there are ART's procfs on the server");
 
-    DIR * driver_fs = opendir("/sys/class/timecard");
-    if (driver_fs == NULL) {
-        log_error("Cannot access /sys/class/timecard");
+    while ((c = getopt(argc, argv, "p:s:h")) != -1) {
+        switch (c) {
+        case 'p':
+            sysfs_path = optarg;
+            break;
+        case 's':
+            serial_number = optarg;
+            break;
+        case 'h':
+            print_help();
+            return 0;
+            break;
+        case '?':
+            if (optopt == 'p')
+                fprintf (stderr, "Option -%c requires path to ART card sysfs.\n", optopt);
+            return -1;
+            break;
+        }
+    }
+
+    if (!sysfs_path) {
+        printf("Please provide path to ART card sysfs\n");
         return -1;
     }
 
-    struct dirent * entry;
-    while ((entry = readdir(driver_fs)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-            continue;
-
-        if (!strncmp(entry->d_name, "ocp", 3)) {
-            char ocp_path[1024];
-            snprintf(ocp_path, sizeof(ocp_path), "%s/%s", "/sys/class/timecard", entry->d_name);
-            log_info("Found directory %s", ocp_path);
-
-            if(test_ocp_directory(ocp_path, entry->d_name)) {
-                test_phase_error_tracking();
-            }
-            else
-                log_error("ART Card in %s did not pass all tests", ocp_path);
-        }
+    log_info("Testing ART card which sysfs is %s", sysfs_path);
+    if(test_ocp_directory(sysfs_path)) {
+        test_phase_error_tracking();
+    } else {
+        log_error("ART Card in %s did not pass all tests", sysfs_path);
+        return -1;
     }
-    closedir(driver_fs);
     return 0;
 }
