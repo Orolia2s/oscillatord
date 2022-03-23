@@ -14,12 +14,15 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <oscillator-disciplining/oscillator-disciplining.h>
 
 #include "config.h"
 #include "eeprom.h"
 #include "log.h"
+#include "mRO50_ioctl.h"
 
 enum Mode {
     ART_EEPROM_MANAGER_NONE,
@@ -55,6 +58,41 @@ static void read_disciplining_parameters_from_eeprom(const char *path, struct di
         fclose(fp);
     } else {
         log_error("Could not open file at %s", path);
+    }
+    return;
+}
+
+static int write_disciplining_parameters_to_mro50(const char * path, struct disciplining_parameters *calibration)
+{
+    int fp = open(path, O_RDWR);
+    unsigned char buf[256] = {0};
+    int ret = 0;
+
+    if (fp < 0) {
+        log_error("Could not open file at %s", path);
+        return -1;
+    }
+    memcpy(buf, calibration, sizeof(*calibration));
+    if (ioctl(fp, MRO50_WRITE_EEPROM_BLOB, buf) != 0) {
+      log_error("Could not write EEPROM BLOB");
+      ret = -1;
+    }
+    close(fp);
+    return ret;
+}
+
+static void read_disciplining_parameters_from_mro50(const char *path, struct disciplining_parameters *dsc_parameters)
+{
+    int fp = open(path, O_RDWR);
+    unsigned char buf[256] = {0};
+    if (fp < 0) {
+        log_error("Could not open file at %s", path);
+        return;
+    }
+    if (ioctl(fp, MRO50_READ_EEPROM_BLOB, buf) != 0) {
+        log_error("Could not read EEPROM BLOB");
+    } else {
+        memcpy(dsc_parameters, buf, sizeof(*dsc_parameters));
     }
     return;
 }
@@ -226,10 +264,11 @@ int main(int argc, char *argv[])
     int option;
     int ret = 0;
     bool write_factory = false;
-
+    void (*read_eeprom)(const char *, struct disciplining_parameters *) = NULL;
+    int (*write_eeprom)(const char *, struct disciplining_parameters *) = NULL;
     log_set_level(LOG_INFO);
 
-    while ((option = getopt(argc, argv, ":p:w:fho:r")) != -1) {
+    while ((option = getopt(argc, argv, ":m:p:w:fho:r")) != -1) {
         switch (option) {
         case 'r':
             mode = ART_EEPROM_MANAGER_READ;
@@ -246,14 +285,30 @@ int main(int argc, char *argv[])
             break;
         case 'p':
             path = optarg;
+            if (read_eeprom) {
+                log_error("Cannot use mro50 and eeprom file at the same time");
+                return -1;
+            }
+            read_eeprom = read_disciplining_parameters_from_eeprom;
+            write_eeprom = write_disciplining_parameters_to_eeprom;
+            break;
+        case 'm':
+            path = optarg;
+            if (read_eeprom) {
+                log_error("Cannot use mro50 and eeprom file at the same time");
+                return -1;
+            }
+            read_eeprom = &read_disciplining_parameters_from_mro50;
+            write_eeprom = &write_disciplining_parameters_to_mro50;
             break;
         case ':':
             log_error("Option needs a value ");
             break;
         case 'h':
         default:
-            log_info("art_disciplining_manager -p eeprom_path  [-w calibration.conf -r -f -o output_file_path -h]");
+            log_info("art_disciplining_manager [-m mro50_path | -p eeprom_path]  [-w calibration.conf -r -f -o output_file_path -h]");
             log_info("\t-p eeprom_path: Path to the eeprom file");
+            log_info("\t-m mro50_path: Path to the mRO50 device file");
             log_info("\t-w calibration.conf: Path to the calibration paramters file to write in the eeprom");
             log_info("\t-r: Read calibration parameters from the eeprom");
             log_info("\t-f: force write operation to write factory parameters");
@@ -263,7 +318,7 @@ int main(int argc, char *argv[])
     }
 
     if (path == NULL) {
-        log_error("No eeprom path provided!");
+        log_error("No eeprom/mro50 path provided!");
         return -1;
     }
 
@@ -274,7 +329,7 @@ int main(int argc, char *argv[])
     case ART_EEPROM_MANAGER_READ:
         log_info("Reading data from %s", path);
         struct disciplining_parameters dsc_parameters;
-        read_disciplining_parameters_from_eeprom(path, &dsc_parameters);
+        (*read_eeprom)(path, &dsc_parameters);
         if (output_file) {
             log_info("Writing disciplining parameters read to %s", output_file);
             ret = write_disciplining_parameters_to_config_file(output_file, &dsc_parameters);
@@ -286,7 +341,7 @@ int main(int argc, char *argv[])
     case ART_EEPROM_MANAGER_WRITE:
         if (write_factory) {
             log_info("Writing default calibration to %s", path);
-            write_disciplining_parameters_to_eeprom(path, (struct disciplining_parameters *) &factory_parameters);
+            (*write_eeprom)(path, (struct disciplining_parameters *) &factory_parameters);
         } else {
             log_info("Writing calibration from %s to %s",input_calibration_path, path);
             struct disciplining_parameters input_calibration;
@@ -295,7 +350,7 @@ int main(int argc, char *argv[])
                 log_info("Error reading input calibration from %s", input_calibration_path);
                 return -1;
             }
-            ret = write_disciplining_parameters_to_eeprom(path, &input_calibration);
+            ret = (*write_eeprom)(path, &input_calibration);
             if (ret != 0) {
                 log_error("Error writing calibration parameters to %s", path);
             }
