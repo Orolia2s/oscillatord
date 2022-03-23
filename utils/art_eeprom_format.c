@@ -57,27 +57,32 @@ static bool validate_serial(char *serial) {
 }
 
 static void print_help(void) {
-    printf("art-eeprom-format -p PATH -s SERIAL_NUMBER -d MRO50_DEVICE\n");
+    printf("art-eeprom-format -p PATH -s SERIAL_NUMBER -d MRO50_DEVICE -c COARSE_VALUE\n");
     printf("Parameters:\n");
-    printf("PATH: path of the file/EEPROM data should be written from\n");
-    printf("SERIAL_NUMBER: Serial number that should be written within data." \
+    printf("- -p PATH: path of the file/EEPROM data should be written from\n");
+    printf("- -s SERIAL_NUMBER: Serial number that should be written within data." \
         "Serial must start with an F followed by 8 numerical caracters\n");
-    printf("MRO50_DEVICE: Path to mRO50 device to get mRO50 coarsef actory value\n");
+    printf("- -d MRO50_DEVICE: Path to mRO50 device to get mRO50 coarsef actory value\n");
+    printf("- -c COARSE_VALUE: Directly pass coarse value and bypass fetching from mRO50 device\n");
 }
 
 int main(int argc, char *argv[])
 {
-    char *serial_number = NULL;
-    char *path = NULL;
-    char *mro50_path = NULL;
     bool factory_coarse_valid = false;
+    char *serial_number = NULL;
+    char *mro50_path = NULL;
     uint32_t factory_coarse;
+    char *path = NULL;
     int ret = 0;
     int c;
 
 
-    while ((c = getopt(argc, argv, "d:p:s:h")) != -1) {
+    while ((c = getopt(argc, argv, "c:d:p:s:h")) != -1) {
         switch (c) {
+        case 'c':
+            factory_coarse = atol(optarg);
+            factory_coarse_valid = true;
+            break;
         case 'd':
             mro50_path = optarg;
             break;
@@ -111,7 +116,9 @@ int main(int argc, char *argv[])
 
     log_set_level(LOG_INFO);
 
-    if(mro50_path) {
+    if (factory_coarse_valid) {
+        log_info("%d will be used as coarse value", factory_coarse);
+    } else if(mro50_path) {
         int mro50 = open(mro50_path, O_RDWR);
         if (mro50 > 0) {
             ret = ioctl(mro50, MRO50_READ_COARSE, &factory_coarse);
@@ -124,7 +131,7 @@ int main(int argc, char *argv[])
             log_error("Could not open mRO50 device at %s", mro50_path);
         }
     } else {
-        log_warn("No path to mRO50 device provided, factory value of mRO50 will not be written in EEPROM");
+        log_warn("No Coarse value given nor path to mRO50 device provided, factory value of mRO50 will not be written in EEPROM");
     }
     log_info("Writing data to %s", path);
 

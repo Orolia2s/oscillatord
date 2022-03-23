@@ -221,7 +221,7 @@ bool test_phase_error_tracking(void)
     sleep(5);
     bool passed = oscillatord_track_phase_error_under_limit(PHASE_ERROR_ABS_MAX, PHASE_ERROR_TRACKING_TIME_MIN);
     if (passed) {
-        log_info("ART Card ran %d time without reaching phase error limit");
+        log_info("ART Card ran without reaching phase error limit");
         log_info("Test PASSED !");
     } else {
         log_warn("ART Card reached phase error limit during test time");
@@ -229,7 +229,7 @@ bool test_phase_error_tracking(void)
         oscillatord_start_calibration();
         passed = oscillatord_track_phase_error_under_limit(PHASE_ERROR_ABS_MAX, PHASE_ERROR_TRACKING_TIME_MIN);
         if (passed) {
-            log_info("ART Card ran %d time without reaching phase error limit");
+            log_info("ART Card ran without reaching phase error limit");
             log_info("Test PASSED !");
         } else {
             log_error("Card did not passed phase error limit test even after calibration");

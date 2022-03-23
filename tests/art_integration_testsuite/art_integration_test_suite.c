@@ -47,8 +47,8 @@ static void find_dev_path(const char *dirname, struct dirent *dir, char *dev_pat
     sprintf(dev_path, "%s/%s", "/dev", dev_name );
 }
 
-/* Find file by name recursively in a directory*/
-static bool find_file(char * path , char * name)
+/* Find file by name recursively in a directory */
+static bool find_file(char * path , char * name, char * file_path)
 {
     DIR * directory;
     struct dirent * dp;
@@ -62,14 +62,14 @@ static bool find_file(char * path , char * name)
 
         if (dp->d_type == DT_DIR) {
             char subpath[1024];
-            snprintf(subpath, sizeof(subpath), "%s/%s", path, dp->d_name);
-            found = find_file(subpath, name);
+            sprintf(subpath, "%s/%s", path, dp->d_name);
+            found = find_file(subpath, name, file_path);
             if (found)
                 break;
         } else if (!strcmp(dp->d_name, name)) {
-            char file_path[1024];
-            snprintf(file_path, sizeof(file_path), "%s/%s", path, dp->d_name);
-            log_info("\t- file %s is in %s", name, file_path);
+            log_info("\t- file %s is in %s/%s", name, path, dp->d_name);
+            if (file_path != NULL)
+                sprintf(file_path, "%s/%s", path, dp->d_name);
             found = true;
             break;
         }
@@ -78,17 +78,16 @@ static bool find_file(char * path , char * name)
     return found;
 }
 
-static bool test_ocp_directory(char * ocp_path) {
+static bool test_ocp_directory(char * ocp_path, char * serial_number) {
     DIR * ocp_dir = opendir(ocp_path);
     bool gnss_receiver_passed = false;
     uint32_t mro50_coarse_value;
     bool mro50_passed = false;
     bool found_eeprom = false;
     bool ptp_passed = false;
+    char eeprom_path[1024];
 
-    if (ocp_dir != NULL) {
-        log_info("Directory %s exists\n", ocp_path);
-    } else {
+    if (ocp_dir == NULL) {
         log_error("Directory %s does not exists\n", ocp_path);
         return false;
     }
@@ -102,7 +101,7 @@ static bool test_ocp_directory(char * ocp_path) {
             log_info("I2C device detected");
             char pathname[1280];   /* should alwys be big enough */
             sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
-            found_eeprom = find_file(realpath(pathname, NULL), "eeprom");
+            found_eeprom = find_file(realpath(pathname, NULL), "eeprom", eeprom_path);
             if (found_eeprom) {
                 log_info("\t- Found EEPROM file\n");
             } else {
@@ -165,7 +164,11 @@ static bool test_ocp_directory(char * ocp_path) {
         return false;
     } else {
         log_info("All tests passed");
-        // TODO: Add format of eeprom
+        char command[2048];
+        sprintf(command, "art_eeprom_format -p %s -s %s -c %d", eeprom_path, serial_number, mro50_coarse_value);
+        log_debug("Command is %s", command);
+        int ret = system(command);
+        log_debug("Ret is %d", ret);
     }
     return true;
 }
@@ -206,7 +209,7 @@ int main(int argc, char *argv[])
     }
 
     log_info("Testing ART card which sysfs is %s", sysfs_path);
-    if(test_ocp_directory(sysfs_path)) {
+    if(test_ocp_directory(sysfs_path, serial_number)) {
         test_phase_error_tracking();
     } else {
         log_error("ART Card in %s did not pass all tests", sysfs_path);
