@@ -18,25 +18,25 @@
 #define MAX_VER_LENGTH 20
 #define MAX_SERIALNUM_LENGTH 11
 
-#define ATTR_FW_SERIAL 1
-#define ATTR_CTRL	  2
-#define ATTR_STATUS	4
+#define ATTR_FW_SERIAL  1
+#define ATTR_CTRL       2
+#define ATTR_STATUS     4
 
-#define CMD_SWVER			   "{swrev?}"
-#define CMD_SERIAL			  "{serial?}"
-#define CMD_GET_LOCKED		  "{get,Locked}"
-#define CMD_GET_PHASE		   "{get,Phase}"
-#define CMD_GET_LASTCORRECTION  "{get,LastCorrection}"
-#define CMD_GET_TEMPERATURE	 "{get,Temperature}"
-#define CMD_GET_ANALOG_TUNING   "{get,AnalogTuning}"
-#define CMD_GET_DIGITAL_TUNING  "{get,DigitalTuning}"
+#define CMD_SWVER                     "\\{swrev?}"
+#define CMD_SERIAL                    "{serial?}"
+#define CMD_GET_LOCKED                "{get,Locked}"
+#define CMD_GET_PHASE                 "{get,Phase}"
+#define CMD_GET_LASTCORRECTION        "{get,LastCorrection}"
+#define CMD_GET_TEMPERATURE           "{get,Temperature}"
+#define CMD_GET_ANALOG_TUNING         "{get,AnalogTuning}"
+#define CMD_GET_DIGITAL_TUNING        "{get,DigitalTuning}"
 #define CMD_GET_ANALOG_TUNING_ENABLED "{get,AnalogTuningEnabled}"
 
 struct sa5x_oscillator {
 	struct oscillator oscillator;
 	int	osc_fd;
-	char   version[20];	// SW Rev
-	char   serial[12];	 // SerialNumber
+	char   version[20];      // SW Rev
+	char   serial[12];       // SerialNumber
 };
 
 struct sa5x_attributes {
