@@ -42,7 +42,7 @@ struct sa3x_oscillator {
 static unsigned int sa3x_oscillator_index;
 
 // we need only seconds to account difference
-static inline sa3x_timediff(const struct timespec ts0, const struct timespec ts1)
+static inline time_t sa3x_timediff(const struct timespec ts0, const struct timespec ts1)
 {
 	return ts0.tv_sec > ts1.tv_sec ? (ts0.tv_sec - ts1.tv_sec) : (ts1.tv_sec - ts0.tv_sec);
 }
