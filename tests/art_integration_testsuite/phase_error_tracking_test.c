@@ -17,13 +17,16 @@ enum monitoring_request {
     REQUEST_CALIBRATION,
 };
 
-static void oscillatord_activate_service(bool on)
+static void oscillatord_activate_service(char * template_name, bool on)
 {
     sd_bus_error error = SD_BUS_ERROR_NULL;
     sd_bus_message *m = NULL;
     sd_bus *bus = NULL;
     const char *path;
+    char service_name[256];
     int r;
+
+    sprintf(service_name, "oscillatord@%s.service", template_name);
 
     /* Connect to the system bus */
     r = sd_bus_open_system(&bus);
@@ -41,7 +44,7 @@ static void oscillatord_activate_service(bool on)
         &error,                               /* object to return error in */
         &m,                                   /* return message on success */
         "ss",                                 /* input signature */
-        "oscillatord.service",                /* first argument */
+        service_name,                         /* first argument */
         "replace"                             /* second argument */
     );
     if (r < 0) {
@@ -56,16 +59,16 @@ static void oscillatord_activate_service(bool on)
 
 }
 
-static void oscillatord_start_service(void)
+static void oscillatord_start_service(char * template_name)
 {
-    oscillatord_activate_service(true);
-    log_info("Started oscillatord service");
+    oscillatord_activate_service(template_name, true);
+    log_info("Started oscillatord@%s service", template_name);
 }
 
-static void oscillatord_stop_service(void)
+static void oscillatord_stop_service(char * template_name)
 {
-    oscillatord_activate_service(false);
-    log_info("Stopped oscillatord service");
+    oscillatord_activate_service(template_name, false);
+    log_info("Stopped oscillatord@%s service", template_name);
 }
 
 static struct json_object *json_send_and_receive(int sockfd, int request)
@@ -97,7 +100,7 @@ static struct json_object *json_send_and_receive(int sockfd, int request)
     return json_tokener_parse(resp);
 }
 
-static struct json_object *send_monitoring_request(enum monitoring_request request) {
+static struct json_object *send_monitoring_request(int socket_port, enum monitoring_request request) {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1)
     {
@@ -109,7 +112,7 @@ static struct json_object *send_monitoring_request(enum monitoring_request reque
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(2958);
+    server_addr.sin_port = htons(socket_port);
     server_addr.sin_addr.s_addr = inet_addr("0.0.0.0");
 
     /* Initiate a connection to the server */
@@ -128,9 +131,9 @@ static struct json_object *send_monitoring_request(enum monitoring_request reque
 
 }
 
-static void oscillatord_start_calibration(void)
+static void oscillatord_start_calibration(int socket_port)
 {
-    struct json_object *obj = send_monitoring_request(REQUEST_CALIBRATION);
+    struct json_object *obj = send_monitoring_request(socket_port, REQUEST_CALIBRATION);
     free(obj);
 }
 
@@ -141,7 +144,7 @@ enum track_phase_error_test_state {
     FAILED,
 };
 
-static bool oscillatord_track_phase_error_under_limit(int phase_error_abs_limit, int test_time_minutes)
+static bool oscillatord_track_phase_error_under_limit(int socket_port, int phase_error_abs_limit, int test_time_minutes)
 {
     enum track_phase_error_test_state state = WAITING_DISCIPLINING;
     time_t start_test_time;
@@ -149,7 +152,7 @@ static bool oscillatord_track_phase_error_under_limit(int phase_error_abs_limit,
     while (state != PASSED && state != FAILED) {
 
         /* REQUEST PHASE ERROR */
-        struct json_object *obj = send_monitoring_request(REQUEST_NONE);
+        struct json_object *obj = send_monitoring_request(socket_port, REQUEST_NONE);
         struct json_object *layer_1, *layer_2;
 
         /* Disciplining */
@@ -214,20 +217,28 @@ static bool oscillatord_track_phase_error_under_limit(int phase_error_abs_limit,
     return state == PASSED;
 }
 
-bool test_phase_error_tracking(void)
+bool test_phase_error_tracking(char * ocp_name, int socket_port)
 {
+    bool passed;
+
     log_info("Starting Phase error limit test");
-    oscillatord_start_service();
+    oscillatord_start_service(ocp_name);
     sleep(5);
-    bool passed = oscillatord_track_phase_error_under_limit(PHASE_ERROR_ABS_MAX, PHASE_ERROR_TRACKING_TIME_MIN);
+    passed = oscillatord_track_phase_error_under_limit(
+        socket_port,
+        PHASE_ERROR_ABS_MAX,
+        PHASE_ERROR_TRACKING_TIME_MIN);
     if (passed) {
         log_info("ART Card ran without reaching phase error limit");
         log_info("Test PASSED !");
     } else {
         log_warn("ART Card reached phase error limit during test time");
         log_info("Requesting calibration before testing again the card");
-        oscillatord_start_calibration();
-        passed = oscillatord_track_phase_error_under_limit(PHASE_ERROR_ABS_MAX, PHASE_ERROR_TRACKING_TIME_MIN);
+        oscillatord_start_calibration(socket_port);
+        passed = oscillatord_track_phase_error_under_limit(
+            socket_port,
+            PHASE_ERROR_ABS_MAX,
+            PHASE_ERROR_TRACKING_TIME_MIN);
         if (passed) {
             log_info("ART Card ran without reaching phase error limit");
             log_info("Test PASSED !");
@@ -236,6 +247,6 @@ bool test_phase_error_tracking(void)
             log_error("Test FAILED !");
         }
     }
-    oscillatord_stop_service();
+    oscillatord_stop_service(ocp_name);
     return passed;
 }

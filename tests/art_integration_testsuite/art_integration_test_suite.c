@@ -10,17 +10,31 @@
  */
 #include <dirent.h>
 #include <getopt.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/fcntl.h>
+#include <sys/types.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "gnss_serial_test.h"
 #include "log.h"
 #include "mro_device_test.h"
 #include "phase_error_tracking_test.h"
 #include "ptp_device_test.h"
 #include "utils.h"
+
+#define READ 0
+#define WRITE 1
+
+#define SOCKET_PORT 2970
+
+struct devices_path {
+    char mro_path[256];
+    char ptp_path[256];
+    char gnss_path[256];
+};
 
 static void print_help(void)
 {
@@ -78,7 +92,7 @@ static bool find_file(char * path , char * name, char * file_path)
     return found;
 }
 
-static bool test_ocp_directory(char * ocp_path, char * serial_number) {
+static bool test_ocp_directory(char * ocp_path, char * serial_number, struct devices_path *devices_path) {
     DIR * ocp_dir = opendir(ocp_path);
     bool gnss_receiver_passed = false;
     uint32_t mro50_coarse_value;
@@ -113,10 +127,9 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number) {
          */
         } else if (strncmp(entry->d_name, "mro50", 6) == 0) {
             log_info("mro50 device detected");
-            char dev_path[1024];
-            find_dev_path(ocp_path, entry, dev_path);
-            printf("dev_path is %s\n", dev_path);
-            int mro50 = open(dev_path, O_RDWR);
+            find_dev_path(ocp_path, entry, devices_path->mro_path);
+            printf("dev_path is %s\n", devices_path->mro_path);
+            int mro50 = open(devices_path->mro_path, O_RDWR);
             if (mro50 > 0) {
                 mro50_passed = test_mro50_device(mro50);
                 if (mro50_passed) {
@@ -134,9 +147,8 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number) {
         /* PTP CLOCK TEST: Set clock time */
         } else if (strncmp(entry->d_name, "ptp", 4) == 0) {
             log_info("ptp clock device detected");
-            char dev_path[1024];   /* should alwys be big enough */
-            find_dev_path(ocp_path, entry, dev_path);
-            int ptp_clock = open(dev_path, O_RDWR);
+            find_dev_path(ocp_path, entry, devices_path->ptp_path);
+            int ptp_clock = open(devices_path->ptp_path, O_RDWR);
             if (ptp_clock > 0) {
                 ptp_passed = test_ptp_device(ptp_clock);
                 close(ptp_passed);
@@ -151,9 +163,8 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number) {
          */
         } else if (strncmp(entry->d_name, "ttyGNSS", 7) == 0) {
             log_info("ttyGPS detected");
-            char dev_path[1024];   /* should alwys be big enough */
-            find_dev_path(ocp_path, entry, dev_path);
-            gnss_receiver_passed = test_gnss_serial(dev_path);
+            find_dev_path(ocp_path, entry, devices_path->gnss_path);
+            gnss_receiver_passed = test_gnss_serial(devices_path->gnss_path);
         }
 
         entry = readdir(ocp_dir);
@@ -175,14 +186,67 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number) {
     return true;
 }
 
+static int prepare_config_file_for_oscillatord(struct devices_path *devices_path, char * ocp_name, int socket_port_offset)
+{
+    struct config config;
+    char config_path[256];
+    char buffer[2048];
+    char socket_port_number[10];
+   
+    int return_val;
+
+
+    /* Define config name path */
+    sprintf(config_path, "/etc/oscillatord_%s.conf", ocp_name);
+    /* Define socket port offset */
+    sprintf(socket_port_number, "%d", SOCKET_PORT + socket_port_offset);
+
+    memset(&config, 0, sizeof(config));
+    memset(buffer, 0, sizeof(buffer));
+
+    config_set(&config, "disciplining", "true");
+    config_set(&config, "monitoring", "true");
+    config_set(&config, "socket-address", "0.0.0.0");
+    config_set(&config, "socket-port", socket_port_number);
+    config_set(&config, "oscillator", "mRO50");
+    config_set(&config, "ptp-clock", devices_path->ptp_path);
+    config_set(&config, "mro50-device", devices_path->mro_path);
+    config_set(&config, "gnss-device-tty", devices_path->gnss_path);
+    config_set(&config, "gnss-receiver-reconfigure", "false");
+    config_set(&config, "opposite-phase-error", "false");
+    config_set(&config, "debug", "2");
+    config_set(&config, "calibrate_first", "false");
+    config_set(&config, "phase_resolution_ns", "5");
+    config_set(&config, "ref_fluctuations_ns", "30");
+    config_set(&config, "phase_jump_threshold_ns", "300");
+    config_set(&config, "reactivity_min", "10");
+    config_set(&config, "reactivity_max", "30");
+    config_set(&config, "reactivity_power", "2");
+    config_set(&config, "fine_stop_tolerance", "200");
+    config_set(&config, "max_allowed_coarse", "30");
+    config_set(&config, "nb_calibration", "10");
+    config_set(&config, "oscillator_factory_settings", "true");
+
+
+    config_dump(&config, buffer, 2048);
+    FILE *fd = fopen(config_path, "w+");
+    return_val = fputs(buffer,fd);
+    fclose(fd);
+    return return_val == 1 ? 0 : -1;
+}
+
 int main(int argc, char *argv[])
 {
+    struct devices_path devices_path;
     char *serial_number = NULL;
     char *sysfs_path = NULL;
+    char ocp_name[100];
+    char temp[1024];
+    int ocp_number;
+    int ret;
     int c;
 
     log_set_level(LOG_DEBUG);
-
     log_info("ART Program Test Suite");
 
     while ((c = getopt(argc, argv, "p:s:h")) != -1) {
@@ -211,11 +275,27 @@ int main(int argc, char *argv[])
     }
 
     log_info("Testing ART card which sysfs is %s", sysfs_path);
-    if(test_ocp_directory(sysfs_path, serial_number)) {
-        test_phase_error_tracking();
+    if(test_ocp_directory(sysfs_path, serial_number, &devices_path)) {
+        /* Extract ocpX from sysfs */
+        sprintf(temp, "%s", sysfs_path);
+        char * token = strtok(realpath(temp, NULL), "/");
+        while(token != NULL) {
+            strncpy(ocp_name, token, sizeof(ocp_name));
+            token = strtok(NULL, "/");
+        }
+        log_debug("OCP name is %s", ocp_name);
+        if (1 == sscanf(ocp_name, "%*[^0123456789]%d", &ocp_number)) {
+            log_debug("ocp number is %d", ocp_number);
+            /* Prepare config file to be used by oscillatord for tests */
+            ret = prepare_config_file_for_oscillatord(&devices_path, ocp_name, ocp_number);
+            test_phase_error_tracking(ocp_name, SOCKET_PORT + ocp_number);
+
+        }
+
     } else {
         log_error("ART Card in %s did not pass all tests", sysfs_path);
         return -1;
     }
+
     return 0;
 }
