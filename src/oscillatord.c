@@ -400,6 +400,11 @@ int main(int argc, char *argv[])
 
 			} else if (output.action == CALIBRATE) {
 				log_info("Calibration requested");
+				if (monitoring_mode) {
+					pthread_mutex_lock(&monitoring->mutex);
+					monitoring->disciplining_status =od_get_status(od);
+					pthread_mutex_unlock(&monitoring->mutex);
+				}
 				struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
 				if (calib_params == NULL)
 					error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
