@@ -130,12 +130,6 @@ static struct json_object *send_monitoring_request(int socket_port, enum monitor
 
 }
 
-static void oscillatord_start_calibration(int socket_port)
-{
-    struct json_object *obj = send_monitoring_request(socket_port, REQUEST_CALIBRATION);
-    free(obj);
-}
-
 enum track_phase_error_test_state {
     WAITING_DISCIPLINING,
     TRACKING_PHASE_ERROR,
@@ -221,12 +215,42 @@ static bool oscillatord_track_phase_error_under_limit(int socket_port, int phase
     return state == PASSED;
 }
 
-int test_phase_error_tracking(char * ocp_name, int socket_port)
+static int write_config_for_oscillatord_service(char * ocp_name, struct config *config) {
+    char config_path[256];
+    char buffer[2048];
+    int ret;
+
+    /* Define config name path */
+    sprintf(config_path, "/etc/oscillatord_%s.conf", ocp_name);
+
+    memset(buffer, 0, sizeof(buffer));
+    config_dump(config, buffer, 2048);
+    FILE *fd = fopen(config_path, "w+");
+    ret = fputs(buffer,fd);
+    fclose(fd);
+    if(ret != 1) {
+        log_error("could not write config file to start service");
+        return -1;
+    }
+    return 0;
+}
+
+int test_phase_error_tracking(char * ocp_name, struct config *config)
 {
     int ret = TEST_PHASE_ERROR_TRACKING_KO;
+    int socket_port;
     bool passed;
 
     log_info("Starting Phase error limit test");
+    const char * socket_port_string = config_get_default(config, "socket-port", NULL);
+    if (!socket_port_string) {
+        log_error("Socket port is not set in config !");
+        return TEST_PHASE_ERROR_TRACKING_KO;
+    }
+    socket_port = atoi(socket_port_string);
+    if(write_config_for_oscillatord_service(ocp_name, config) != 0)
+        return TEST_PHASE_ERROR_TRACKING_KO;
+
     oscillatord_start_service(ocp_name);
     sleep(5);
     passed = oscillatord_track_phase_error_under_limit(
@@ -240,7 +264,14 @@ int test_phase_error_tracking(char * ocp_name, int socket_port)
     } else {
         log_warn("ART Card reached phase error limit during test time");
         log_info("Requesting calibration before testing again the card");
-        oscillatord_start_calibration(socket_port);
+        oscillatord_stop_service(ocp_name);
+        sleep(5);
+        config_set(config, "calibrate_first", "true");
+        if(write_config_for_oscillatord_service(ocp_name, config) != 0)
+            return TEST_PHASE_ERROR_TRACKING_KO;
+        oscillatord_start_service(ocp_name);
+        sleep(5);
+
         passed = oscillatord_track_phase_error_under_limit(
             socket_port,
             PHASE_ERROR_ABS_MAX,

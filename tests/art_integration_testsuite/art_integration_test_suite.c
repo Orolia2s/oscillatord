@@ -185,58 +185,43 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
     return true;
 }
 
-static int prepare_config_file_for_oscillatord(struct devices_path *devices_path, char * ocp_name, int socket_port_offset)
+static void prepare_config_file_for_oscillatord(struct devices_path *devices_path, char * ocp_name, int socket_port_offset,struct config *config)
 {
-    struct config config;
-    char config_path[256];
-    char buffer[2048];
     char socket_port_number[10];
-   
-    int return_val;
-
-
-    /* Define config name path */
-    sprintf(config_path, "/etc/oscillatord_%s.conf", ocp_name);
     /* Define socket port offset */
     sprintf(socket_port_number, "%d", SOCKET_PORT + socket_port_offset);
 
-    memset(&config, 0, sizeof(config));
-    memset(buffer, 0, sizeof(buffer));
+    memset(config, 0, sizeof(struct config));
 
-    config_set(&config, "disciplining", "true");
-    config_set(&config, "monitoring", "true");
-    config_set(&config, "socket-address", "0.0.0.0");
-    config_set(&config, "socket-port", socket_port_number);
-    config_set(&config, "oscillator", "mRO50");
-    config_set(&config, "ptp-clock", devices_path->ptp_path);
-    config_set(&config, "mro50-device", devices_path->mro_path);
-    config_set(&config, "gnss-device-tty", devices_path->gnss_path);
-    config_set(&config, "gnss-receiver-reconfigure", "false");
-    config_set(&config, "opposite-phase-error", "false");
-    config_set(&config, "debug", "2");
-    config_set(&config, "calibrate_first", "false");
-    config_set(&config, "phase_resolution_ns", "5");
-    config_set(&config, "ref_fluctuations_ns", "30");
-    config_set(&config, "phase_jump_threshold_ns", "300");
-    config_set(&config, "reactivity_min", "10");
-    config_set(&config, "reactivity_max", "30");
-    config_set(&config, "reactivity_power", "2");
-    config_set(&config, "fine_stop_tolerance", "200");
-    config_set(&config, "max_allowed_coarse", "30");
-    config_set(&config, "nb_calibration", "10");
-    config_set(&config, "oscillator_factory_settings", "true");
-
-
-    config_dump(&config, buffer, 2048);
-    FILE *fd = fopen(config_path, "w+");
-    return_val = fputs(buffer,fd);
-    fclose(fd);
-    return return_val == 1 ? 0 : -1;
+    config_set(config, "disciplining", "true");
+    config_set(config, "monitoring", "true");
+    config_set(config, "socket-address", "0.0.0.0");
+    config_set(config, "socket-port", socket_port_number);
+    config_set(config, "oscillator", "mRO50");
+    config_set(config, "ptp-clock", devices_path->ptp_path);
+    config_set(config, "mro50-device", devices_path->mro_path);
+    config_set(config, "gnss-device-tty", devices_path->gnss_path);
+    config_set(config, "gnss-receiver-reconfigure", "false");
+    config_set(config, "opposite-phase-error", "false");
+    config_set(config, "debug", "1");
+    config_set(config, "calibrate_first", "false");
+    config_set(config, "phase_resolution_ns", "5");
+    config_set(config, "ref_fluctuations_ns", "30");
+    config_set(config, "phase_jump_threshold_ns", "300");
+    config_set(config, "reactivity_min", "10");
+    config_set(config, "reactivity_max", "30");
+    config_set(config, "reactivity_power", "2");
+    config_set(config, "fine_stop_tolerance", "200");
+    config_set(config, "max_allowed_coarse", "30");
+    config_set(config, "nb_calibration", "10");
+    config_set(config, "oscillator_factory_settings", "true");
+    return;
 }
 
 int main(int argc, char *argv[])
 {
     struct devices_path devices_path;
+    struct config config;
     uint32_t mro50_coarse_value;
     char *serial_number = NULL;
     char *sysfs_path = NULL;
@@ -287,10 +272,10 @@ int main(int argc, char *argv[])
         if (1 == sscanf(ocp_name, "%*[^0123456789]%d", &ocp_number)) {
             log_debug("ocp number is %d", ocp_number);
             /* Prepare config file to be used by oscillatord for tests */
-            ret = prepare_config_file_for_oscillatord(&devices_path, ocp_name, ocp_number);
+            prepare_config_file_for_oscillatord(&devices_path, ocp_name, ocp_number, &config);
 
             /* Test card by checking phase error stays in limits defined in phase error tracking test */
-            switch(test_phase_error_tracking(ocp_name, SOCKET_PORT + ocp_number)) {
+            switch(test_phase_error_tracking(ocp_name, &config)) {
             case TEST_PHASE_ERROR_TRACKING_OK:
                 /* Test passed without calibration, card is ready */
                 break;
