@@ -123,7 +123,6 @@ static struct json_object *send_monitoring_request(int socket_port, enum monitor
         log_error("FAIL");
         return NULL;
     }
-    /* REQUEST CALIBRATION */
     struct json_object *obj = json_send_and_receive(sockfd, request);
     log_info(json_object_to_json_string(obj));
     close(sockfd);
@@ -179,17 +178,22 @@ static bool oscillatord_track_phase_error_under_limit(int socket_port, int phase
                 case TRACKING_PHASE_ERROR:
                     log_info("Phase error: %d", phase_error);
                     /* Phase 2: Check that phase error stays below absolute limit for a period of time */
-                    if (abs(phase_error) <= phase_error_abs_limit) {
-                        time(&elapsed_time);
-                        if ((int) difftime(elapsed_time, start_test_time) >= test_time_minutes * 60) {
-                            log_info("Phase 2 PASSED: Phase error stayed below the limit for %d time", test_time_minutes);
-                            log_info("Test Passed");
-                            state = PASSED;
+                    if (strncmp(status, "Disciplining", sizeof("Disciplining")) == 0) {
+                        if (abs(phase_error) <= phase_error_abs_limit) {
+                            time(&elapsed_time);
+                            if ((int) difftime(elapsed_time, start_test_time) >= test_time_minutes * 60) {
+                                log_info("Phase 2 PASSED: Phase error stayed below the limit for %d time", test_time_minutes);
+                                log_info("Test Passed");
+                                state = PASSED;
+                            }
+                        } else {
+                            log_error("Phase 2 FAILED: Phase error reached absolute limit specified");
+                            log_error("Limit is %d and phase error is %d", phase_error_abs_limit, phase_error);
+                            log_error("Test Failed");
+                            state = FAILED;
                         }
                     } else {
-                        log_error("Phase 2 FAILED: Phase error reached absolute limit specified");
-                        log_error("Limit is %d and phase error is %d", phase_error_abs_limit, phase_error);
-                        log_error("Test Failed");
+                        log_error("Card switched to %s, test cannot continue", status);
                         state = FAILED;
                     }
                     break;
