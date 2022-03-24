@@ -31,6 +31,7 @@
 #define SOCKET_PORT 2970
 
 struct devices_path {
+    char eeprom_path[1024];
     char mro_path[256];
     char ptp_path[256];
     char gnss_path[256];
@@ -99,7 +100,6 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
     bool mro50_passed = false;
     bool found_eeprom = false;
     bool ptp_passed = false;
-    char eeprom_path[1024];
 
     if (ocp_dir == NULL) {
         log_error("Directory %s does not exists\n", ocp_path);
@@ -115,7 +115,7 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
             log_info("I2C device detected");
             char pathname[1280];   /* should alwys be big enough */
             sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
-            found_eeprom = find_file(realpath(pathname, NULL), "eeprom", eeprom_path);
+            found_eeprom = find_file(realpath(pathname, NULL), "eeprom", devices_path->eeprom_path);
             if (found_eeprom) {
                 log_info("\t- Found EEPROM file\n");
             } else {
@@ -128,7 +128,6 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
         } else if (strncmp(entry->d_name, "mro50", 6) == 0) {
             log_info("mro50 device detected");
             find_dev_path(ocp_path, entry, devices_path->mro_path);
-            printf("dev_path is %s\n", devices_path->mro_path);
             int mro50 = open(devices_path->mro_path, O_RDWR);
             if (mro50 > 0) {
                 mro50_passed = test_mro50_device(mro50);
@@ -177,7 +176,7 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
         log_info("All tests passed\n");
         log_info("Writing EEPROM manufacturing data and factory disciplining parameters");
         char command[2048];
-        sprintf(command, "art_eeprom_format -p %s -s %s -c %d", eeprom_path, serial_number, mro50_coarse_value);
+        sprintf(command, "art_eeprom_format -p %s -s %s -c %d", devices_path->eeprom_path, serial_number, mro50_coarse_value);
         if (system(command) != 0) {
             log_error("Could not write EEPROM data");
             return false;
@@ -238,6 +237,7 @@ static int prepare_config_file_for_oscillatord(struct devices_path *devices_path
 int main(int argc, char *argv[])
 {
     struct devices_path devices_path;
+    uint32_t mro50_coarse_value;
     char *serial_number = NULL;
     char *sysfs_path = NULL;
     char ocp_name[100];
@@ -288,7 +288,47 @@ int main(int argc, char *argv[])
             log_debug("ocp number is %d", ocp_number);
             /* Prepare config file to be used by oscillatord for tests */
             ret = prepare_config_file_for_oscillatord(&devices_path, ocp_name, ocp_number);
-            test_phase_error_tracking(ocp_name, SOCKET_PORT + ocp_number);
+
+            /* Test card by checking phase error stays in limits defined in phase error tracking test */
+            switch(test_phase_error_tracking(ocp_name, SOCKET_PORT + ocp_number)) {
+            case TEST_PHASE_ERROR_TRACKING_OK:
+                /* Test passed without calibration, card is ready */
+                break;
+            case TEST_PHASE_ERROR_TRACKING_OK_WITH_CALIBRATION:
+                /* Test passed but calibration has been needed
+                 * We need to update factory coarse
+                 */
+                log_info("Test passed but factory coarse needs to be updated");
+                int mro50 = open(devices_path.mro_path, O_RDWR);
+                if (mro50 > 0) {
+                    /* Read factory coarse of the mRO50 which needs to be stored in EEPROM */
+                    ret = mro50_read_coarse(mro50, &mro50_coarse_value);
+                    close(mro50);
+                    if(ret != 0) {
+                        log_error("Could not read factory coarse value of mRO50");
+                        return -1;
+                    }
+                    log_info("Updating factory coarse in EEPROM due to calibration of the card");
+                    char command[2048];
+                    sprintf(command, "art_eeprom_format -p %s -s %s -c %d", devices_path.eeprom_path, serial_number, mro50_coarse_value);
+                    if (system(command) != 0) {
+                        log_error("Could not write EEPROM data");
+                        return -1;
+                    }
+                } else {
+                    log_error("\t- Error opening mro50 device");
+                    return -1;
+                }
+
+                break;
+            case TEST_PHASE_ERROR_TRACKING_KO:
+                /* Test did not pass, card is must not be shipped */
+                return -1;
+                break;
+            default:
+                log_error("This test result is not supported !");
+                return -1;
+            }
 
         }
 

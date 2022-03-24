@@ -217,8 +217,9 @@ static bool oscillatord_track_phase_error_under_limit(int socket_port, int phase
     return state == PASSED;
 }
 
-bool test_phase_error_tracking(char * ocp_name, int socket_port)
+int test_phase_error_tracking(char * ocp_name, int socket_port)
 {
+    int ret = TEST_PHASE_ERROR_TRACKING_KO;
     bool passed;
 
     log_info("Starting Phase error limit test");
@@ -231,6 +232,7 @@ bool test_phase_error_tracking(char * ocp_name, int socket_port)
     if (passed) {
         log_info("ART Card ran without reaching phase error limit");
         log_info("Test PASSED !");
+        ret = TEST_PHASE_ERROR_TRACKING_OK;
     } else {
         log_warn("ART Card reached phase error limit during test time");
         log_info("Requesting calibration before testing again the card");
@@ -242,11 +244,13 @@ bool test_phase_error_tracking(char * ocp_name, int socket_port)
         if (passed) {
             log_info("ART Card ran without reaching phase error limit");
             log_info("Test PASSED !");
+            ret = TEST_PHASE_ERROR_TRACKING_OK_WITH_CALIBRATION;
         } else {
             log_error("Card did not passed phase error limit test even after calibration");
             log_error("Test FAILED !");
+            ret = TEST_PHASE_ERROR_TRACKING_KO;
         }
     }
     oscillatord_stop_service(ocp_name);
-    return passed;
+    return ret;
 }
