@@ -65,6 +65,7 @@ int oscillator_apply_output(struct oscillator *oscillator, struct od_output *out
 struct calibration_results * oscillator_calibrate(
 	struct oscillator *oscillator,
 	struct phasemeter *phasemeter,
+	struct gnss *gnss,
 	struct calibration_parameters * calib_params,
 	int phase_sign)
 {
@@ -77,7 +78,7 @@ struct calibration_results * oscillator_calibrate(
 		return NULL;
 	}
 
-	return oscillator->class->calibrate(oscillator, phasemeter, calib_params, phase_sign);
+	return oscillator->class->calibrate(oscillator, phasemeter, gnss, calib_params, phase_sign);
 }
 
 int oscillator_get_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)

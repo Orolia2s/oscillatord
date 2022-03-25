@@ -184,7 +184,7 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 }
 
 static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator *oscillator,
-		struct phasemeter *phasemeter, struct calibration_parameters *calib_params,
+		struct phasemeter *phasemeter, struct gnss *gnss, struct calibration_parameters *calib_params,
 		int phase_sign)
 {
 	struct mRo50_oscillator *mRo50;
@@ -245,11 +245,12 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 				results = NULL;
 				return NULL;
 			}
+			/* Get qErr in ps*/
+			float qErr = gnss_get_qErr_last_epoch(gnss);
 			
-			*(results->measures + i * results->nb_calibration + j) = (struct timespec) {
-				.tv_sec = phase_sign * phase_error / NS_IN_SECOND,
-				.tv_nsec = phase_sign * phase_error % NS_IN_SECOND,
-			};
+			*(results->measures + i * results->nb_calibration + j) = phase_error + (float) qErr / 1000;
+			log_debug("ctrl_point %d measure[%d]: phase error = %lld, qErr = %f, result = %f",
+				ctrl_point, j, phase_error, qErr, phase_error + (float) qErr / 1000);
 			sleep(1);
 		}
 	}
