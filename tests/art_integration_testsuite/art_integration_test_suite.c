@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "config.h"
+#include "configurable_io_test.h"
 #include "gnss_serial_test.h"
 #include "log.h"
 #include "mro_device_test.h"
@@ -97,6 +98,7 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
     DIR * ocp_dir = opendir(ocp_path);
     bool gnss_receiver_passed = false;
     uint32_t mro50_coarse_value;
+    bool config_io_passed = false;
     bool mro50_passed = false;
     bool found_eeprom = false;
     bool ptp_passed = false;
@@ -169,7 +171,10 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
         entry = readdir(ocp_dir);
     }
 
-    if (!(mro50_passed && ptp_passed && gnss_receiver_passed && found_eeprom)) {
+    /* Test IO */
+    config_io_passed = test_configurable_io(ocp_path, devices_path->ptp_path);
+
+    if (!(mro50_passed && ptp_passed && gnss_receiver_passed && found_eeprom && config_io_passed)) {
         log_error("At least one test failed");
         return false;
     } else {

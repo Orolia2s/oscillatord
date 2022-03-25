@@ -10,13 +10,14 @@ if(BUILD_TESTS)
 	file(GLOB ART_INTEGRATION_TEST_SUITE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/*.[ch])
 	file(GLOB ART_INTEGRATION_IN_SERVER_TEST_SOURCES
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_in_server_test.c
-		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/configurable_io_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/gnss_serial_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/mro_device_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/phase_error_tracking_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/ptp_device_test.[ch]
 	)
 	file(GLOB EXTTS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts_test.c)
+	file(GLOB EXTTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts.[ch])
+	
 
 	pkg_check_modules(SYSTEMD REQUIRED libsystemd)
 	include_directories(${SYSTEMD_INCLUDE_DIRS})
@@ -24,9 +25,9 @@ if(BUILD_TESTS)
 	add_executable(oscillator_sim ${SIM_SOURCES} ${COMMON_SOURCES})
 	add_executable(monitoring ${MONITORING_SOURCES} ${COMMON_SOURCES})
 	add_executable(mro50_ctrl ${MRO50_CTRL_SOURCES} ${COMMON_SOURCES})
-	add_executable(art_integration_test_suite ${ART_INTEGRATION_TEST_SUITE_SOURCES} ${COMMON_SOURCES})
-	add_executable(art_integration_in_server_test ${ART_INTEGRATION_IN_SERVER_TEST_SOURCES} ${COMMON_SOURCES})
-	add_executable(extts_test ${EXTTS_TEST_SOURCES} ${COMMON_SOURCES})
+	add_executable(art_integration_test_suite ${ART_INTEGRATION_TEST_SUITE_SOURCES} ${COMMON_SOURCES} ${EXTTS_SOURCES})
+	add_executable(art_integration_in_server_test ${ART_INTEGRATION_IN_SERVER_TEST_SOURCES} ${COMMON_SOURCES} ${EXTTS_SOURCES})
+	add_executable(extts_test ${EXTTS_TEST_SOURCES} ${EXTTS_SOURCES} ${COMMON_SOURCES})
 
 	target_link_libraries(oscillator_sim PRIVATE
 		m)
