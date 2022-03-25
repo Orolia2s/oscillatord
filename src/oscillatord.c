@@ -412,7 +412,7 @@ int main(int argc, char *argv[])
 				if (calib_params == NULL)
 					error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
 
-				struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, calib_params, sign);
+				struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, gnss, calib_params, sign);
 				if (results != NULL)
 					od_calibrate(od, calib_params, results);
 				else {
