@@ -11,6 +11,7 @@
 #include <inttypes.h>
 
 #include "config.h"
+#include "gnss.h"
 #include "phasemeter.h"
 
 #include <oscillator-disciplining/oscillator-disciplining.h>
@@ -32,7 +33,7 @@ typedef int (*oscillator_apply_output_cb)(struct oscillator *oscillator,
 		struct od_output *output);
 typedef void (*oscillator_destroy_cb)(struct oscillator **oscillator);
 typedef struct calibration_results* (*oscillator_calibrate_cb)(struct oscillator *oscillator,
-		struct phasemeter *phasemeter, struct calibration_parameters *calib_params,
+		struct phasemeter *phasemeter, struct gnss *gnss, struct calibration_parameters *calib_params,
 		int phase_sign);
 typedef int (*oscillator_get_disciplining_parameters_cb)(struct oscillator *oscillator,
 		struct disciplining_parameters *disciplining_parameters);
@@ -83,6 +84,7 @@ int oscillator_update_disciplining_parameters(struct oscillator *oscillator, str
 struct calibration_results * oscillator_calibrate(
 	struct oscillator *oscillator,
 	struct phasemeter *phasemeter,
+	struct gnss *gnss,
 	struct calibration_parameters * calib_params,
 	int phase_sign);
 
