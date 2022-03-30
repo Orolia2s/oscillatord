@@ -126,6 +126,14 @@ make
 
 ## Utils
 
+### Build tests
+
+```
+mkdir build
+cmake -D BUILD_UTILS=true ..
+make
+```
+
 ### ART eeprom format
 
 This program write default factory data into ART card's eeprom:
