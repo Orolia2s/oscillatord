@@ -663,10 +663,19 @@ static void * gnss_thread(void * p_data)
 			// Epoch collect is used to fetch navigation data such as time and leap seconds
 			if(epochCollect(&coll, msg, &epoch))
 			{
+				// if epoch has no fix there will be no Nav solution and 0 satellites
+				session->satellites_count = gnss_get_satellites(&epoch);
 				if (epoch.haveFix) {
 					session->last_fix_utc_time.tv_sec = gnss_get_utc_time(&epoch);
 					session->fix = epoch.fix;
 					session->fixOk = epoch.fixOk;
+					session->valid = session->fix >= EPOCH_FIX_S2D && session->fixOk;
+					if (!session->valid) {
+						if (session->fix < EPOCH_FIX_S2D)
+							log_trace("Fix is to low: %d", session->fix);
+						if (!session->fixOk)
+							log_trace("Fix is not OK");
+					}
 					struct timedelta_t td;
 					ntp_latch(session, &td);
 					log_gnss_data(session);
@@ -674,8 +683,6 @@ static void * gnss_thread(void * p_data)
 					session->fix = MODE_NO_FIX;
 					session->fixOk = false;
 				}
-				// if epoch has no fix there will be no Nav solution and 0 satellites
-				session->satellites_count = gnss_get_satellites(&epoch);
 
 				if (session->tai_time_set)
 					pthread_cond_signal(&gnss->cond_time);
@@ -688,15 +695,7 @@ static void * gnss_thread(void * p_data)
 				uint8_t msgId = UBX_MSGID(msg->data);
 				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
 					gnss_get_antenna_data(session, msg);
-					session->valid = session->fix >= EPOCH_FIX_S2D && session->fixOk && (session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN);
-					if (!session->valid) {
-						if (session->fix < EPOCH_FIX_S2D)
-							log_trace("Fix is to low: %d", session->fix);
-						if (!session->fixOk)
-							log_trace("Fix is not OK");
-						if (!(session->antenna_status == ANT_STATUS_OK || session->antenna_status == ANT_STATUS_SHORT || session->antenna_status == ANT_STATUS_OPEN))
-							log_trace("Antenna is in bad state %d", session->antenna_status);
-					}
+					log_trace("GNSS: Antenna status: 0x%x", session->antenna_status);
 				// Parse UBX-NAV-TIMELS messages there because library does not do it
 				} else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
 					gnss_parse_ubx_nav_timels(session, msg);
