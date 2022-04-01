@@ -447,8 +447,6 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		sleep(SETTLING_TIME);
-
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
 			pthread_mutex_lock(&monitoring->mutex);

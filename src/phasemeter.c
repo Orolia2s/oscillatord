@@ -161,6 +161,7 @@ static void* phasemeter_thread(void *p_data)
 			pthread_mutex_lock(&phasemeter->mutex);
 			phasemeter->status = PHASEMETER_NO_GNSS_TIMESTAMPS;
 			stop = phasemeter->stop;
+			pthread_cond_signal(&phasemeter->cond);
 			pthread_mutex_unlock(&phasemeter->mutex);
 		/*
 		 * Did not received ART Internal PPS event
@@ -171,6 +172,7 @@ static void* phasemeter_thread(void *p_data)
 			pthread_mutex_lock(&phasemeter->mutex);
 			phasemeter->status = PHASEMETER_NO_ART_INTERNAL_TIMESTAMPS;
 			stop = phasemeter->stop;
+			pthread_cond_signal(&phasemeter->cond);
 			pthread_mutex_unlock(&phasemeter->mutex);
 
 		/*
@@ -199,6 +201,7 @@ static void* phasemeter_thread(void *p_data)
 					pthread_mutex_lock(&phasemeter->mutex);
 					phasemeter->status = PHASEMETER_ERROR;
 					stop = phasemeter->stop;
+					pthread_cond_signal(&phasemeter->cond);
 					pthread_mutex_unlock(&phasemeter->mutex);
 					continue;
 				}
@@ -210,6 +213,7 @@ static void* phasemeter_thread(void *p_data)
 					pthread_mutex_lock(&phasemeter->mutex);
 					phasemeter->status = PHASEMETER_ERROR;
 					stop = phasemeter->stop;
+					pthread_cond_signal(&phasemeter->cond);
 					pthread_mutex_unlock(&phasemeter->mutex);
 					continue;
 				}
@@ -219,6 +223,7 @@ static void* phasemeter_thread(void *p_data)
 			phasemeter->status = PHASEMETER_BOTH_TIMESTAMPS;
 			phasemeter->phase_error = timestamp_diff;
 			stop = phasemeter->stop;
+			pthread_cond_signal(&phasemeter->cond);
 			pthread_mutex_unlock(&phasemeter->mutex);
 		}
 	}
@@ -256,6 +261,11 @@ struct phasemeter* phasemeter_init(int fd)
 
 	if (pthread_mutex_init(&phasemeter->mutex, NULL) != 0) {
 		printf("\n mutex init failed\n");
+		free(phasemeter);
+		return NULL;
+	}
+	if (pthread_cond_init(&phasemeter->cond, NULL)) {
+		printf("\n Cond var init failed\n");
 		free(phasemeter);
 		return NULL;
 	}
@@ -304,6 +314,7 @@ int get_phase_error(struct phasemeter *phasemeter, int64_t *phase_error)
 {
 	int status;
 	pthread_mutex_lock(&phasemeter->mutex);
+	pthread_cond_wait(&phasemeter->cond, &phasemeter->mutex);
 	*phase_error = phasemeter->phase_error;
 	status = phasemeter->status;
 	pthread_mutex_unlock(&phasemeter->mutex);

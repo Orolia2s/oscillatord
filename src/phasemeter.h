@@ -32,6 +32,7 @@ enum PHASEMETER_STATUS {
 struct phasemeter {
 	pthread_t thread;
 	pthread_mutex_t mutex;
+	pthread_cond_t cond;
 	int32_t phase_error;
 	int status;
 	int fd;
