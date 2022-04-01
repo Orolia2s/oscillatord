@@ -160,13 +160,13 @@ struct gnss {
 	pthread_t thread;
 	pthread_mutex_t mutex_data;
 	pthread_cond_t cond_time;
+	pthread_cond_t cond_data;
 	int fd_clock;
 	bool stop;
 };
 
 struct gnss* gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock);
-bool gnss_get_valid(struct gnss *gnss);
-int32_t gnss_get_qErr_last_epoch(struct gnss *gnss);
+void gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr);
 void gnss_stop(struct gnss *gnss);
 int gnss_set_ptp_clock_time(struct gnss *gnss);
 
