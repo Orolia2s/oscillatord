@@ -23,7 +23,7 @@
 
 #define GNSS_CONNECT_MAX_TRY 5
 
-#define GNSS_TIMEOUT_MS 1500
+#define GNSS_TIMEOUT_MS 1000
 #define GNSS_RECONFIGURE_MAX_TRY 5
 #define SEC_IN_WEEK 604800
 
@@ -262,15 +262,6 @@ static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *ms
 	}
 }
 
-int32_t gnss_get_qErr_last_epoch(struct gnss *gnss)
-{
-	int32_t qErr;
-	pthread_mutex_lock(&gnss->mutex_data);
-	qErr = gnss->session->context->qErr_last_epoch;
-	pthread_mutex_unlock(&gnss->mutex_data);
-	return qErr;
-}
-
 static void log_gnss_data(struct gps_device_t *session)
 {
 	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, antenna status: %d, valid %d,"
@@ -475,6 +466,7 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 
 	pthread_mutex_init(&gnss->mutex_data, NULL);
 	pthread_cond_init(&gnss->cond_time, NULL);
+	pthread_cond_init(&gnss->cond_data, NULL);
 
 	ret = pthread_create(
 		&gnss->thread,
@@ -517,19 +509,22 @@ static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
 }
 
 /**
- * @brief Return if gnss data is valid
+ * @brief Get GNSS data from epoch
  *
- * @param gnss thread structure
- * @return true
- * @return false
+ * @param gnss
+ * @param valid Output Flags indicating GNSS data are valid (Fix >= 2D + FixOk)
+ * @param qErr Output Quantization error from last Epoch
  */
-bool gnss_get_valid(struct gnss *gnss)
+void gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr)
 {
-	bool valid;
 	pthread_mutex_lock(&gnss->mutex_data);
-	valid = gnss->session->valid;
+	pthread_cond_wait(&gnss->cond_data, &gnss->mutex_data);
+	if (valid != NULL)
+		*valid = gnss->session->valid;
+	if (qErr != NULL)
+		*qErr = gnss->session->context->qErr_last_epoch;
 	pthread_mutex_unlock(&gnss->mutex_data);
-	return valid;
+	return;
 }
 
 /**
@@ -542,13 +537,15 @@ bool gnss_get_valid(struct gnss *gnss)
 static bool gnss_check_ptp_clock_time(struct gnss *gnss)
 {
 	struct timespec ts;
+	bool valid = false;
 	time_t gnss_time;
 	int ret;
 	if (gnss->fd_clock < 0) {
 		log_warn("Bad clock file descriptor");
 		return -1;
 	}
-	if (gnss_get_valid(gnss)) {
+	gnss_get_epoch_data(gnss, &valid, NULL);
+	if (valid) {
 		gnss_time = gnss_get_next_fix_tai_time(gnss);
 		ret = clock_gettime(FD_TO_CLOCKID(gnss->fd_clock), &ts);
 		if (ret == 0) {
@@ -581,6 +578,7 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	struct timespec ts;
 	time_t gnss_time;
 	int ret;
+	bool valid = false;
 	bool clock_set = false;
 	bool clock_valid = false;
 
@@ -591,7 +589,8 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	clkid = FD_TO_CLOCKID(gnss->fd_clock);
 
 	while(!clock_valid && loop) {
-		if (gnss_get_valid(gnss)) {
+		gnss_get_epoch_data(gnss, &valid, NULL);
+		if (valid) {
 			/* Set clock time according to gnss data */
 			if (!clock_set) {
 				/* Configure PHC time */
@@ -679,6 +678,7 @@ static void * gnss_thread(void * p_data)
 					struct timedelta_t td;
 					ntp_latch(session, &td);
 					log_gnss_data(session);
+					pthread_cond_signal(&gnss->cond_data);
 				} else {
 					session->fix = MODE_NO_FIX;
 					session->fixOk = false;
@@ -707,6 +707,7 @@ static void * gnss_thread(void * p_data)
 			log_warn("UART GNSS Timeout !");
 			pthread_mutex_lock(&gnss->mutex_data);
 			gnss->session->valid = false;
+			pthread_cond_signal(&gnss->cond_data);
 			pthread_mutex_unlock(&gnss->mutex_data);
 			usleep(5 * 1000);
 		}

@@ -359,14 +359,13 @@ int main(int argc, char *argv[])
 			/* Fills in input structure for disciplining algorithm */
 			input.coarse_setpoint = ctrl_values.coarse_ctrl;
 			input.fine_setpoint = ctrl_values.fine_ctrl;
+			input.temperature = temperature;
 			input.lock = ctrl_values.lock;
 			input.phase_error = (struct timespec) {
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
-			input.qErr = gnss_get_qErr_last_epoch(gnss);
-			input.valid = gnss_get_valid(gnss);
-			input.temperature = temperature;
+			gnss_get_epoch_data(gnss, &input.valid, &input.qErr);
 
 			log_info("input: phase_error = (%lds, %09ldns), "
 				"valid = %s, qErr = %d,lock = %s, fine = %d, "
