@@ -157,8 +157,9 @@ static int mRO50_oscillator_get_temp(struct oscillator *oscillator, double *temp
 static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct od_output *output)
 {
 	struct mRo50_oscillator *mRo50;
-	int ret;
 	int command;
+	int ret;
+
 
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 	
@@ -173,13 +174,11 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 		log_error("Action is %d", output->action);
 		return 0;
 	}
-
 	ret = ioctl(mRo50->osc_fd, command, &output->setpoint);
 	if (ret != 0) {
 		log_error("Could not prepare command request to adjust fine frequency, error %d", ret);
 		return -1;
 	}
-
 	return 0;
 }
 

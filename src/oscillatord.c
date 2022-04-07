@@ -343,7 +343,6 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-
 		if (disciplining_mode) {
 			/* Get Phase error and status*/
 			phasemeter_status = get_phase_error(phasemeter, &phase_error);
@@ -357,6 +356,11 @@ int main(int argc, char *argv[])
 			if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS
 				&& phasemeter_status != PHASEMETER_NO_GNSS_TIMESTAMPS)
 				continue;
+
+			if (output.action == ADJUST_FINE && output.setpoint != ctrl_values.fine_ctrl) {
+				log_error("Could not apply output to mro50");
+				error(EXIT_FAILURE, -EIO, "apply_output");
+			}
 
 			/* Fills in input structure for disciplining algorithm */
 			input.coarse_setpoint = ctrl_values.coarse_ctrl;
