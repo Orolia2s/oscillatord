@@ -227,6 +227,30 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 }
 
 /**
+ * @brief Parse UBX-TIM-SVIN msg to get information about Survey In process
+ *
+ * @param session gps device data of the session
+ * @param msg msg received from the receiver
+ */
+static void gnss_parse_ubx_tim_svin(struct gps_device_t *session, PARSER_MSG_t *msg) {
+	if (msg->size == (int) UBX_TIM_SVIN_V0_SIZE) {
+		UBX_TIME_SVIN_V0_GROUP0_t gr0;
+		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
+		log_info("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
+			gr0.dur,
+			gr0.meanX,
+			gr0.meanY,
+			gr0.meanZ,
+			gr0.meanV,
+			gr0.obs,
+			gr0.valid,
+			gr0.active
+		);
+	}
+	return;
+}
+
+/**
  * @brief Parse UBX-MON-RF msg to get antenna status data
  *
  * @param session gps device data of the session
@@ -701,6 +725,8 @@ static void * gnss_thread(void * p_data)
 					gnss_parse_ubx_nav_timels(session, msg);
 				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_TP_MSGID)
 					gnss_parse_ubx_tim_tp(session, msg);
+				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID)
+					gnss_parse_ubx_tim_svin(session, msg);
 			}
 			pthread_mutex_unlock(&gnss->mutex_data);
 		} else {

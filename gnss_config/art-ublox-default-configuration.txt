@@ -70,6 +70,7 @@ UBX-RXM-SFRBX              0   0   0   0   0               # default:   0   0   
 UBX-TIM-TM2                0   0   0   0   0               # default:   0   0   0   0   0
 UBX-TIM-TP                 1   1   1   1   1               # default:   0   0   0   0   0
 UBX-TIM-VRFY               0   0   0   0   0               # default:   0   0   0   0   0
+UBX-TIM-SVIN               1   1   1   1   1               # default:   0   0   0   0   0
 CFG-GEOFENCE-CONFLVL               L000                    # default: L000                      (type E1)
 CFG-GEOFENCE-USE_PIO               false                   # default: false                     (type L)
 CFG-GEOFENCE-PINPOL                LOW_IN                  # default: LOW_IN                    (type E1)
