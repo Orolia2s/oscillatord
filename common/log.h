@@ -85,6 +85,7 @@ static inline void print_disciplining_parameters(struct disciplining_parameters 
             log_log(level, __FILE__, __LINE__, " %f", calibration->ctrl_drift_coeffs_factory[i]);
 
     log_log(level, __FILE__, __LINE__, "coarse_equilibrium_factory = %d", calibration->coarse_equilibrium_factory);
+    log_log(level, __FILE__, __LINE__, "estimated_equilibrium_ES = %d", calibration->estimated_equilibrium_ES);
 
 }
 

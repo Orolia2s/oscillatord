@@ -197,6 +197,7 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
         result->ctrl_load_nodes[i] = ctrl_load_nodes[i];
         result->ctrl_drift_coeffs[i] = ctrl_drift_coeffs[i];
     }
+    result->estimated_equilibrium_ES = config_get_unsigned_number(&config, "estimated_equilibrium_ES");
 
     log_info("Disciplining parameters that will be written in %s", path);
     print_disciplining_parameters(result, LOG_INFO);
@@ -244,8 +245,11 @@ static int write_disciplining_parameters_to_config_file(const char *path, struct
     sprintf(buffer, "%s", dsc_parameters->calibration_valid ? "true" : "false");
     config_set(&config, "calibration_valid", buffer);
 
+    sprintf(buffer, "%ld", dsc_parameters->calibration_date);
     config_set(&config, "calibration_date", buffer);
-    sprintf(buffer, "%ld\n", dsc_parameters->calibration_date);
+
+    sprintf(buffer, "%d\n", dsc_parameters->estimated_equilibrium_ES);
+    config_set(&config, "estimated_equilibrium_ES", buffer);
 
     config_dump(&config, buffer, 2048);
 
