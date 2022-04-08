@@ -692,9 +692,9 @@ static void * gnss_thread(void * p_data)
 					session->last_fix_utc_time.tv_sec = gnss_get_utc_time(&epoch);
 					session->fix = epoch.fix;
 					session->fixOk = epoch.fixOk;
-					session->valid = session->fix >= EPOCH_FIX_S2D && session->fixOk;
+					session->valid = session->fix >= EPOCH_FIX_TIME && session->fixOk;
 					if (!session->valid) {
-						if (session->fix < EPOCH_FIX_S2D)
+						if (session->fix < EPOCH_FIX_TIME)
 							log_trace("Fix is to low: %d", session->fix);
 						if (!session->fixOk)
 							log_trace("Fix is not OK");
