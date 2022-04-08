@@ -360,6 +360,7 @@ int main(int argc, char *argv[])
 
 			if (output.action == ADJUST_FINE && output.setpoint != ctrl_values.fine_ctrl) {
 				log_error("Could not apply output to mro50");
+				log_error("Requested value was %u, control value read is %u", output.setpoint, ctrl_values.fine_ctrl);
 				error(EXIT_FAILURE, -EIO, "apply_output");
 			}
 
