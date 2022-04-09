@@ -328,24 +328,25 @@ int main(int argc, char *argv[])
 
 	/* Main Loop */
 	while(loop) {
-		ret = oscillator_get_temp(oscillator, &temperature);
-		if (ret == -ENOSYS)
-			temperature = 0;
-		else if (ret < 0)
-			error(EXIT_FAILURE, -ret, "oscillator_get_temp");
-
-		/* Get Oscillator control values needed
-		 * for the disciplining algorithm
-		 */
-		ret = oscillator_get_ctrl(oscillator, &ctrl_values);
-		if (ret != 0) {
-			log_warn("Could not get control values of oscillator");
-			continue;
-		}
 
 		if (disciplining_mode) {
 			/* Get Phase error and status*/
 			phasemeter_status = get_phase_error(phasemeter, &phase_error);
+
+			ret = oscillator_get_temp(oscillator, &temperature);
+			if (ret == -ENOSYS)
+				temperature = 0;
+			else if (ret < 0)
+				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
+
+			/* Get Oscillator control values needed
+			* for the disciplining algorithm
+			*/
+			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
+			if (ret != 0) {
+				log_warn("Could not get control values of oscillator");
+				continue;
+			}
 
 			if (ignore_next_irq) {
 				log_debug("ignoring 1 input due to phase jump");
