@@ -39,6 +39,11 @@
 
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
+/** Survey In min duration (s) */
+#define SVIN_MIN_DUR 1200
+/** Survey In max duration allowed (s) */
+#define SVIN_MAX_DUR SVIN_MIN_DUR + 600
+
 
 #ifndef FLAG
 #define FLAG(field, flag) ( ((field) & (flag)) == (flag) )
@@ -59,6 +64,13 @@ enum AntennaPower {
 	ANT_POWER_DONTKNOW,
 	ANT_POWER_IDLE,
 	ANT_POWER_UNDEFINED
+};
+
+enum SurveyInState {
+	SURVEY_IN_KO,
+	SURVEY_IN_UNKNOWN,
+	SURVEY_IN_IN_PROGRESS,
+	SURVEY_IN_COMPLETED
 };
 
 static const char *fix_log[11] = {
@@ -231,8 +243,9 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
  *
  * @param session gps device data of the session
  * @param msg msg received from the receiver
+ * @return enum survey_in_state
  */
-static void gnss_parse_ubx_tim_svin(struct gps_device_t *session, PARSER_MSG_t *msg) {
+static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, PARSER_MSG_t *msg) {
 	if (msg->size == (int) UBX_TIM_SVIN_V0_SIZE) {
 		UBX_TIME_SVIN_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
@@ -246,8 +259,14 @@ static void gnss_parse_ubx_tim_svin(struct gps_device_t *session, PARSER_MSG_t *
 			gr0.valid,
 			gr0.active
 		);
+		if (!gr0.active && gr0.dur > SVIN_MIN_DUR)
+			return gr0.valid ? SURVEY_IN_COMPLETED : SURVEY_IN_KO;
+		else if (gr0.dur < SVIN_MAX_DUR)
+			return SURVEY_IN_IN_PROGRESS;
+		else
+			return SURVEY_IN_KO;
 	}
-	return;
+	return SURVEY_IN_UNKNOWN;
 }
 
 /**
@@ -334,6 +353,15 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
 static bool gnss_set_time_scale(RX_t *rx, uint8_t time_scale) {
 	const UBLOXCFG_KEYVAL_t tp_timegrid_tp1 = UBLOXCFG_KEYVAL_ANY(CFG_TP_TIMEGRID_TP1, time_scale);
 	return rxSetConfig(rx, &tp_timegrid_tp1, 1, true, false, false);
+}
+
+static bool gnss_start_survey_in(RX_t *rx) {
+	const UBLOXCFG_KEYVAL_t survey_in[3] = {
+		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_MODE, UBLOXCFG_CFG_TMODE_MODE_SURVEY_IN),
+		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_SVIN_MIN_DUR, SVIN_MIN_DUR),
+		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_SVIN_ACC_LIMIT, SVIN_ACC_LIMIT)
+	};
+	return rxSetConfig(rx, survey_in, 3, true, false, false);
 }
 
 /**
@@ -454,9 +482,10 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 		goto err_gnss_connect;
 
 	/* Check if GNSS receiver should reset to default configuraiton */
-	do_reconfiguration = config_get_bool_default(config,
-					"gnss-receiver-reconfigure",
-					false);
+	do_reconfiguration = config_get_bool_default(
+		config,
+		"gnss-receiver-reconfigure",
+		false);
 	if (do_reconfiguration && !gnss_set_default_configuration(gnss->rx))
 		goto err_gnss_connect;
 
@@ -487,6 +516,15 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 		}
 	}
 
+	/* Check wether receiver's survey in should be bypassed or not */
+	gnss->session->bypass_survey = config_get_bool_default(
+		config,
+		"gnss-bypass-survey",
+		false);
+	if (gnss->session->bypass_survey) {
+		log_warn("GNSS Survey In will be bypassed, true timing performance might not be reached");
+		log_warn("Please note that performance may be degraded and holdover might not reached specified limits");
+	}
 
 	pthread_mutex_init(&gnss->mutex_data, NULL);
 	pthread_cond_init(&gnss->cond_time, NULL);
@@ -539,8 +577,12 @@ static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
  * @param valid Output Flags indicating GNSS data are valid (Fix >= 2D + FixOk)
  * @param qErr Output Quantization error from last Epoch
  */
-void gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr)
+int gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr)
 {
+	if (!gnss) {
+		return -1;
+	}
+
 	pthread_mutex_lock(&gnss->mutex_data);
 	pthread_cond_wait(&gnss->cond_data, &gnss->mutex_data);
 	if (valid != NULL)
@@ -548,7 +590,7 @@ void gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr)
 	if (qErr != NULL)
 		*qErr = gnss->session->context->qErr_last_epoch;
 	pthread_mutex_unlock(&gnss->mutex_data);
-	return;
+	return 0;
 }
 
 /**
@@ -568,7 +610,8 @@ static bool gnss_check_ptp_clock_time(struct gnss *gnss)
 		log_warn("Bad clock file descriptor");
 		return -1;
 	}
-	gnss_get_epoch_data(gnss, &valid, NULL);
+	if (gnss_get_epoch_data(gnss, &valid, NULL))
+		return -1;
 	if (valid) {
 		gnss_time = gnss_get_next_fix_tai_time(gnss);
 		ret = clock_gettime(FD_TO_CLOCKID(gnss->fd_clock), &ts);
@@ -606,6 +649,10 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	bool clock_set = false;
 	bool clock_valid = false;
 
+	if (!gnss) {
+		return -1;
+	}
+
 	if (gnss->fd_clock < 0) {
 		log_warn("Bad clock file descriptor");
 		return -1;
@@ -613,7 +660,9 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	clkid = FD_TO_CLOCKID(gnss->fd_clock);
 
 	while(!clock_valid && loop) {
-		gnss_get_epoch_data(gnss, &valid, NULL);
+		if (gnss_get_epoch_data(gnss, &valid, NULL) != 0)
+			return -1;
+
 		if (valid) {
 			/* Set clock time according to gnss data */
 			if (!clock_set) {
@@ -668,6 +717,7 @@ static void * gnss_thread(void * p_data)
 	EPOCH_t epoch;
 	struct gnss *gnss = (struct gnss*) p_data;
 	struct gps_device_t * session;
+	bool survey_completed = false;
 	bool stop;
 
 	epochInit(&coll);
@@ -725,8 +775,24 @@ static void * gnss_thread(void * p_data)
 					gnss_parse_ubx_nav_timels(session, msg);
 				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_TP_MSGID)
 					gnss_parse_ubx_tim_tp(session, msg);
-				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID)
-					gnss_parse_ubx_tim_svin(session, msg);
+				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID && !survey_completed && !gnss->session->bypass_survey) {
+					switch (gnss_parse_ubx_tim_svin(session, msg)) {
+					case SURVEY_IN_COMPLETED:
+						survey_completed = true;
+						break;
+					case SURVEY_IN_IN_PROGRESS:
+					case SURVEY_IN_UNKNOWN:
+						break;
+					case SURVEY_IN_KO:
+					default:
+						log_error("Survey In did not complete in time. GNSS conditions are not stable enough");
+						log_error("Please check your antenna setup (antenna on roof is way more precise) to pass survey in.");
+						pthread_mutex_unlock(&gnss->mutex_data);
+						goto gnss_close;
+						break;
+					}
+
+				}
 			}
 			pthread_mutex_unlock(&gnss->mutex_data);
 		} else {
@@ -742,10 +808,13 @@ static void * gnss_thread(void * p_data)
 		pthread_mutex_unlock(&gnss->mutex_data);
 	}
 
+gnss_close:
 	log_debug("Closing gnss session");
 	rxClose(gnss->rx);
 	free(gnss->rx);
+	gnss->rx = NULL;
 	free(gnss);
+	gnss = NULL;
 	return NULL;
 }
 
@@ -756,6 +825,9 @@ static void * gnss_thread(void * p_data)
  */
 void gnss_stop(struct gnss *gnss)
 {
+	if (!gnss)
+		return;
+
 	pthread_mutex_lock(&gnss->mutex_data);
 	gnss->stop = true;
 	pthread_mutex_unlock(&gnss->mutex_data);
