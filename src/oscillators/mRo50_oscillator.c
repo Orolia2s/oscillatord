@@ -246,7 +246,14 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 			}
 			/* Get qErr in ps*/
 			int32_t qErr;
-			gnss_get_epoch_data(gnss, NULL, &qErr);
+			if (gnss_get_epoch_data(gnss, NULL, &qErr) != 0) {
+				log_error("Could not get gnss data");
+				free(results->measures);
+				results->measures = NULL;
+				free(results);
+				results = NULL;
+				return NULL;
+			}
 			
 			*(results->measures + i * results->nb_calibration + j) = phase_error + (float) qErr / 1000;
 			log_debug("ctrl_point %d measure[%d]: phase error = %lld, qErr = %f, result = %f",

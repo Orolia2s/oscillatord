@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
 		log_info("Initialize time of ptp clock %s", ptp_clock);
 		ret = gnss_set_ptp_clock_time(gnss);
 		if (ret != 0) {
-			log_error("Could not set ptp clock time");
+			log_error("Could not set ptp clock time: err %d", ret);
 			return -EINVAL;
 		}
 
@@ -373,7 +373,10 @@ int main(int argc, char *argv[])
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
-			gnss_get_epoch_data(gnss, &input.valid, &input.qErr);
+			if (gnss_get_epoch_data(gnss, &input.valid, &input.qErr) != 0) {
+				log_error("Error getting GNSS data, exiting");
+				break;
+			}
 
 			log_info("input: phase_error = (%lds, %09ldns), "
 				"valid = %s, qErr = %d,lock = %s, fine = %d, "
@@ -459,15 +462,17 @@ int main(int argc, char *argv[])
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
 			pthread_mutex_lock(&monitoring->mutex);
-			pthread_mutex_lock(&gnss->mutex_data);
-			monitoring->antenna_power = gnss->session->antenna_power;
-			monitoring->antenna_status = gnss->session->antenna_status;
-			monitoring->fix = gnss->session->fix;
-			monitoring->fixOk = gnss->session->fixOk;
-			monitoring->leap_seconds = gnss->session->context->leap_seconds;
-			monitoring->lsChange = gnss->session->context->lsChange;
-			monitoring->satellites_count = gnss->session->satellites_count;
-			pthread_mutex_unlock(&gnss->mutex_data);
+			if (gnss) {
+				pthread_mutex_lock(&gnss->mutex_data);
+				monitoring->antenna_power = gnss->session->antenna_power;
+				monitoring->antenna_status = gnss->session->antenna_status;
+				monitoring->fix = gnss->session->fix;
+				monitoring->fixOk = gnss->session->fixOk;
+				monitoring->leap_seconds = gnss->session->context->leap_seconds;
+				monitoring->lsChange = gnss->session->context->lsChange;
+				monitoring->satellites_count = gnss->session->satellites_count;
+				pthread_mutex_unlock(&gnss->mutex_data);
+			}
 			monitoring->disciplining_status = od_get_status(od);
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
