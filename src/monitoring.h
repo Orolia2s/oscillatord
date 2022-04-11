@@ -45,6 +45,7 @@ struct monitoring {
 	bool stop;
 	bool disciplining_mode;
 	bool tracking_only;
+	bool phase_error_supported;
 };
 
 struct monitoring* monitoring_init(const struct config *config);

@@ -57,6 +57,7 @@ struct monitoring* monitoring_init(const struct config *config)
 
 	monitoring->stop = false;
 	monitoring->disciplining_mode = config_get_bool_default(config, "disciplining", false);
+	monitoring->phase_error_supported = false;
 
 	monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
 	monitoring->disciplining.status = INIT;
@@ -183,7 +184,7 @@ static void handle_client(struct monitoring *monitoring, int fd)
 					monitoring->request = REQUEST_CALIBRATION;
 				}
 
-				if (monitoring->disciplining_mode) {
+				if (monitoring->disciplining_mode || monitoring->phase_error_supported) {
 					struct json_object *disciplining = json_object_new_object();
 					json_object_object_add(disciplining, "status",
 						json_object_new_string(

@@ -157,6 +157,7 @@ int main(int argc, char *argv[])
 	bool disciplining_mode;
 	bool monitoring_mode;
 	bool opposite_phase_error;
+	bool phase_error_supported = false;
 	bool ignore_next_irq = false;
 	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
 	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
@@ -215,9 +216,13 @@ int main(int argc, char *argv[])
 			log_error("Error creating monitoring socket thread");
 			return -EINVAL;
 		}
+		phase_error_supported = (oscillator_get_phase_error(oscillator, &phase_error) != -ENOSYS);
+		if (phase_error_supported)
+			sign = 1;
 		log_info("Starting monitoring socket");
 		pthread_mutex_lock(&monitoring->mutex);
 		monitoring->oscillator_model = oscillator->class->name;
+		monitoring->phase_error_supported = phase_error_supported;
 		pthread_mutex_unlock(&monitoring->mutex);
 	}
 
@@ -280,6 +285,8 @@ int main(int argc, char *argv[])
 			return -EINVAL;
 		}
 
+		phase_error_supported = true;
+
 		/* Check if program is still supposed to be running or has been requested to terminate */
 		if(loop) {
 			/* Apply initial phase jump before setting PTP clock time */
@@ -327,25 +334,24 @@ int main(int argc, char *argv[])
 
 	/* Main Loop */
 	while(loop) {
+		/* Oscillator control values and temperature are needed for
+		 * the disciplining algorithm and monitoring, get both of them
+		 */
+		ret = oscillator_get_temp(oscillator, &temperature);
+		if (ret == -ENOSYS)
+			temperature = 0;
+		else if (ret < 0)
+			error(EXIT_FAILURE, -ret, "oscillator_get_temp");
+
+		ret = oscillator_get_ctrl(oscillator, &ctrl_values);
+		if (ret != 0) {
+			log_warn("Could not get control values of oscillator");
+			continue;
+		}
 
 		if (disciplining_mode) {
 			/* Get Phase error and status*/
 			phasemeter_status = get_phase_error(phasemeter, &phase_error);
-
-			ret = oscillator_get_temp(oscillator, &temperature);
-			if (ret == -ENOSYS)
-				temperature = 0;
-			else if (ret < 0)
-				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
-
-			/* Get Oscillator control values needed
-			* for the disciplining algorithm
-			*/
-			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
-			if (ret != 0) {
-				log_warn("Could not get control values of oscillator");
-				continue;
-			}
 
 			if (ignore_next_irq) {
 				log_debug("ignoring 1 input due to phase jump");
@@ -452,19 +458,8 @@ int main(int argc, char *argv[])
 				if (ret < 0)
 					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
 			}
-		} else {
-			/* Retrieve value for monitoring */
-			ret = oscillator_get_temp(oscillator, &temperature);
-			if (ret == -ENOSYS)
-				temperature = 0;
-			else if (ret < 0)
-				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
-
-			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
-			if (ret != 0) {
-				log_warn("Could not get control values of oscillator");
-				continue;
-			}
+		} else if (phase_error_supported) {
+			oscillator_get_phase_error(oscillator, &phase_error);
 		}
 
 		if (monitoring_mode) {
@@ -492,6 +487,8 @@ int main(int argc, char *argv[])
 			}
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
+			if (phase_error_supported)
+				monitoring->phase_error = sign * phase_error;
 			if (monitoring->request == REQUEST_CALIBRATION) {
 				log_info("Calibration requested through monitoring interface");
 				input.calibration_requested = true;
