@@ -98,3 +98,12 @@ int oscillator_update_disciplining_parameters(struct oscillator *oscillator, str
 		return -ENOSYS;
 	return oscillator->class->update_disciplining_parameters(oscillator, disciplining_parameters);
 }
+
+int oscillator_get_phase_error(struct oscillator *oscillator, int64_t *phase_error)
+{
+	if (oscillator == NULL || phase_error == NULL)
+		return -EINVAL;
+	if (oscillator->class->get_phase_error == NULL)
+		return -ENOSYS;
+	return oscillator->class->get_phase_error(oscillator, phase_error);
+}

@@ -21,6 +21,7 @@
 #define ATTR_FW_SERIAL  1
 #define ATTR_CTRL       2
 #define ATTR_STATUS     4
+#define ATTR_PHASE		8
 
 #define CMD_SWVER                     "\\{swrev?}"
 #define CMD_SERIAL                    "{serial?}"
@@ -196,6 +197,20 @@ static int sa5x_oscillator_read_intval(int *val, int size)
 	return res;
 }
 
+static int sa5x_oscillator_read_phase(int32_t *val, int size)
+{
+	int res = size;
+	double phase;
+	if (size > 0) {
+		res = sscanf(answer_str, "[=%lf]\r\n", &phase);
+		// we have to clean buffer if it has something
+		memset(answer_str, 0, size);
+	}
+	if (res)
+		*val = (int32_t)(phase + (phase >= 0 ? 0.5 : -0.5));
+	return res;
+}
+
 static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct sa5x_attributes *a,
 										  unsigned int attributes_mask)
 {
@@ -203,7 +218,7 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
 	int err, val;
 
-	if (attributes_mask & (ATTR_CTRL|ATTR_STATUS) && !a) {
+	if (attributes_mask & (ATTR_CTRL|ATTR_STATUS|ATTR_PHASE) && !a) {
 		log_error("scillator_get_attributes no structure provided");
 		return -1;
 	}
@@ -239,9 +254,13 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		if (sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_TAU, sizeof(CMD_GET_TAU))) > 0) {
 			a->tau = val;
 		}
-		sa5x_oscillator_read_intval(&a->phaseoffset, sa5x_oscillator_cmd(sa5x, CMD_GET_PHASE, sizeof(CMD_GET_PHASE)));
-
 		sa5x_oscillator_read_intval(&a->lastcorrection, sa5x_oscillator_cmd(sa5x, CMD_GET_LASTCORRECTION, sizeof(CMD_GET_LASTCORRECTION)));
+	}
+
+	if (attributes_mask & ATTR_PHASE) {
+
+		sa5x_oscillator_read_phase(&a->phaseoffset, sa5x_oscillator_cmd(sa5x, CMD_GET_PHASE, sizeof(CMD_GET_PHASE)));
+
 	}
 
 	if (attributes_mask & ATTR_STATUS) {
@@ -379,11 +398,26 @@ static int sa5x_oscillator_get_temp(struct oscillator *oscillator, double *temp)
 	return 0;
 }
 
+static int sa5x_oscillator_get_phase_error(struct oscillator *oscillator, int64_t *phase_error)
+{
+	struct sa5x_attributes a;
+	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_PHASE);
+	if (!err) {
+		*phase_error = a.phaseoffset;
+	} else {
+		*phase_error = 0;
+		return -EINVAL;
+	}
+	// we cannot propagate error further
+	return 0;
+}
+
 static const struct oscillator_factory sa5x_oscillator_factory = {
 	.class = {
 		.name = FACTORY_NAME,
 		.get_ctrl = sa5x_oscillator_get_ctrl,
 		.get_temp = sa5x_oscillator_get_temp,
+		.get_phase_error = sa5x_oscillator_get_phase_error,
 	},
 	.new = sa5x_oscillator_new,
 	.destroy = sa5x_oscillator_destroy,
