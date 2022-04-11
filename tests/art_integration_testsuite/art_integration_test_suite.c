@@ -284,33 +284,6 @@ int main(int argc, char *argv[])
             case TEST_PHASE_ERROR_TRACKING_OK:
                 /* Test passed without calibration, card is ready */
                 break;
-            case TEST_PHASE_ERROR_TRACKING_OK_WITH_CALIBRATION:
-                /* Test passed but calibration has been needed
-                 * We need to update factory coarse
-                 */
-                log_info("Test passed but factory coarse needs to be updated");
-                int mro50 = open(devices_path.mro_path, O_RDWR);
-                if (mro50 > 0) {
-                    /* Read factory coarse of the mRO50 which needs to be stored in EEPROM */
-                    ret = mro50_read_coarse(mro50, &mro50_coarse_value);
-                    close(mro50);
-                    if(ret != 0) {
-                        log_error("Could not read factory coarse value of mRO50");
-                        return -1;
-                    }
-                    log_info("Updating factory coarse in EEPROM due to calibration of the card");
-                    char command[2048];
-                    sprintf(command, "art_eeprom_format -p %s -s %s -c %d", devices_path.eeprom_path, serial_number, mro50_coarse_value);
-                    if (system(command) != 0) {
-                        log_error("Could not write EEPROM data");
-                        return -1;
-                    }
-                } else {
-                    log_error("\t- Error opening mro50 device");
-                    return -1;
-                }
-
-                break;
             case TEST_PHASE_ERROR_TRACKING_KO:
                 /* Test did not pass, card is must not be shipped */
                 return -1;
@@ -319,7 +292,6 @@ int main(int argc, char *argv[])
                 log_error("This test result is not supported !");
                 return -1;
             }
-
         }
 
     } else {

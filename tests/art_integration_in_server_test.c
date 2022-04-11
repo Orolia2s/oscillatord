@@ -265,11 +265,6 @@ int main(int argc, char *argv[])
             case TEST_PHASE_ERROR_TRACKING_OK:
                 /* Test passed without calibration, card is ready */
                 break;
-            case TEST_PHASE_ERROR_TRACKING_OK_WITH_CALIBRATION:
-                /* Test passed but calibration has been needed
-                 * We need to update factory coarse
-                 */
-                break;
             case TEST_PHASE_ERROR_TRACKING_KO:
                 /* Test did not pass, card is must not be shipped */
                 return -1;

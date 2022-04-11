@@ -7,7 +7,6 @@
 
 #define TEST_PHASE_ERROR_TRACKING_OK 0
 #define TEST_PHASE_ERROR_TRACKING_KO -1
-#define TEST_PHASE_ERROR_TRACKING_OK_WITH_CALIBRATION 1
 
 int test_phase_error_tracking(char * ocp_name, struct config *config);
 
