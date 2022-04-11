@@ -25,16 +25,25 @@
 #define CMD_SWVER                     "\\{swrev?}"
 #define CMD_SERIAL                    "{serial?}"
 #define CMD_GET_LOCKED                "{get,Locked}"
+#define CMD_GET_GNSS_PPS              "{get,PpsInDetected}"
 #define CMD_GET_PHASE                 "{get,Phase}"
 #define CMD_GET_LASTCORRECTION        "{get,LastCorrection}"
 #define CMD_GET_TEMPERATURE           "{get,Temperature}"
 #define CMD_GET_ANALOG_TUNING         "{get,AnalogTuning}"
 #define CMD_GET_DIGITAL_TUNING        "{get,DigitalTuning}"
 #define CMD_GET_ANALOG_TUNING_ENABLED "{get,AnalogTuningEnabled}"
+#define CMD_GET_TAU                   "{get,TauPps0}"
+#define CMD_SET_TAU                   "{set,TauPps0,%d}"
+#define DISCIPLINING_PHASES 3
+
+static unsigned int tau_values[DISCIPLINING_PHASES] = {50, 500, 10000};
+static unsigned int tau_interval[DISCIPLINING_PHASES] = {600, 7200, 86400}; // in seconds
 
 struct sa5x_oscillator {
 	struct oscillator oscillator;
 	int	osc_fd;
+	int disciplining_phase;
+	struct timespec disciplining_start;
 	char   version[20];      // SW Rev
 	char   serial[12];       // SerialNumber
 };
@@ -49,6 +58,7 @@ struct sa5x_attributes {
 	int32_t  temperature;		// Temperature (mDegC)
 	int32_t  digitaltuning;		// Digital Tuning (0.01Hz)
 	int32_t  analogtuning;		// Analog Tuning (mv)
+	uint32_t tau;               // Current TAU value
 	// General Status bits
 	uint8_t  ppsindetected:1;	// PpsInDetected
 	uint8_t  locked:1;		//Locked
@@ -214,14 +224,21 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	}
 
 	if (attributes_mask & ATTR_CTRL) {
-		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_LOCKED, sizeof(CMD_GET_LOCKED)));
+		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_GNSS_PPS, sizeof(CMD_GET_GNSS_PPS)));
 		if (err > 0) {
-			a->locked = val;
+			a->ppsindetected = val;
 		} else {
 			// this is the only parameter that we depend on
 			return err;
 		}
+		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_LOCKED, sizeof(CMD_GET_LOCKED)));
+		if (err > 0) {
+			a->locked = val;
+		}
 
+		if (sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_TAU, sizeof(CMD_GET_TAU))) > 0) {
+			a->tau = val;
+		}
 		sa5x_oscillator_read_intval(&a->phaseoffset, sa5x_oscillator_cmd(sa5x, CMD_GET_PHASE, sizeof(CMD_GET_PHASE)));
 
 		sa5x_oscillator_read_intval(&a->lastcorrection, sa5x_oscillator_cmd(sa5x, CMD_GET_LASTCORRECTION, sizeof(CMD_GET_LASTCORRECTION)));
@@ -253,6 +270,7 @@ static struct oscillator *sa5x_oscillator_new(struct config *config)
 	int fd;
 	char *osc_device_name;
 	struct oscillator *oscillator;
+	int cmd_len;
 
 	sa5x = calloc(1, sizeof(*sa5x));
 	if (sa5x == NULL)
@@ -286,6 +304,13 @@ static struct oscillator *sa5x_oscillator_new(struct config *config)
 		log_debug("connected to MAC with serial %s, fw: %20s", sa5x->serial, sa5x->version);
 	}
 
+	clock_gettime(CLOCK_MONOTONIC, &sa5x->disciplining_start);
+
+	cmd_len = snprintf(answer_str, answer_len, CMD_SET_TAU, tau_values[0]);
+	if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
+		log_debug("couldn't reset TAU for oscillator");
+	}
+
 	return oscillator;
 error:
 	if (sa5x->osc_fd != -1)
@@ -296,18 +321,47 @@ error:
 
 static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl)
 {
-	// Used for mRO50
 	struct sa5x_attributes a;
+	struct sa5x_oscillator *sa5x;
+	struct timespec ts;
+	bool adjust_tau = false;
+	int cmd_len;
 	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_CTRL);
 
-	ctrl->fine_ctrl = 0;
-	ctrl->coarse_ctrl = 0;
-
+	// coarse_ctrl wil contain TAU value
 	if (!err) {
-		ctrl->lock = a.locked;
+		ctrl->lock = a.ppsindetected;
+		ctrl->fine_ctrl = a.lastcorrection;
+		ctrl->coarse_ctrl = a.tau;
 	} else {
+		ctrl->fine_ctrl = -1;
+		ctrl->coarse_ctrl = 0;
 		ctrl->lock = 0;
+		return 0;
 	}
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
+	if (ctrl->lock == 0) {
+		// we are out of GNSS sync, have to restart disciplining
+		adjust_tau = (sa5x->disciplining_phase != 0);
+		sa5x->disciplining_phase = 0;
+		sa5x->disciplining_start = ts;
+	}
+
+	if (sa5x->disciplining_phase < (DISCIPLINING_PHASES - 1) &&
+	    ts.tv_sec - sa5x->disciplining_start.tv_sec > tau_interval[sa5x->disciplining_phase]) {
+		adjust_tau = true;
+		sa5x->disciplining_phase++;
+	}
+
+	if (adjust_tau) {
+		cmd_len = snprintf(answer_str, answer_len, CMD_SET_TAU, tau_values[sa5x->disciplining_phase]);
+		if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
+			log_debug("couldn't set TAU to %d", tau_values[sa5x->disciplining_phase]);
+		}
+	}
+
 	return 0;
 }
 
