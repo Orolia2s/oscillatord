@@ -17,8 +17,8 @@
 
 #include "config.h"
 #include "gnss.h"
+#include "gnss-config.h"
 #include "log.h"
-#include "f9_defvalsets.h"
 #include "utils.h"
 
 #define GNSS_CONNECT_MAX_TRY 5
@@ -249,7 +249,7 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, 
 	if (msg->size == (int) UBX_TIM_SVIN_V0_SIZE) {
 		UBX_TIME_SVIN_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
-		log_info("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
+		log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
 			gr0.dur,
 			gr0.meanX,
 			gr0.meanY,
@@ -355,15 +355,6 @@ static bool gnss_set_time_scale(RX_t *rx, uint8_t time_scale) {
 	return rxSetConfig(rx, &tp_timegrid_tp1, 1, true, false, false);
 }
 
-static bool gnss_start_survey_in(RX_t *rx) {
-	const UBLOXCFG_KEYVAL_t survey_in[3] = {
-		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_MODE, UBLOXCFG_CFG_TMODE_MODE_SURVEY_IN),
-		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_SVIN_MIN_DUR, SVIN_MIN_DUR),
-		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_SVIN_ACC_LIMIT, SVIN_ACC_LIMIT)
-	};
-	return rxSetConfig(rx, survey_in, 3, true, false, false);
-}
-
 /**
  * @brief Connect to serial device of the GNSS Receiver.
  * Try to connect a maximum of GNSS_CONNECT_MAX_TRY time
@@ -390,40 +381,44 @@ static bool gnss_connect(RX_t *rx) {
  * @return boolean indicating receiver has correctly been reset to default configuration
  */
 static bool gnss_set_default_configuration(RX_t *rx) {
-	bool receiver_reconfigured = false;
+	bool receiver_configured = false;
 	int tries = 0;
-	int ret;
-	size_t i;
-	while (!receiver_reconfigured) {
+
+	// Get default configuration
+	int nAllKvCfg;
+	UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg);
+
+	/* Check if receiver is already configured */
+	receiver_configured = check_gnss_config_in_flash(rx, allKvCfg, nAllKvCfg);
+	if (receiver_configured)
+		log_info("Receiver already configured to default configuration");
+	else
+		log_info("Receiver not configured to default configuration, starting reconfiguration");
+
+	while (!receiver_configured) {
 		log_info("Configuring receiver with ART parameters...\n");
-		for (i = 0; i < ARRAY_SIZE(ubxCfgValsetMsgs); i++)
-		{
-			ret = rxSendUbxCfg(rx, ubxCfgValsetMsgs[i].data,
-							ubxCfgValsetMsgs[i].size, 2500);
-			if (!ret) {
-				log_warn("Part of config could not been sent, possible change in baudrate, retrying...");
-				rxClose(rx);
-				if (!gnss_connect(rx))
-					return false;
-				break;
-			} else if (i == ARRAY_SIZE(ubxCfgValsetMsgs) - 1) {
-				log_info("Successfully reconfigured GNSS receiver");
-				log_debug("Performing software reset");
-				bool reset = rxReset(rx, RX_RESET_SOFT);
-				if (reset) {
-					log_info("Software reset performed");
-					receiver_reconfigured = true;
-				}
+		bool res = rxSetConfig(rx, allKvCfg, nAllKvCfg, true, true, true);
+
+		if (res) {
+			log_info("Successfully reconfigured GNSS receiver");
+			log_debug("Performing hardware reset");
+			if (!rxReset(rx, RX_RESET_HARD)) {
+				free(allKvCfg);
+				return false;
 			}
+			log_info("hardware reset performed");
+			receiver_configured = true;
 		}
 
 		if (tries < GNSS_RECONFIGURE_MAX_TRY)
 			tries++;
 		else {
 			log_error("Could not reconfigure GNSS receiver from default config\n");
+			free(allKvCfg);
 			return false;
 		}
 	}
+	free(allKvCfg);
 	return true;
 }
 
@@ -752,11 +747,11 @@ static void * gnss_thread(void * p_data)
 					struct timedelta_t td;
 					ntp_latch(session, &td);
 					log_gnss_data(session);
-					pthread_cond_signal(&gnss->cond_data);
 				} else {
 					session->fix = MODE_NO_FIX;
 					session->fixOk = false;
 				}
+				pthread_cond_signal(&gnss->cond_data);
 
 				if (session->tai_time_set)
 					pthread_cond_signal(&gnss->cond_time);
@@ -785,10 +780,8 @@ static void * gnss_thread(void * p_data)
 						break;
 					case SURVEY_IN_KO:
 					default:
-						log_error("Survey In did not complete in time. GNSS conditions are not stable enough");
+						log_error("Survey In did not complete in time. GNSS conditions are not stable enough for optimal timing performance");
 						log_error("Please check your antenna setup (antenna on roof is way more precise) to pass survey in.");
-						pthread_mutex_unlock(&gnss->mutex_data);
-						goto gnss_close;
 						break;
 					}
 
@@ -808,7 +801,6 @@ static void * gnss_thread(void * p_data)
 		pthread_mutex_unlock(&gnss->mutex_data);
 	}
 
-gnss_close:
 	log_debug("Closing gnss session");
 	rxClose(gnss->rx);
 	free(gnss->rx);

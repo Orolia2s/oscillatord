@@ -298,7 +298,7 @@ int main(int argc, char *argv[])
 				error(EXIT_FAILURE, -ret, "apply_phase_offset");
 			sleep(SETTLING_TIME);
 
-			/* Init PTP clock time */
+			/* Check PTP Clock time is properly set */
 			log_info("Reset PTP Clock time after rough alignment to GNSS");
 			ret = gnss_set_ptp_clock_time(gnss);
 			if (ret != 0) {
@@ -434,8 +434,7 @@ int main(int argc, char *argv[])
 						error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
 				}
 
-			} else {
-				if (output.action == SAVE_DISCIPLINING_PARAMETERS) {
+			} else if (output.action == SAVE_DISCIPLINING_PARAMETERS) {
 					ret = od_get_disciplining_parameters(od, &disciplining_parameters);
 					if (ret != 0)
 						log_error("Could not get discipling parameters from disciplining algorithm");
@@ -451,11 +450,10 @@ int main(int argc, char *argv[])
 						log_warn("Could not disable calibration at boot in config at %s", path);
 						log_warn("If you restart oscillatord calibration will be done again !");
 					}
-				} else {
-					ret = oscillator_apply_output(oscillator, &output);
-					if (ret < 0)
-						error(EXIT_FAILURE, -ret, "oscillator_apply_output");
-				}
+			} else {
+				ret = oscillator_apply_output(oscillator, &output);
+				if (ret < 0)
+					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
 			}
 		}
 
