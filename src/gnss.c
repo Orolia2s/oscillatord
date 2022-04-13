@@ -357,15 +357,6 @@ static bool gnss_set_time_scale(RX_t *rx, uint8_t time_scale) {
 	return rxSetConfig(rx, &tp_timegrid_tp1, 1, true, false, false);
 }
 
-static bool gnss_start_survey_in(RX_t *rx) {
-	const UBLOXCFG_KEYVAL_t survey_in[3] = {
-		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_MODE, UBLOXCFG_CFG_TMODE_MODE_SURVEY_IN),
-		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_SVIN_MIN_DUR, SVIN_MIN_DUR),
-		UBLOXCFG_KEYVAL_ANY(CFG_TMODE_SVIN_ACC_LIMIT, SVIN_ACC_LIMIT)
-	};
-	return rxSetConfig(rx, survey_in, 3, true, false, false);
-}
-
 /**
  * @brief Connect to serial device of the GNSS Receiver.
  * Try to connect a maximum of GNSS_CONNECT_MAX_TRY time
@@ -808,7 +799,6 @@ static void * gnss_thread(void * p_data)
 		pthread_mutex_unlock(&gnss->mutex_data);
 	}
 
-gnss_close:
 	log_debug("Closing gnss session");
 	rxClose(gnss->rx);
 	free(gnss->rx);
