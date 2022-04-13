@@ -124,8 +124,6 @@ static void prepare_minipod_config(struct minipod_config* minipod_config, struct
 	minipod_config->reactivity_power = config_get_unsigned_number(config, "reactivity_power");
 	minipod_config->ref_fluctuations_ns = config_get_unsigned_number(config, "ref_fluctuations_ns");
 	minipod_config->oscillator_factory_settings = config_get_bool_default(config, "oscillator_factory_settings", true);
-	const char * alpha = config_get(config, "global_alpha");
-	minipod_config->alpha_global = alpha ? strtof(alpha, NULL) : GLOBAL_ALPHA_DEFAULT;
 }
 
 /**
