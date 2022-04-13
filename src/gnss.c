@@ -768,7 +768,7 @@ static void * gnss_thread(void * p_data)
 					gnss_parse_ubx_nav_timels(session, msg);
 				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_TP_MSGID)
 					gnss_parse_ubx_tim_tp(session, msg);
-				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID && !survey_completed) {
+				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID && !survey_completed && !gnss->session->bypass_survey) {
 					switch (gnss_parse_ubx_tim_svin(session, msg)) {
 					case SURVEY_IN_COMPLETED:
 						survey_completed = true;
