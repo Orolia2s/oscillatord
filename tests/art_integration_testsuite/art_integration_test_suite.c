@@ -227,13 +227,11 @@ int main(int argc, char *argv[])
 {
     struct devices_path devices_path;
     struct config config;
-    uint32_t mro50_coarse_value;
     char *serial_number = NULL;
     char *sysfs_path = NULL;
     char ocp_name[100];
     char temp[1024];
     int ocp_number;
-    int ret;
     int c;
 
     log_set_level(LOG_DEBUG);
