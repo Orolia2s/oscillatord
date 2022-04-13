@@ -89,7 +89,6 @@ int main(int argc, char *argv[]) {
 		const char *status = json_object_get_string(layer_2);
 		log_info("Disciplining detected");
 		log_info("\t- Current status: %s", status);
-		log_info("\t- Phase error: %d", phase_error);
 	}
 
 	/* Oscillator */
@@ -111,6 +110,18 @@ int main(int argc, char *argv[]) {
 		log_info("\t- coarse_ctrl: %u", coarse_ctrl);
 		log_info("\t- lock: %s", lock ? "True" : "False");
 		log_info("\t- temperature: %f", temperature);
+	}
+
+	/* Oscillator */
+	json_object_object_get_ex(obj, "clock", &layer_1);
+	if (layer_1 != NULL) {
+		json_object_object_get_ex(layer_1, "class", &layer_2);
+		const char * class = json_object_get_string(layer_2);
+		json_object_object_get_ex(layer_1, "offset", &layer_2);
+		int32_t offset = json_object_get_int(layer_2);
+		log_info("Clock detected");
+		log_info("\t- class: %s", class);
+		log_info("\t- offset: %d", offset);
 	}
 
 	/* GNSS */
