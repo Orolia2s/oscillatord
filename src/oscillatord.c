@@ -398,9 +398,7 @@ int main(int argc, char *argv[])
 			input = (struct od_input) {0};
 
 			/* Process output result of the algorithm */
-			if (output.action == NO_OP) {
-				continue;
-			} else if (output.action == PHASE_JUMP) {
+			if (output.action == PHASE_JUMP) {
 				log_info("Phase jump requested");
 				ret = apply_phase_offset(
 					fd_clock,
@@ -416,7 +414,7 @@ int main(int argc, char *argv[])
 				log_info("Calibration requested");
 				if (monitoring_mode) {
 					pthread_mutex_lock(&monitoring->mutex);
-					monitoring->disciplining_status =od_get_status(od);
+					od_get_monitoring_data(od, &monitoring->disciplining);
 					pthread_mutex_unlock(&monitoring->mutex);
 				}
 				struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
@@ -449,10 +447,23 @@ int main(int argc, char *argv[])
 						log_warn("Could not disable calibration at boot in config at %s", path);
 						log_warn("If you restart oscillatord calibration will be done again !");
 					}
-			} else {
+			} else if (output.action != NO_OP) {
 				ret = oscillator_apply_output(oscillator, &output);
 				if (ret < 0)
 					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
+			}
+		} else {
+			/* Retrieve value for monitoring */
+			ret = oscillator_get_temp(oscillator, &temperature);
+			if (ret == -ENOSYS)
+				temperature = 0;
+			else if (ret < 0)
+				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
+
+			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
+			if (ret != 0) {
+				log_warn("Could not get control values of oscillator");
+				continue;
 			}
 		}
 
@@ -470,11 +481,17 @@ int main(int argc, char *argv[])
 				monitoring->satellites_count = gnss->session->satellites_count;
 				pthread_mutex_unlock(&gnss->mutex_data);
 			}
-			monitoring->disciplining_status = od_get_status(od);
+			if (disciplining_mode) {
+				if(od_get_monitoring_data(od, &monitoring->disciplining) != 0) {
+					log_warn("Could not get disciplining data");
+					monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
+					monitoring->disciplining.status = INIT;
+				}
+				monitoring->phase_error = sign * phase_error;
+				monitoring->tracking_only = minipod_config.tracking_only;
+			}
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
-			if (disciplining_mode)
-				monitoring->phase_error = sign * phase_error;
 			if (monitoring->request == REQUEST_CALIBRATION) {
 				log_info("Calibration requested through monitoring interface");
 				input.calibration_requested = true;
