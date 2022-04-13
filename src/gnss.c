@@ -518,6 +518,9 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 		config,
 		"gnss-bypass-survey",
 		false);
+	if (gnss->session->bypass_survey) {
+		log_warn("GNSS Survey In will be bypassed, true timing performance might not be reached");
+	}
 
 	pthread_mutex_init(&gnss->mutex_data, NULL);
 	pthread_cond_init(&gnss->cond_time, NULL);
