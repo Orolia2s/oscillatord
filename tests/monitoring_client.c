@@ -85,8 +85,11 @@ int main(int argc, char *argv[]) {
 	if (layer_1 != NULL) {
 		json_object_object_get_ex(layer_1, "status", &layer_2);
 		const char *status = json_object_get_string(layer_2);
+		json_object_object_get_ex(layer_1, "tracking_only", &layer_2);
+		const char *tracking_only = json_object_get_string(layer_2);
 		log_info("Disciplining detected");
 		log_info("\t- Current status: %s", status);
+		log_info("\t- tracking_only: %s", tracking_only);
 	}
 
 	/* Oscillator */
