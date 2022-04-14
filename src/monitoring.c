@@ -190,6 +190,11 @@ static void handle_client(struct monitoring *monitoring, int fd)
 							status_string[monitoring->disciplining.status]
 						)
 					);
+					json_object_object_add(disciplining, "tracking_only",
+						json_object_new_string(
+							monitoring->tracking_only ? "true" : "false"
+						)
+					);
 					json_object_object_add(json_resp, "disciplining", disciplining);
 
 					/* Add clock class data */

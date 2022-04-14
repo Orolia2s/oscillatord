@@ -490,6 +490,7 @@ int main(int argc, char *argv[])
 					monitoring->disciplining.status = INIT;
 				}
 				monitoring->phase_error = sign * phase_error;
+				monitoring->tracking_only = minipod_config.tracking_only;
 			}
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
