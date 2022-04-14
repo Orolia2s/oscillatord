@@ -5,22 +5,19 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <oscillator-disciplining/oscillator-disciplining.h>
 #include "monitoring.h"
 #include "log.h"
 
 #define SOCKET_TIMEOUT 2
 
-const char *status_string[5] = {
-	"Initialization",
-	"Disciplining",
-	"Holdover",
-	"Calibration",
-	"Unknown"
-};
-
-
 static void * monitoring_thread(void * p_data);
+
+const char *clock_class_string[CLOCK_CLASS_NUM] = {
+	"Uncalibrated",
+	"Calibrating",
+	"Holdover",
+	"Lock"
+};
 
 /**
  * @brief Create monitoring structure from config
@@ -61,7 +58,8 @@ struct monitoring* monitoring_init(const struct config *config)
 	monitoring->stop = false;
 	monitoring->disciplining_mode = config_get_bool_default(config, "disciplining", false);
 
-	monitoring->disciplining_status = 4;
+	monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
+	monitoring->disciplining.status = INIT;
 	monitoring->ctrl_values.fine_ctrl = -1;
 	monitoring->ctrl_values.coarse_ctrl = -1;
 	monitoring->ctrl_values.lock = false;
@@ -189,12 +187,25 @@ static void handle_client(struct monitoring *monitoring, int fd)
 					struct json_object *disciplining = json_object_new_object();
 					json_object_object_add(disciplining, "status",
 						json_object_new_string(
-							status_string[monitoring->disciplining_status]
+							status_string[monitoring->disciplining.status]
 						)
 					);
-					json_object_object_add(disciplining, "phase_error",
-						json_object_new_int(monitoring->phase_error));
+					json_object_object_add(disciplining, "tracking_only",
+						json_object_new_string(
+							monitoring->tracking_only ? "true" : "false"
+						)
+					);
 					json_object_object_add(json_resp, "disciplining", disciplining);
+
+					/* Add clock class data */
+					struct json_object *clock = json_object_new_object();
+					json_object_object_add(clock, "class",
+						json_object_new_string(clock_class_string[monitoring->disciplining.clock_class])
+					);
+					json_object_object_add(clock, "offset",
+						json_object_new_int(monitoring->phase_error));
+
+					json_object_object_add(json_resp, "clock", clock);
 				}
 
 				struct json_object *oscillator = json_object_new_object();
@@ -244,6 +255,7 @@ static void handle_client(struct monitoring *monitoring, int fd)
 			}
 		} else {
 			log_warn("Socket timeout !");
+			usleep(100000);
 		}
 		pthread_mutex_lock(&monitoring->mutex);
 		stop = monitoring->stop;

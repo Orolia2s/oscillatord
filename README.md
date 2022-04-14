@@ -74,6 +74,7 @@ The daemon can be terminated with a **SIGINT** (Ctrl+C) or a **SIGTERM**.
 ## Oscillators supported
 
 * **mRO50**
+* **sa3x/sa5x (monitoring only)**
 
 ## Configuration
 
@@ -88,21 +89,53 @@ considered as part of, respectively, the **key** or the **value**.
 
 ### Common configuration keys
 
+#### Oscillatord Modes
+* **disciplining**: Wether oscillatord should discipline the oscillator or not
+* **monitoring**: Wether oscillatord should expose a socket to send monitoring data
+  * **socket-address**: Monitoring's socket address
+  * **socket-port**: Monitoring's socket port
 * **oscillator**: name of the oscillator to use, accepted: mRO50 only **Required**.
+
+:warning: At least **monitoring** or **disciplining** should be set to **true** for program to work.
+
+#### Devices paths and configuration
 * **ptp-clock**: path to the PHC used to get the phase error and set time **Required**.
-* **mro50-device**: Path the the mro50 device used to control the oscillator
-**Required**
-* **pps-device**: path to the 1PPS phase error device.
-**Required**.
-* **gnss-device-tty**: path to the device tty (e.g /dev/ttyS2)
-**Required**.
-* **opposite-phase-error**: if **true**, the opposite of the phase error
-reported by the 1PPS phase error device, will be fed into
-**disciplining-minipod**.
-Any other value means **false**.
+* **mro50-device**: Path the the mro50 device used to control the oscillator **Required**
+* **pps-device**: path to the 1PPS phase error device. will trigger write to Chrony SHM. **Optional**.
+* **gnss-device-tty**: path to the device tty (e.g /dev/ttyS2) **Required**.
+  * **gnss-receiver-reconfigure**: if set to **true**, Oscillatord will check if gnss receiver is configured as specified in the [default configuration file](common/f9_defvalsets.c)
+  * **gnss-bypass-survey**: Wether to bypass surveyIn error display if GNSS's Survey in fails
+
+#### Oscillatord runtime var
 * **debug**: set debug level.
 
-It also contains configuration keys for disciplining-minipod program (check [default config](./example_configurationns/oscillatord_default.conf) for description of parameters)
+#### Algorithm parameters
+* **oscillator_factory_settings**: Define wether to use factory settings or not for calibration parameters
+* **tracking_only**: Set the track only mode
+
+#### Disciplining algorithm-related variables
+* **opposite-phase-error**: if **true**, the opposite of the phase error
+reported by the 1PPS phase error device, will be fed into **disciplining-minipod**. Any other value means **false**.
+* **calibrate_first**: Wether to start calibration at boot
+* **phase_resolution_ns**: Phasemeter resolution, depend on the card.
+* **ref_fluctuations_ns**: Reference fluctuation of phase error
+* **phase_jump_threshold_ns**: Limit upon which a phasejump is requested
+* **reactivity_min/max.power**: Reactivity parameters of the algorithm
+* **fine_stop_tolerance**: Tolerance authorized for estimated equilibrium in algorithm
+* **max_allowed_coarse**: Maximum allowed delta coarse
+* **nb_calibration**: Number of phase error measures to get for each control points when doing a calibration
+
+check [default config](./example_configurations/oscillatord_default.conf) for description and default values of parameters
+
+## GNSS SurveyIn
+
+Oscillatord ask for GNSS receiver to perform a SurveyIn so that it may enter Time mode.
+
+During SurveyIn the gnss receiver tries to estimate its position with a certain accuracy (9m default set in our config)
+
+Once it has reached the specified accuracy it will switch to TIME mode which will improve timing performance
+
+Please see [Ublox F9T Interface Description](https://www.u-blox.com/en/docs/UBX-19003606) for further details
 
 ## ART Integration tests
 

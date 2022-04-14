@@ -70,6 +70,7 @@ UBX-RXM-SFRBX              0   0   0   0   0               # default:   0   0   
 UBX-TIM-TM2                0   0   0   0   0               # default:   0   0   0   0   0
 UBX-TIM-TP                 1   1   1   1   1               # default:   0   0   0   0   0
 UBX-TIM-VRFY               0   0   0   0   0               # default:   0   0   0   0   0
+UBX-TIM-SVIN               1   1   1   1   1               # default:   0   0   0   0   0
 CFG-GEOFENCE-CONFLVL               L000                    # default: L000                      (type E1)
 CFG-GEOFENCE-USE_PIO               false                   # default: false                     (type L)
 CFG-GEOFENCE-PINPOL                LOW_IN                  # default: LOW_IN                    (type E1)
@@ -228,7 +229,7 @@ CFG-SPI-CPOLARITY                  false                   # default: false     
 CFG-SPI-CPHASE                     false                   # default: false                     (type L)
 CFG-SPI-EXTENDEDTIMEOUT            false                   # default: false                     (type L)
 CFG-SPI-ENABLED                    false                   # default: false                     (type L)
-CFG-TMODE-MODE                     DISABLED                # default: DISABLED                  (type E1)
+CFG-TMODE-MODE                     SURVEY_IN               # default: DISABLED                  (type E1)
 CFG-TMODE-POS_TYPE                 ECEF                    # default: ECEF                      (type E1)
 CFG-TMODE-ECEF_X                   0                       # default: 0                         (type I4 [cm])
 CFG-TMODE-ECEF_Y                   0                       # default: 0                         (type I4 [cm])
@@ -243,8 +244,8 @@ CFG-TMODE-LAT_HP                   0                       # default: 0         
 CFG-TMODE-LON_HP                   0                       # default: 0                         (type I1 [deg])
 CFG-TMODE-HEIGHT_HP                0                       # default: 0                         (type I1 [mm])
 CFG-TMODE-FIXED_POS_ACC            0                       # default: 0                         (type U4 [mm])
-CFG-TMODE-SVIN_MIN_DUR             0                       # default: 0                         (type U4 [s])
-CFG-TMODE-SVIN_ACC_LIMIT           0                       # default: 0                         (type U4 [mm])
+CFG-TMODE-SVIN_MIN_DUR             1200                    # default: 0                         (type U4 [s])
+CFG-TMODE-SVIN_ACC_LIMIT           90000                  # default: 0                         (type U4 [mm])
 CFG-TP-PULSE_DEF                   PERIOD                  # default: PERIOD                    (type E1)
 CFG-TP-PULSE_LENGTH_DEF            LENGTH                  # default: RATIO                     (type E1)
 CFG-TP-ANT_CABLEDELAY              50                      # default: 50                        (type I2 [s])

@@ -212,12 +212,10 @@ int main(int argc, char *argv[])
 {
     struct devices_path devices_path;
     struct config config;
-    uint32_t mro50_coarse_value;
     char *sysfs_path = NULL;
     char ocp_name[100];
     char temp[1024];
     int ocp_number;
-    int ret;
     int c;
 
     log_set_level(LOG_DEBUG);
@@ -264,11 +262,6 @@ int main(int argc, char *argv[])
             switch(test_phase_error_tracking(ocp_name, &config)) {
             case TEST_PHASE_ERROR_TRACKING_OK:
                 /* Test passed without calibration, card is ready */
-                break;
-            case TEST_PHASE_ERROR_TRACKING_OK_WITH_CALIBRATION:
-                /* Test passed but calibration has been needed
-                 * We need to update factory coarse
-                 */
                 break;
             case TEST_PHASE_ERROR_TRACKING_KO:
                 /* Test did not pass, card is must not be shipped */

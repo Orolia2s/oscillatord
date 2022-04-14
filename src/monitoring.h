@@ -12,6 +12,7 @@
 #define MONITORING_H
 
 #include <pthread.h>
+#include <oscillator-disciplining/oscillator-disciplining.h>
 #include "config.h"
 #include "oscillator.h"
 
@@ -28,9 +29,9 @@ struct monitoring {
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
 	enum monitoring_request request;
+	struct od_monitoring disciplining;
 	struct oscillator_ctrl ctrl_values;
 	const char *oscillator_model;
-	int disciplining_status;
 	int64_t phase_error;
 	int fix;
 	int satellites_count;
@@ -43,6 +44,7 @@ struct monitoring {
 	bool fixOk;
 	bool stop;
 	bool disciplining_mode;
+	bool tracking_only;
 };
 
 struct monitoring* monitoring_init(const struct config *config);

@@ -4,7 +4,7 @@
 #include <ubloxcfg/ff_rx.h>
 #include <ubloxcfg/ff_ubx.h>
 
-#include "f9_defvalsets.h"
+#include "gnss-config.h"
 #include "gnss_serial_test.h"
 #include "log.h"
 
@@ -18,8 +18,6 @@ bool test_gnss_serial(char * path)
     bool got_mon_rf_message = false;
     bool got_nav_timels_message = false;
     bool got_tim_tp_message = false;
-    uint i = 0;
-    int ret = -1;
     int tries = 0;
 
     if (path == NULL) {
@@ -38,25 +36,27 @@ bool test_gnss_serial(char * path)
         return false;
     }
 
+    // Get default configuration
+    int nAllKvCfg;
+    UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg);
+
     // Send Default configuration to GNSS receiver
     bool receiver_reconfigured = false;
     tries = 0;
     log_info("configuring receiver with default configuration for ART Card\n");
     while (!receiver_reconfigured) {
-        for (i = 0; i < ARRAY_SIZE(ubxCfgValsetMsgs); i++)
-        {
-            ret = rxSendUbxCfg(rx, ubxCfgValsetMsgs[i].data,
-                            ubxCfgValsetMsgs[i].size, 2500);
-            if (!ret) {
-            } else if (i == ARRAY_SIZE(ubxCfgValsetMsgs) - 1) {
-                log_info("Successfully reconfigured gnss receiver");
-                log_debug("Performing software reset");
-                bool reset = rxReset(rx, RX_RESET_SOFT);
-                if (reset) {
-                    log_info("Software reset performed");
-                    receiver_reconfigured = true;
-                }
+        log_info("Configuring receiver with ART parameters...\n");
+        bool res = rxSetConfig(rx, allKvCfg, nAllKvCfg, true, true, true);
+
+        if (res) {
+            log_info("Successfully reconfigured GNSS receiver");
+            log_debug("Performing software reset");
+            if (!rxReset(rx, RX_RESET_SOFT)) {
+                free(allKvCfg);
+                return false;
             }
+            log_info("Software reset performed");
+            receiver_reconfigured = true;
         }
 
         if (tries < GNSS_RECONFIGURE_MAX_TRY) {

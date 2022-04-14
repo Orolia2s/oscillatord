@@ -83,6 +83,8 @@ struct gps_context_t {
 	bool batteryRTC;
 	speed_t fixed_port_speed;           // Fixed port speed, if non-zero
 	char fixed_port_framing[4];         // Fixed port framing, if non-blank
+	int32_t qErr;                       // Quantization Error of current Epoch
+	int32_t qErr_last_epoch;                       // Quantization Error of last Epoch
 	/* DGPS status */
 	int fixcnt;                         /* count of good fixes seen */
 	/* timekeeping */
@@ -145,6 +147,8 @@ struct gps_device_t {
 	int tai_time;
 	/** Number of satellites used */
 	int satellites_count;
+	/** Wether Survey In should be bypassed or not */
+	bool bypass_survey;
 };
 
 /**
@@ -158,12 +162,13 @@ struct gnss {
 	pthread_t thread;
 	pthread_mutex_t mutex_data;
 	pthread_cond_t cond_time;
+	pthread_cond_t cond_data;
 	int fd_clock;
 	bool stop;
 };
 
 struct gnss* gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock);
-bool gnss_get_valid(struct gnss *gnss);
+int gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr);
 void gnss_stop(struct gnss *gnss);
 int gnss_set_ptp_clock_time(struct gnss *gnss);
 

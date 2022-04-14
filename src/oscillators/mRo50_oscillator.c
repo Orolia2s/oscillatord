@@ -157,8 +157,9 @@ static int mRO50_oscillator_get_temp(struct oscillator *oscillator, double *temp
 static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct od_output *output)
 {
 	struct mRo50_oscillator *mRo50;
-	int ret;
 	int command;
+	int ret;
+
 
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 	
@@ -173,18 +174,16 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 		log_error("Action is %d", output->action);
 		return 0;
 	}
-
 	ret = ioctl(mRo50->osc_fd, command, &output->setpoint);
 	if (ret != 0) {
 		log_error("Could not prepare command request to adjust fine frequency, error %d", ret);
 		return -1;
 	}
-
 	return 0;
 }
 
 static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator *oscillator,
-		struct phasemeter *phasemeter, struct calibration_parameters *calib_params,
+		struct phasemeter *phasemeter, struct gnss *gnss, struct calibration_parameters *calib_params,
 		int phase_sign)
 {
 	struct mRo50_oscillator *mRo50;
@@ -245,11 +244,20 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 				results = NULL;
 				return NULL;
 			}
+			/* Get qErr in ps*/
+			int32_t qErr;
+			if (gnss_get_epoch_data(gnss, NULL, &qErr) != 0) {
+				log_error("Could not get gnss data");
+				free(results->measures);
+				results->measures = NULL;
+				free(results);
+				results = NULL;
+				return NULL;
+			}
 			
-			*(results->measures + i * results->nb_calibration + j) = (struct timespec) {
-				.tv_sec = phase_sign * phase_error / NS_IN_SECOND,
-				.tv_nsec = phase_sign * phase_error % NS_IN_SECOND,
-			};
+			*(results->measures + i * results->nb_calibration + j) = phase_error + (float) qErr / 1000;
+			log_debug("ctrl_point %d measure[%d]: phase error = %lld, qErr = %f, result = %f",
+				ctrl_point, j, phase_error, qErr, phase_error + (float) qErr / 1000);
 			sleep(1);
 		}
 	}

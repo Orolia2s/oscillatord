@@ -124,6 +124,7 @@ static void prepare_minipod_config(struct minipod_config* minipod_config, struct
 	minipod_config->reactivity_power = config_get_unsigned_number(config, "reactivity_power");
 	minipod_config->ref_fluctuations_ns = config_get_unsigned_number(config, "ref_fluctuations_ns");
 	minipod_config->oscillator_factory_settings = config_get_bool_default(config, "oscillator_factory_settings", true);
+	minipod_config->tracking_only = config_get_bool_default(config, "tracking_only", true);
 }
 
 /**
@@ -275,7 +276,7 @@ int main(int argc, char *argv[])
 		log_info("Initialize time of ptp clock %s", ptp_clock);
 		ret = gnss_set_ptp_clock_time(gnss);
 		if (ret != 0) {
-			log_error("Could not set ptp clock time");
+			log_error("Could not set ptp clock time: err %d", ret);
 			return -EINVAL;
 		}
 
@@ -296,7 +297,7 @@ int main(int argc, char *argv[])
 				error(EXIT_FAILURE, -ret, "apply_phase_offset");
 			sleep(SETTLING_TIME);
 
-			/* Init PTP clock time */
+			/* Check PTP Clock time is properly set */
 			log_info("Reset PTP Clock time after rough alignment to GNSS");
 			ret = gnss_set_ptp_clock_time(gnss);
 			if (ret != 0) {
@@ -326,25 +327,25 @@ int main(int argc, char *argv[])
 
 	/* Main Loop */
 	while(loop) {
-		ret = oscillator_get_temp(oscillator, &temperature);
-		if (ret == -ENOSYS)
-			temperature = 0;
-		else if (ret < 0)
-			error(EXIT_FAILURE, -ret, "oscillator_get_temp");
-
-		/* Get Oscillator control values needed
-		 * for the disciplining algorithm
-		 */
-		ret = oscillator_get_ctrl(oscillator, &ctrl_values);
-		if (ret != 0) {
-			log_warn("Could not get control values of oscillator");
-			continue;
-		}
-
 
 		if (disciplining_mode) {
 			/* Get Phase error and status*/
 			phasemeter_status = get_phase_error(phasemeter, &phase_error);
+
+			ret = oscillator_get_temp(oscillator, &temperature);
+			if (ret == -ENOSYS)
+				temperature = 0;
+			else if (ret < 0)
+				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
+
+			/* Get Oscillator control values needed
+			* for the disciplining algorithm
+			*/
+			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
+			if (ret != 0) {
+				log_warn("Could not get control values of oscillator");
+				continue;
+			}
 
 			if (ignore_next_irq) {
 				log_debug("ignoring 1 input due to phase jump");
@@ -356,22 +357,33 @@ int main(int argc, char *argv[])
 				&& phasemeter_status != PHASEMETER_NO_GNSS_TIMESTAMPS)
 				continue;
 
+			if (output.action == ADJUST_FINE && output.setpoint != ctrl_values.fine_ctrl) {
+				log_error("Could not apply output to mro50");
+				log_error("Requested value was %u, control value read is %u", output.setpoint, ctrl_values.fine_ctrl);
+				error(EXIT_FAILURE, -EIO, "apply_output");
+			}
+
 			/* Fills in input structure for disciplining algorithm */
 			input.coarse_setpoint = ctrl_values.coarse_ctrl;
 			input.fine_setpoint = ctrl_values.fine_ctrl;
+			input.temperature = temperature;
 			input.lock = ctrl_values.lock;
 			input.phase_error = (struct timespec) {
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
-			input.valid = gnss_get_valid(gnss);
-			input.temperature = temperature;
+			if (gnss_get_epoch_data(gnss, &input.valid, &input.qErr) != 0) {
+				log_error("Error getting GNSS data, exiting");
+				break;
+			}
 
-			log_info("input: phase_error = (%lds, %09ldns),"
-				"valid = %s, lock = %s, fine = %d, coarse = %d, temp = %.1f°C, calibration requested: %s",
+			log_info("input: phase_error = (%lds, %09ldns), "
+				"valid = %s, qErr = %d,lock = %s, fine = %d, "
+				"coarse = %d, temp = %.1f°C, calibration requested: %s",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
 				input.valid ? "true" : "false",
+				input.qErr,
 				input.lock ? "true" : "false",
 				input.fine_setpoint,
 				input.coarse_setpoint,
@@ -402,14 +414,14 @@ int main(int argc, char *argv[])
 				log_info("Calibration requested");
 				if (monitoring_mode) {
 					pthread_mutex_lock(&monitoring->mutex);
-					monitoring->disciplining_status =od_get_status(od);
+					od_get_monitoring_data(od, &monitoring->disciplining);
 					pthread_mutex_unlock(&monitoring->mutex);
 				}
 				struct calibration_parameters * calib_params = od_get_calibration_parameters(od);
 				if (calib_params == NULL)
 					error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
 
-				struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, calib_params, sign);
+				struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, gnss, calib_params, sign);
 				if (results != NULL)
 					od_calibrate(od, calib_params, results);
 				else {
@@ -419,8 +431,7 @@ int main(int argc, char *argv[])
 						error(EXIT_FAILURE, -ENOMEM, "oscillator_calibrate");
 				}
 
-			} else {
-				if (output.action == SAVE_DISCIPLINING_PARAMETERS) {
+			} else if (output.action == SAVE_DISCIPLINING_PARAMETERS) {
 					ret = od_get_disciplining_parameters(od, &disciplining_parameters);
 					if (ret != 0)
 						log_error("Could not get discipling parameters from disciplining algorithm");
@@ -436,33 +447,51 @@ int main(int argc, char *argv[])
 						log_warn("Could not disable calibration at boot in config at %s", path);
 						log_warn("If you restart oscillatord calibration will be done again !");
 					}
-				} else {
-					ret = oscillator_apply_output(oscillator, &output);
-					if (ret < 0)
-						error(EXIT_FAILURE, -ret, "oscillator_apply_output");
-				}
+			} else if (output.action != NO_OP) {
+				ret = oscillator_apply_output(oscillator, &output);
+				if (ret < 0)
+					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
+			}
+		} else {
+			/* Retrieve value for monitoring */
+			ret = oscillator_get_temp(oscillator, &temperature);
+			if (ret == -ENOSYS)
+				temperature = 0;
+			else if (ret < 0)
+				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
+
+			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
+			if (ret != 0) {
+				log_warn("Could not get control values of oscillator");
+				continue;
 			}
 		}
-
-		sleep(SETTLING_TIME);
 
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
 			pthread_mutex_lock(&monitoring->mutex);
-			pthread_mutex_lock(&gnss->mutex_data);
-			monitoring->antenna_power = gnss->session->antenna_power;
-			monitoring->antenna_status = gnss->session->antenna_status;
-			monitoring->fix = gnss->session->fix;
-			monitoring->fixOk = gnss->session->fixOk;
-			monitoring->leap_seconds = gnss->session->context->leap_seconds;
-			monitoring->lsChange = gnss->session->context->lsChange;
-			monitoring->satellites_count = gnss->session->satellites_count;
-			pthread_mutex_unlock(&gnss->mutex_data);
-			monitoring->disciplining_status = od_get_status(od);
+			if (gnss) {
+				pthread_mutex_lock(&gnss->mutex_data);
+				monitoring->antenna_power = gnss->session->antenna_power;
+				monitoring->antenna_status = gnss->session->antenna_status;
+				monitoring->fix = gnss->session->fix;
+				monitoring->fixOk = gnss->session->fixOk;
+				monitoring->leap_seconds = gnss->session->context->leap_seconds;
+				monitoring->lsChange = gnss->session->context->lsChange;
+				monitoring->satellites_count = gnss->session->satellites_count;
+				pthread_mutex_unlock(&gnss->mutex_data);
+			}
+			if (disciplining_mode) {
+				if(od_get_monitoring_data(od, &monitoring->disciplining) != 0) {
+					log_warn("Could not get disciplining data");
+					monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
+					monitoring->disciplining.status = INIT;
+				}
+				monitoring->phase_error = sign * phase_error;
+				monitoring->tracking_only = minipod_config.tracking_only;
+			}
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
-			if (disciplining_mode)
-				monitoring->phase_error = sign * phase_error;
 			if (monitoring->request == REQUEST_CALIBRATION) {
 				log_info("Calibration requested through monitoring interface");
 				input.calibration_requested = true;
@@ -481,6 +510,13 @@ int main(int argc, char *argv[])
 
 	if (disciplining_mode) {
 		phasemeter_stop(phasemeter);
+		ret = od_get_disciplining_parameters(od, &disciplining_parameters);
+		if (ret != 0)
+			log_error("Could not get discipling parameters from disciplining algorithm");
+		ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
+		if (ret < 0)
+			error(EXIT_FAILURE, -ret, "oscillator_update_disciplining_parameters");
+		log_info("Saved calibration parameters into EEPROM");
 		od_destroy(&od);
 	}
 	if (monitoring_mode)
