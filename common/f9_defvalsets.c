@@ -247,7 +247,7 @@ const char default_configuration[284][128] = {
     "CFG-TMODE-HEIGHT_HP                0",
     "CFG-TMODE-FIXED_POS_ACC            0",
     "CFG-TMODE-SVIN_MIN_DUR             1200",
-    "CFG-TMODE-SVIN_ACC_LIMIT           100000",
+    "CFG-TMODE-SVIN_ACC_LIMIT           90000",
     "CFG-TP-PULSE_DEF                   PERIOD",
     "CFG-TP-PULSE_LENGTH_DEF            LENGTH",
     "CFG-TP-ANT_CABLEDELAY              50",
