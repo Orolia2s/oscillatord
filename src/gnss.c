@@ -403,12 +403,12 @@ static bool gnss_set_default_configuration(RX_t *rx) {
 
 		if (res) {
 			log_info("Successfully reconfigured GNSS receiver");
-			log_debug("Performing software reset");
+			log_debug("Performing hardware reset");
 			if (!rxReset(rx, RX_RESET_HARD)) {
 				free(allKvCfg);
 				return false;
 			}
-			log_info("Software reset performed");
+			log_info("hardware reset performed");
 			receiver_configured = true;
 		}
 
