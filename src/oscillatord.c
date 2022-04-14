@@ -398,9 +398,7 @@ int main(int argc, char *argv[])
 			input = (struct od_input) {0};
 
 			/* Process output result of the algorithm */
-			if (output.action == NO_OP) {
-				continue;
-			} else if (output.action == PHASE_JUMP) {
+			if (output.action == PHASE_JUMP) {
 				log_info("Phase jump requested");
 				ret = apply_phase_offset(
 					fd_clock,
@@ -449,7 +447,7 @@ int main(int argc, char *argv[])
 						log_warn("Could not disable calibration at boot in config at %s", path);
 						log_warn("If you restart oscillatord calibration will be done again !");
 					}
-			} else {
+			} else if (output.action != NO_OP) {
 				ret = oscillator_apply_output(oscillator, &output);
 				if (ret < 0)
 					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
