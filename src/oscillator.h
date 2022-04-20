@@ -41,6 +41,7 @@ typedef int (*oscillator_update_disciplining_parameters_cb)(struct oscillator *o
 		struct disciplining_parameters *disciplining_parameters);
 typedef int (*oscillator_get_phase_error_cb)(struct oscillator *oscillator,
 		int64_t *phase_error);
+typedef int (*oscillator_get_disciplining_status_cb)(struct oscillator *oscillator, void *data);
 
 struct oscillator_class {
 	const char *name;
@@ -52,6 +53,7 @@ struct oscillator_class {
 	oscillator_get_disciplining_parameters_cb get_disciplining_parameters;
 	oscillator_update_disciplining_parameters_cb update_disciplining_parameters;
 	oscillator_get_phase_error_cb get_phase_error;
+	oscillator_get_disciplining_status_cb get_disciplining_status;
 	/* default values use if per-instance ones haven't been set */
 	uint32_t dac_max;
 	uint32_t dac_min;
@@ -84,6 +86,7 @@ int oscillator_get_temp(struct oscillator *oscillator, double *temp);
 int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output);
 int oscillator_get_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters * disciplining_parameters);
 int oscillator_update_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters);
+int oscillator_get_disciplining_status(struct oscillator *oscillator, void *data);
 struct calibration_results * oscillator_calibrate(
 	struct oscillator *oscillator,
 	struct phasemeter *phasemeter,

@@ -484,11 +484,15 @@ int main(int argc, char *argv[])
 				}
 				monitoring->phase_error = sign * phase_error;
 				monitoring->tracking_only = minipod_config.tracking_only;
+			} else if (phase_error_supported) {
+				/* this actually means that oscillator has it's own hardware disciplining
+				 * algorithm and we are able to monitor it
+				 */
+				monitoring->phase_error = sign * phase_error;
+				oscillator_get_disciplining_status(oscillator, &monitoring->disciplining);
 			}
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
-			if (phase_error_supported)
-				monitoring->phase_error = sign * phase_error;
 			if (monitoring->request == REQUEST_CALIBRATION) {
 				log_info("Calibration requested through monitoring interface");
 				input.calibration_requested = true;

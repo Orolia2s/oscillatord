@@ -37,13 +37,43 @@
 #define CMD_SET_TAU                   "{set,TauPps0,%d}"
 #define DISCIPLINING_PHASES 3
 
-static unsigned int tau_values[DISCIPLINING_PHASES] = {50, 500, 10000};
-static unsigned int tau_interval[DISCIPLINING_PHASES] = {600, 7200, 86400}; // in seconds
+static const unsigned int tau_values[DISCIPLINING_PHASES] = {50, 500, 10000};
+static const unsigned int tau_interval[DISCIPLINING_PHASES] = {600, 7200, 86400}; // in seconds
+
+enum SA5x_ClockClass {
+	SA5X_CLOCK_CLASS_UNCALIBRATED,
+	SA5X_CLOCK_CLASS_CALIBRATING,
+	SA5X_CLOCK_CLASS_HOLDOVER,
+	SA5X_CLOCK_CLASS_LOCK,
+	SA5X_CLOCK_CLASS_NUM
+};
+
+enum SA5x_Disciplining_State {
+	/** Initialization State */
+	SA5X_INIT,
+	/** Quick convergence phase, tracking phase error to reach 0 */
+	SA5X_TRACKING,
+	/** Holdover state, when gnss data is not valid */
+	SA5X_HOLDOVER,
+	/** Calibration state, when drift coefficients are computed */
+	SA5X_CALIBRATION,
+	/** Low resolution lock mode */
+	SA5X_LOCK_LOW_RESOLUTION,
+	/** High resolution lock mode */
+	SA5X_LOCK_HIGH_RESOLUTION,
+	SA5X_NUM_STATES
+};
+
+struct sa5x_disciplining_status {
+	enum SA5x_Disciplining_State status;
+	enum SA5x_ClockClass clock_class;
+};
 
 struct sa5x_oscillator {
 	struct oscillator oscillator;
 	int	osc_fd;
 	int disciplining_phase;
+	struct sa5x_disciplining_status status;
 	struct timespec disciplining_start;
 	char   version[20];      // SW Rev
 	char   serial[12];       // SerialNumber
@@ -323,6 +353,8 @@ static struct oscillator *sa5x_oscillator_new(struct config *config)
 		log_debug("connected to MAC with serial %s, fw: %20s", sa5x->serial, sa5x->version);
 	}
 
+	sa5x->status.clock_class = SA5X_CLOCK_CLASS_UNCALIBRATED;
+	sa5x->status.status = SA5X_INIT;
 	clock_gettime(CLOCK_MONOTONIC, &sa5x->disciplining_start);
 
 	cmd_len = snprintf(answer_str, answer_len, CMD_SET_TAU, tau_values[0]);
@@ -379,6 +411,16 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 		if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
 			log_debug("couldn't set TAU to %d", tau_values[sa5x->disciplining_phase]);
 		}
+		if (ctrl->lock == 0) {
+			sa5x->status.clock_class = (sa5x->status.clock_class == SA5X_CLOCK_CLASS_CALIBRATING) ? SA5X_CLOCK_CLASS_UNCALIBRATED : SA5X_CLOCK_CLASS_HOLDOVER;
+			sa5x->status.status = SA5X_HOLDOVER;
+		} else if (sa5x->disciplining_phase == 0) {
+			sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
+			sa5x->status.status = SA5X_TRACKING;
+		} else {
+			sa5x->status.clock_class = SA5X_CLOCK_CLASS_LOCK;
+			sa5x->status.status = SA5X_CALIBRATION + sa5x->disciplining_phase;
+		}
 	}
 
 	return 0;
@@ -412,12 +454,23 @@ static int sa5x_oscillator_get_phase_error(struct oscillator *oscillator, int64_
 	return 0;
 }
 
+static int sa5x_oscillator_get_disciplining_status(struct oscillator *oscillator, void *data)
+{
+	// we assume that all the values are already requested
+	struct sa5x_oscillator *sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
+	struct sa5x_disciplining_status *mon = (struct sa5x_disciplining_status *)data;
+
+	*mon = sa5x->status;
+	return 0;
+}
+
 static const struct oscillator_factory sa5x_oscillator_factory = {
 	.class = {
 		.name = FACTORY_NAME,
 		.get_ctrl = sa5x_oscillator_get_ctrl,
 		.get_temp = sa5x_oscillator_get_temp,
 		.get_phase_error = sa5x_oscillator_get_phase_error,
+		.get_disciplining_status = sa5x_oscillator_get_disciplining_status,
 	},
 	.new = sa5x_oscillator_new,
 	.destroy = sa5x_oscillator_destroy,
