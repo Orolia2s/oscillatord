@@ -256,7 +256,7 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 			}
 			
 			*(results->measures + i * results->nb_calibration + j) = phase_error + (float) qErr / 1000;
-			log_debug("ctrl_point %d measure[%d]: phase error = %lld, qErr = %f, result = %f",
+			log_debug("ctrl_point %d measure[%d]: phase error = %lld, qErr = %d, result = %f",
 				ctrl_point, j, phase_error, qErr, phase_error + (float) qErr / 1000);
 			sleep(1);
 		}
