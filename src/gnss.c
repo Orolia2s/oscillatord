@@ -736,7 +736,7 @@ static void * gnss_thread(void * p_data)
 				if (epoch.haveFix) {
 					session->last_fix_utc_time.tv_sec = gnss_get_utc_time(&epoch);
 					session->fix = epoch.fix;
-					session->fixOk = epoch.fixOk;
+					session->fixOk = epoch.fixOk && session->satellites_count>3;
 					session->valid = session->fix >= EPOCH_FIX_TIME && session->fixOk;
 					if (!session->valid) {
 						if (session->fix < EPOCH_FIX_TIME)
