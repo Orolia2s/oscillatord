@@ -21,6 +21,8 @@
 #include "log.h"
 #include "utils.h"
 
+#define NUM_SAT_MIN 3
+
 #define GNSS_CONNECT_MAX_TRY 5
 
 #define GNSS_TIMEOUT_MS 1000
@@ -736,7 +738,7 @@ static void * gnss_thread(void * p_data)
 				if (epoch.haveFix) {
 					session->last_fix_utc_time.tv_sec = gnss_get_utc_time(&epoch);
 					session->fix = epoch.fix;
-					session->fixOk = epoch.fixOk;
+					session->fixOk = epoch.fixOk && session->satellites_count > NUM_SAT_MIN;
 					session->valid = session->fix >= EPOCH_FIX_TIME && session->fixOk;
 					if (!session->valid) {
 						if (session->fix < EPOCH_FIX_TIME)
