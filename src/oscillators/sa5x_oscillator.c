@@ -256,13 +256,13 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	if (attributes_mask & ATTR_FW_SERIAL) {
 		err = sa5x_oscillator_cmd(sa5x, CMD_SWVER, sizeof(CMD_SWVER));
 		if (err > 0) {
-			sscanf(answer_str, "[=%20[^,],", sa5x->version);
+			sscanf(answer_str, "[=%19[^,],", sa5x->version);
 			memset(answer_str, 0, err);
 		}
 
 		err = sa5x_oscillator_cmd(sa5x, CMD_SERIAL, sizeof(CMD_SERIAL));
 		if (err > 0) {
-			sscanf(answer_str, "[=%12s]\r\n", sa5x->serial);
+			sscanf(answer_str, "[=%11s]\r\n", sa5x->serial);
 			memset(answer_str, 0, err);
 		}
 		return 0;
