@@ -332,6 +332,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	log_info("Starting Oscillatord v3.0.4");
+
 	/* Main Loop */
 	while(loop) {
 		/* Oscillator control values and temperature are needed for
@@ -366,7 +368,7 @@ int main(int argc, char *argv[])
 			if (output.action == ADJUST_FINE && output.setpoint != ctrl_values.fine_ctrl) {
 				log_error("Could not apply output to mro50");
 				log_error("Requested value was %u, control value read is %u", output.setpoint, ctrl_values.fine_ctrl);
-				error(EXIT_FAILURE, -EIO, "apply_output");
+				//error(EXIT_FAILURE, -EIO, "apply_output");
 			}
 
 			/* Fills in input structure for disciplining algorithm */
