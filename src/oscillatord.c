@@ -335,24 +335,27 @@ int main(int argc, char *argv[])
 
 	/* Main Loop */
 	while(loop) {
-		/* Oscillator control values and temperature are needed for
-		 * the disciplining algorithm and monitoring, get both of them
-		 */
-		ret = oscillator_get_temp(oscillator, &temperature);
-		if (ret == -ENOSYS)
-			temperature = 0;
-		else if (ret < 0)
-			error(EXIT_FAILURE, -ret, "oscillator_get_temp");
-
-		ret = oscillator_get_ctrl(oscillator, &ctrl_values);
-		if (ret != 0) {
-			log_warn("Could not get control values of oscillator");
-			continue;
-		}
-
 		if (disciplining_mode) {
 			/* Get Phase error and status*/
 			phasemeter_status = get_phase_error(phasemeter, &phase_error);
+
+			/* Wait for phase error before getting oscillator control values */
+			/* This prevents control values to be read right after writting them */
+
+			/* Oscillator control values and temperature are needed for
+			* the disciplining algorithm and monitoring, get both of them
+			*/
+			ret = oscillator_get_temp(oscillator, &temperature);
+			if (ret == -ENOSYS)
+				temperature = 0;
+			else if (ret < 0)
+				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
+
+			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
+			if (ret != 0) {
+				log_warn("Could not get control values of oscillator");
+				continue;
+			}
 
 			if (ignore_next_irq) {
 				log_debug("ignoring 1 input due to phase jump");
@@ -459,8 +462,22 @@ int main(int argc, char *argv[])
 				if (ret < 0)
 					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
 			}
-		} else if (phase_error_supported) {
-			oscillator_get_phase_error(oscillator, &phase_error);
+		} else {
+			/* Used for monitoring only */
+			/* Oscillator control values and temperature are needed for
+			* the disciplining algorithm and monitoring, get both of them
+			*/
+			ret = oscillator_get_temp(oscillator, &temperature);
+			if (ret == -ENOSYS)
+				temperature = 0;
+			else if (ret < 0)
+				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
+
+			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
+			if (ret != 0) {
+				log_warn("Could not get control values of oscillator");
+				continue;
+			}
 		}
 
 		if (monitoring_mode) {
@@ -489,7 +506,7 @@ int main(int argc, char *argv[])
 				/* this actually means that oscillator has it's own hardware disciplining
 				 * algorithm and we are able to monitor it
 				 */
-				monitoring->phase_error = sign * phase_error;
+				monitoring->phase_error = sign * oscillator_get_phase_error(oscillator, &phase_error);
 				oscillator_get_disciplining_status(oscillator, &monitoring->disciplining);
 			}
 			monitoring->temperature = temperature;
