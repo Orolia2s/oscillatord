@@ -506,7 +506,7 @@ int main(int argc, char *argv[])
 				/* this actually means that oscillator has it's own hardware disciplining
 				 * algorithm and we are able to monitor it
 				 */
-				monitoring->phase_error = sign * oscillator_get_phase_error(oscillator, &phase_error);
+				oscillator_get_phase_error(oscillator, &monitoring->phase_error);
 				oscillator_get_disciplining_status(oscillator, &monitoring->disciplining);
 			}
 			monitoring->temperature = temperature;
