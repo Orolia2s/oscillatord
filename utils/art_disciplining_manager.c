@@ -165,6 +165,7 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
     double *ctrl_load_nodes;
     struct config config;
     int ret;
+    int32_t factory_coarse = 0;
 
     ret = config_init(&config, path);
     if (ret != 0)
@@ -173,7 +174,14 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
     memcpy(result, &factory_parameters, sizeof(struct disciplining_parameters));
 
     result->calibration_valid = config_get_bool_default(&config, "calibration_valid", false);
-    result->coarse_equilibrium = config_get_unsigned_number(&config, "coarse_equilibrium");
+    result->coarse_equilibrium = atoi(config_get_default(&config, "coarse_equilibrium", "-1"));
+
+    factory_coarse = atoi(config_get_default(&config, "coarse_equilibrium_factory", "-1"));
+    if (factory_coarse > 0) {
+        log_info("Update coarse equilibrium factory to %d", factory_coarse);
+        result->coarse_equilibrium_factory = factory_coarse;
+    }
+
     result->ctrl_nodes_length = config_get_unsigned_number(&config, "ctrl_nodes_length");
     if (config_get(&config, "calibration_date") != NULL)
         result->calibration_date = config_get_unsigned_number(&config, "calibration_date");
@@ -334,6 +342,7 @@ int main(int argc, char *argv[])
         log_info("Reading data from %s", path);
         struct disciplining_parameters dsc_parameters;
         (*read_eeprom)(path, &dsc_parameters);
+        print_disciplining_parameters(&dsc_parameters, LOG_INFO);
         if (output_file) {
             log_info("Writing disciplining parameters read to %s", output_file);
             ret = write_disciplining_parameters_to_config_file(output_file, &dsc_parameters);
