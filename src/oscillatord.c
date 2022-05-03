@@ -194,6 +194,7 @@ int main(int argc, char *argv[])
 	/* Set log level according to configuration */
 	log_level = config_get_unsigned_number(&config, "debug");
 	log_set_level(log_level >= 0 ? log_level : 0);
+	log_info("Starting Oscillatord v%s", PACKAGE_VERSION);
 
 	ptp_clock = config_get(&config, "ptp-clock");
 	if (ptp_clock == NULL) {
@@ -331,8 +332,6 @@ int main(int argc, char *argv[])
 			log_warn("No pps-device provided, NTPSHM will no be filled");
 		}
 	}
-
-	log_info("Starting Oscillatord v3.0.4");
 
 	/* Main Loop */
 	while(loop) {

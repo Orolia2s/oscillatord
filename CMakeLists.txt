@@ -22,6 +22,8 @@ find_package(Threads REQUIRED)
 pkg_check_modules(oscillator-disciplining REQUIRED liboscillator-disciplining)
 pkg_check_modules(ubloxcfg REQUIRED libubloxcfg)
 
+ADD_DEFINITIONS( -DPACKAGE_VERSION=\"${PACKAGE_VERSION}\" )
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common/)
 include_directories(${oscillator-disciplining_INCLUDE_DIRS})
