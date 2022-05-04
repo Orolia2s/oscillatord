@@ -146,22 +146,23 @@ static bool oscillatord_track_phase_error_under_limit(int socket_port, int phase
 
         /* REQUEST PHASE ERROR */
         struct json_object *obj = send_monitoring_request(socket_port, REQUEST_NONE);
-        struct json_object *layer_1, *layer_2;
+        struct json_object *layer_1, *layer_2, *layer_3;
 
         /* Disciplining */
         json_object_object_get_ex(obj, "disciplining", &layer_1);
-        if (layer_1 != NULL) {
-            json_object_object_get_ex(layer_1, "phase_error", &layer_2);
-            int phase_error = json_object_get_int(layer_2);
+        json_object_object_get_ex(obj, "clock", &layer_3);
+        if (layer_1 != NULL && layer_3 != NULL) {
             json_object_object_get_ex(layer_1, "status", &layer_2);
             const char *status = json_object_get_string(layer_2);
+            json_object_object_get_ex(layer_3, "offset", &layer_2);
+            int phase_error = json_object_get_int(layer_2);
 
             switch (state) {
                 case WAITING_DISCIPLINING:
                     /* Phase 1: Detect that oscillatord is disciplining and phase error is
                      * below accetable limits to start test
                      */
-                    if (strncmp(status, "Disciplining", sizeof("Disciplining")) == 0
+                    if (strncmp(status, "TRACKING", sizeof("TRACKING")) == 0
                         && abs(phase_error) <= phase_error_abs_limit) {
                         log_info("Phase 1 PASSED: Oscillatord is now disciplining and below acceptable phase error range,"
                             " starting phase error tracking to check it stays below the limit ");
@@ -172,7 +173,7 @@ static bool oscillatord_track_phase_error_under_limit(int socket_port, int phase
                 case TRACKING_PHASE_ERROR:
                     log_info("Phase error: %d", phase_error);
                     /* Phase 2: Check that phase error stays below absolute limit for a period of time */
-                    if (strncmp(status, "Disciplining", sizeof("Disciplining")) == 0) {
+                    if (strncmp(status, "TRACKING", sizeof("TRACKING")) == 0) {
                         if (abs(phase_error) <= phase_error_abs_limit) {
                             time(&elapsed_time);
                             if ((int) difftime(elapsed_time, start_test_time) >= test_time_minutes * 60) {
@@ -214,6 +215,7 @@ static bool oscillatord_track_phase_error_under_limit(int socket_port, int phase
 
     return state == PASSED;
 }
+
 
 static int write_config_for_oscillatord_service(char * ocp_name, struct config *config) {
     char config_path[256];
