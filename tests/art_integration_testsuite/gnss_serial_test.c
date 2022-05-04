@@ -9,6 +9,7 @@
 #include "log.h"
 
 #define GNSS_TIMEOUT_MS 1500
+#define GNSS_TEST_TIMEOUT 600
 #define GNSS_RECONFIGURE_MAX_TRY 5
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
@@ -81,7 +82,7 @@ bool test_gnss_serial(char * path)
 
     epochInit(&coll);
 
-    time_t timeout = time(NULL) + 120;
+    time_t timeout = time(NULL) + GNSS_TEST_TIMEOUT;
     while (
         (
             !got_gnss_fix ||
