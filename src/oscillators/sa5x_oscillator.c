@@ -262,7 +262,7 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 
 		err = sa5x_oscillator_cmd(sa5x, CMD_SERIAL, sizeof(CMD_SERIAL));
 		if (err > 0) {
-			sscanf(answer_str, "[=%11s]\r\n", sa5x->serial);
+			sscanf(answer_str, "[=%11c]\r\n", sa5x->serial);
 			memset(answer_str, 0, err);
 		}
 		return 0;
