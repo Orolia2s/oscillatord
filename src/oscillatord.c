@@ -254,7 +254,7 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (disciplining_mode && loop) {
+	if (disciplining_mode) {
 		/* Get disciplining parameters from mRO50  device */
 		ret = oscillator_get_disciplining_parameters(oscillator, &disciplining_parameters);
 		opposite_phase_error = config_get_bool_default(&config,
@@ -278,14 +278,16 @@ int main(int argc, char *argv[])
 		/* Wait for all thread to get at least one piece of data */
 		sleep(2);
 
-		/* Init PTP clock time */
-		log_info("Initialize time of ptp clock %s", ptp_clock);
-		ret = gnss_set_ptp_clock_time(gnss);
-		if (ret != 0) {
-			log_error("Could not set ptp clock time: err %d", ret);
-			return -EINVAL;
+		/* Check that program should still be running before setting PTP time */
+		if (loop) {
+			/* Init PTP clock time */
+			log_info("Initialize time of ptp clock %s", ptp_clock);
+			ret = gnss_set_ptp_clock_time(gnss);
+			if (ret != 0) {
+				log_error("Could not set ptp clock time: err %d", ret);
+				return -EINVAL;
+			}
 		}
-
 		phase_error_supported = true;
 
 		/* Check if program is still supposed to be running or has been requested to terminate */
@@ -530,12 +532,14 @@ int main(int argc, char *argv[])
 	if (disciplining_mode) {
 		phasemeter_stop(phasemeter);
 		ret = od_get_disciplining_parameters(od, &disciplining_parameters);
-		if (ret != 0)
+		if (ret != 0) {
 			log_error("Could not get discipling parameters from disciplining algorithm");
-		ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
-		if (ret < 0)
-			error(EXIT_FAILURE, -ret, "oscillator_update_disciplining_parameters");
-		log_info("Saved calibration parameters into EEPROM");
+		} else {
+			ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
+			if (ret < 0)
+				error(EXIT_FAILURE, -ret, "oscillator_update_disciplining_parameters");
+			log_info("Saved calibration parameters into EEPROM");
+		}
 		od_destroy(&od);
 	}
 	if (monitoring_mode)
