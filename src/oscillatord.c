@@ -384,6 +384,7 @@ int main(int argc, char *argv[])
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
+
 			if (gnss_get_epoch_data(gnss, &input.valid, &input.qErr) != 0) {
 				log_error("Error getting GNSS data, exiting");
 				break;
@@ -513,10 +514,27 @@ int main(int argc, char *argv[])
 			}
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
-			if (monitoring->request == REQUEST_CALIBRATION) {
-				log_info("Calibration requested through monitoring interface");
+
+			switch(monitoring->request) {
+			case REQUEST_CALIBRATION:
+				log_info("Monitoring: Calibration resquested");
 				input.calibration_requested = true;
-				monitoring->request = REQUEST_NONE;
+				break;
+			case REQUEST_GNSS_START:
+				log_info("Monitoring: GNSS Start requested");
+				gnss_set_action(gnss, GNSS_ACTION_START);
+				break;
+			case REQUEST_GNSS_STOP:
+				log_info("Monitoring: GNSS Stop requested");
+				gnss_set_action(gnss, GNSS_ACTION_STOP);
+				break;
+			case REQUEST_NONE:
+			default:
+				break;
+			}
+			monitoring->request = REQUEST_NONE;
+
+			if (monitoring->request == REQUEST_CALIBRATION) {
 			}
 
 			pthread_mutex_unlock(&monitoring->mutex);

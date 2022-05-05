@@ -172,16 +172,36 @@ static void handle_client(struct monitoring *monitoring, int fd)
 				/* Notify main loop about the request */
 				pthread_mutex_lock(&monitoring->mutex);
 				request_type = (enum monitoring_request) json_object_get_int(json_req);
+				log_warn("Request Type is %d", request_type);
 				if (monitoring->stop) {
 					pthread_mutex_unlock(&monitoring->mutex);
 					break;
 				}
 
 				json_resp = json_object_new_object();
-				if (request_type == REQUEST_CALIBRATION) {
-					json_object_object_add(json_resp, "calibration",
-						json_object_new_string("requested"));
+	
+				switch (request_type)
+				{
+				case REQUEST_CALIBRATION:
+					json_object_object_add(json_resp, "Action requested",
+						json_object_new_string("calibration"));
 					monitoring->request = REQUEST_CALIBRATION;
+					break;
+				case REQUEST_GNSS_START:
+					json_object_object_add(json_resp, "Action requested",
+						json_object_new_string("GNSS start"));
+					monitoring->request = REQUEST_GNSS_START;
+					break;
+				case REQUEST_GNSS_STOP:
+					json_object_object_add(json_resp, "Action requested",
+						json_object_new_string("GNSS stop"));
+					monitoring->request = REQUEST_GNSS_STOP;
+					break;
+				case REQUEST_NONE:
+				default:
+					json_object_object_add(json_resp, "Action requested",
+						json_object_new_string("None"));
+					break;
 				}
 
 				if (monitoring->disciplining_mode || monitoring->phase_error_supported) {
