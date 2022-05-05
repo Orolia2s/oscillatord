@@ -471,6 +471,7 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	gnss->session->antenna_status = ANT_STATUS_UNDEFINED;
 	gnss->session->antenna_power = ANT_POWER_UNDEFINED;
 	gnss->rx = rxInit(gnss_device_tty, &args);
+	gnss->action = GNSS_ACTION_NONE;
 
 	if (gnss->rx == NULL)
 		goto err_rxInit;
@@ -521,6 +522,11 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	if (gnss->session->bypass_survey) {
 		log_warn("GNSS Survey In will be bypassed, true timing performance might not be reached");
 		log_warn("Please note that performance may be degraded and holdover might not reached specified limits");
+	}
+
+	if (!rxReset(gnss->rx, RX_RESET_GNSS_START)) {
+		log_error("Could not start GNSS receiver");
+		goto err_gnss_connect;
 	}
 
 	pthread_mutex_init(&gnss->mutex_data, NULL);
@@ -715,6 +721,7 @@ static void * gnss_thread(void * p_data)
 	struct gnss *gnss = (struct gnss*) p_data;
 	struct gps_device_t * session;
 	bool survey_completed = false;
+	enum gnss_action action = GNSS_ACTION_NONE;
 	bool stop;
 
 	epochInit(&coll);
@@ -800,7 +807,23 @@ static void * gnss_thread(void * p_data)
 		}
 		pthread_mutex_lock(&gnss->mutex_data);
 		stop = gnss->stop;
+		action = gnss->action;
+		gnss->action = GNSS_ACTION_NONE;
 		pthread_mutex_unlock(&gnss->mutex_data);
+
+		if (action == GNSS_ACTION_START) {
+			log_debug("Performing GNSS START");
+			if (!rxReset(gnss->rx, RX_RESET_GNSS_START))
+				log_error("Could not start GNSS Receiver");
+			else
+				log_info("GNSS START performed");
+		} else if (action == GNSS_ACTION_STOP) {
+			log_debug("Performing GNSS STOP");
+			if (!rxReset(gnss->rx, RX_RESET_GNSS_STOP))
+				log_error("Could not stop GNSS Receiver");
+			else
+				log_info("GNSS STOP performed");
+		}
 	}
 
 	log_debug("Closing gnss session");
@@ -827,5 +850,21 @@ void gnss_stop(struct gnss *gnss)
 	pthread_mutex_unlock(&gnss->mutex_data);
 
 	pthread_join(gnss->thread, NULL);
+	return;
+}
+
+void gnss_set_action(struct gnss *gnss, enum gnss_action action)
+{
+	if (!gnss)
+		return;
+
+	if (action != GNSS_ACTION_START && action != GNSS_ACTION_STOP) {
+		log_error("Unknown action %d", action);
+		return;
+	}
+
+	pthread_mutex_lock(&gnss->mutex_data);
+	gnss->action = action;
+	pthread_mutex_unlock(&gnss->mutex_data);
 	return;
 }

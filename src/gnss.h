@@ -70,6 +70,12 @@ typedef enum {source_unknown,
               source_pipe,      /* Unix FIFO; don't use blocking I/O */
 } sourcetype_t;
 
+enum gnss_action {
+	GNSS_ACTION_NONE,
+	GNSS_ACTION_START,
+	GNSS_ACTION_STOP,
+};
+
 struct gps_context_t {
 	int valid;                          /* member validity flags */
 #define LEAP_SECOND_VALID       0x01    /* we have or don't need correction */
@@ -164,12 +170,14 @@ struct gnss {
 	pthread_cond_t cond_time;
 	pthread_cond_t cond_data;
 	int fd_clock;
+	enum gnss_action action;
 	bool stop;
 };
 
 struct gnss* gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock);
 int gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr);
 void gnss_stop(struct gnss *gnss);
+void gnss_set_action(struct gnss *gnss, enum gnss_action action);
 int gnss_set_ptp_clock_time(struct gnss *gnss);
 
 #endif
