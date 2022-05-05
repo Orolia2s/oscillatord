@@ -19,6 +19,8 @@
 enum monitoring_request {
 	REQUEST_NONE,
 	REQUEST_CALIBRATION,
+	REQUEST_GNSS_START,
+	REQUEST_GNSS_STOP,
 };
 
 /**

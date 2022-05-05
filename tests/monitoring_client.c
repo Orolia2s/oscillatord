@@ -3,6 +3,7 @@
  */
 #include <arpa/inet.h>
 #include <assert.h>
+#include <getopt.h>
 #include <json-c/json.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -13,11 +14,20 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "monitoring.h"
 
-enum monitoring_request {
-	REQUEST_NONE,
-	REQUEST_CALIBRATION,
-};
+static void print_help(void)
+{
+	printf("usage: monitoring_client [-h -r REQUEST_TYPE] -a ADDRESS -p PORT\n");
+	printf("- -a ADDRESS: Adress socket should bind to\n");
+	printf("- -p PORT: Port socket should bind to\n");
+	printf("- -r REQUEST_TYPE: send a request to oscillatord. Accepted values are:\n");
+	printf("\t- calibration: request a calibration of the algorithm\n");
+	printf("\t- gnss_start: start gnss receiver\n");
+	printf("\t- gnss_stop: stop gnss receiver.\n");
+	printf("- -h: prints help\n");
+	return;
+}
 
 /* Send json formatted request and returns json response */
 static struct json_object *json_send_and_receive(int sockfd, int request)
@@ -50,10 +60,59 @@ static struct json_object *json_send_and_receive(int sockfd, int request)
 }
 
 int main(int argc, char *argv[]) {
+	int c;
+	int request = REQUEST_NONE;
+	int socket_port = -1;
+	char *socket_addr = NULL;
+
+	while ((c = getopt(argc, argv, "a:p:r:h")) != -1)
+	switch (c)
+	{
+		case 'a':
+			socket_addr = optarg;
+			break;
+		case 'p':
+			socket_port = atoi(optarg);
+			break;
+		case 'r':
+		if (strcmp(optarg, "calibration") == 0)
+			request = REQUEST_CALIBRATION;
+		else if (strcmp(optarg, "gnss_start") == 0)
+			request = REQUEST_GNSS_START;
+		else if (strcmp(optarg, "gnss_stop") == 0)
+			request = REQUEST_GNSS_STOP;
+		else {
+			log_error("Unknown request %s", optarg);
+			return -1;
+		}
+		log_info("Action requested: %s", optarg);
+		break;
+	case 'h':
+		print_help();
+		return 0;
+	case '?':
+		if (optopt == 'r')
+			fprintf (stderr, "Option -%c requires request type.\n", optopt);
+		else
+			fprintf (stderr,
+					"Unknown option character `\\x%x'.\n",
+					optopt);
+		return -1;
+	default:
+		abort();
+	}
+
+	if (socket_addr == NULL || socket_port <= 0) {
+		log_error("Bad address / port");
+		print_help();
+		return -1;
+	}
+
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd == -1)
 	{
 		log_error("Could not connect to socket !");
+		log_error("Try running with sudo");
 		log_error("FAIL");
 		return -1;
 	}
@@ -61,8 +120,8 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(2958);
-	server_addr.sin_addr.s_addr = inet_addr("0.0.0.0");
+	server_addr.sin_port = htons(socket_port);
+	server_addr.sin_addr.s_addr = inet_addr(socket_addr);
 	
 	/* Initiate a connection to the server */
 	int ret = connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
@@ -74,7 +133,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* Request data through socket */
-	struct json_object *obj = json_send_and_receive(sockfd, REQUEST_NONE);
+	struct json_object *obj = json_send_and_receive(sockfd, request);
 	struct json_object *layer_1;
 	struct json_object *layer_2;
 
@@ -148,10 +207,14 @@ int main(int argc, char *argv[]) {
 		log_info("\t- lsChange: %u", lsChange);
 		log_info("\t- leap_seconds: %u", leap_seconds);
 	}
+
+	/* ACTION */
+	json_object_object_get_ex(obj, "Action requested", &layer_1);
+	if (layer_1 != NULL)
+		log_info("Action requested: %s", json_object_get_string(layer_1));
+
 	free(obj);
 
-	/* Request calibration from monitoring socket */
-	// obj = json_send_and_receive(sockfd, REQUEST_CALIBRATION);
 	close(sockfd);
 	log_info("PASSED !");
 
