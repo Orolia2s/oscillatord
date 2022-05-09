@@ -58,6 +58,13 @@ bool test_gnss_serial(char * path)
             }
             log_info("Software reset performed");
             receiver_reconfigured = true;
+        } else {
+            rxClose(rx);
+            if (!rxOpen(rx)) {
+                log_error("Could not configure GNSS and reopening port failed");
+                free(rx);
+                return false;
+            }
         }
 
         if (tries < GNSS_RECONFIGURE_MAX_TRY) {
