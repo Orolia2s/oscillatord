@@ -182,8 +182,14 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
         result->coarse_equilibrium_factory = factory_coarse;
     }
 
-    result->ctrl_nodes_length = config_get_unsigned_number(&config, "ctrl_nodes_length");
-    if (config_get(&config, "calibration_date") != NULL)
+    if (config_get_unsigned_number(&config, "ctrl_nodes_length") > 0) {
+        result->ctrl_nodes_length = config_get_unsigned_number(&config, "ctrl_nodes_length");
+    } else {
+        log_error("error parsing key ctrl_nodes_length, aborting");
+        return -1;
+    }
+
+    if (config_get_unsigned_number(&config, "calibration_date") > 0)
         result->calibration_date = config_get_unsigned_number(&config, "calibration_date");
     else
         result->calibration_date = time(NULL);
@@ -205,7 +211,12 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
         result->ctrl_load_nodes[i] = ctrl_load_nodes[i];
         result->ctrl_drift_coeffs[i] = ctrl_drift_coeffs[i];
     }
-    result->estimated_equilibrium_ES = config_get_unsigned_number(&config, "estimated_equilibrium_ES");
+    if (config_get_unsigned_number(&config, "estimated_equilibrium_ES") > 0) {
+        result->estimated_equilibrium_ES = config_get_unsigned_number(&config, "estimated_equilibrium_ES");
+    } else {
+        log_warn("Could not find key estimated_equilibrium_ES, setting value to 0");
+        result->estimated_equilibrium_ES = 0;
+    }
 
     log_info("Disciplining parameters that will be written in %s", path);
     print_disciplining_parameters(result, LOG_INFO);
