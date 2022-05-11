@@ -6,7 +6,7 @@
  * @copyright Copyright (c) 2022
  *
  * Program expose a socket other processes can connect to and
- * request data as well as requesting a calibartion
+ * request data as well as requesting a calibration
  */
 #ifndef MONITORING_H
 #define MONITORING_H
