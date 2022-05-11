@@ -502,6 +502,9 @@ int main(int argc, char *argv[])
 					log_warn("Could not get disciplining data");
 					monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
 					monitoring->disciplining.status = INIT;
+					monitoring->disciplining.current_phase_convergence_count = -1;
+					monitoring->disciplining.valid_phase_convergence_threshold = -1;
+					monitoring->disciplining.convergence_progress = 0.00;
 				}
 				monitoring->phase_error = sign * phase_error;
 				monitoring->tracking_only = minipod_config.tracking_only;
