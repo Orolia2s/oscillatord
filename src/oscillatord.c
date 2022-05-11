@@ -491,7 +491,6 @@ int main(int argc, char *argv[])
 				continue;
 			}
 		}
-
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
 			pthread_mutex_lock(&monitoring->mutex);
@@ -527,7 +526,6 @@ int main(int argc, char *argv[])
 			}
 			monitoring->temperature = temperature;
 			monitoring->ctrl_values = ctrl_values;
-
 			switch(monitoring->request) {
 			case REQUEST_CALIBRATION:
 				log_info("Monitoring: Calibration resquested");

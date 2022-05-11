@@ -38,8 +38,9 @@ static struct json_object *json_send_and_receive(int sockfd, int request)
 	json_object_object_add(json_req, "request", json_object_new_int(request));
 
 	const char *req = json_object_to_json_string(json_req);
-
-	ret = send(sockfd, req, strlen(req), 0);
+	char buf[1024];
+	strcpy(buf, req);
+	ret = send(sockfd, req, strlen(buf), 0);
 	if (ret == -1)
 	{
 		log_error("Error sending request: %d", ret);
@@ -232,10 +233,13 @@ int main(int argc, char *argv[]) {
 	if (layer_1 != NULL)
 		log_info("Action requested: %s", json_object_get_string(layer_1));
 
+	json_send_and_receive(sockfd, REQUEST_NONE);
+
 	free(obj);
 
 	close(sockfd);
 	log_info("PASSED !");
+	
 
 	return 0;
 }
