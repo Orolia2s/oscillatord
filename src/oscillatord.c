@@ -468,8 +468,11 @@ int main(int argc, char *argv[])
 		} else {
 			/* Used for monitoring only */
 			/* Oscillator control values and temperature are needed for
-			* the disciplining algorithm and monitoring, get both of them
-			*/
+			 * the disciplining algorithm and monitoring, get both of them.
+			 * We don't really want to poll atomic clock instantly, so let's
+			 * sleep for a second.
+			 */
+			usleep(1000);
 			ret = oscillator_get_temp(oscillator, &temperature);
 			if (ret == -ENOSYS)
 				temperature = 0;
