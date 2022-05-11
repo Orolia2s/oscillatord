@@ -61,6 +61,9 @@ struct monitoring* monitoring_init(const struct config *config)
 
 	monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
 	monitoring->disciplining.status = INIT;
+	monitoring->disciplining.current_phase_convergence_count = -1;
+	monitoring->disciplining.valid_phase_convergence_threshold = -1;
+	monitoring->disciplining.convergence_progress = 0.00;
 	monitoring->ctrl_values.fine_ctrl = -1;
 	monitoring->ctrl_values.coarse_ctrl = -1;
 	monitoring->ctrl_values.lock = false;
@@ -211,6 +214,22 @@ static void handle_client(struct monitoring *monitoring, int fd)
 							status_string[monitoring->disciplining.status]
 						)
 					);
+
+					json_object_object_add(disciplining, "current_phase_convergence_count",
+						json_object_new_int(monitoring->disciplining.current_phase_convergence_count
+						)
+					);
+
+					json_object_object_add(disciplining, "valid_phase_convergence_threshold",
+						json_object_new_int(monitoring->disciplining.valid_phase_convergence_threshold
+						)
+					);
+
+					json_object_object_add(disciplining, "convergence_progress",
+						json_object_new_double(monitoring->disciplining.convergence_progress
+						)
+					);
+
 					json_object_object_add(disciplining, "tracking_only",
 						json_object_new_string(
 							monitoring->tracking_only ? "true" : "false"

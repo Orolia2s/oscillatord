@@ -146,9 +146,25 @@ int main(int argc, char *argv[]) {
 		const char *status = json_object_get_string(layer_2);
 		json_object_object_get_ex(layer_1, "tracking_only", &layer_2);
 		const char *tracking_only = json_object_get_string(layer_2);
+		json_object_object_get_ex(layer_1, "current_phase_convergence_count", &layer_2);
+		int current_phase_convergence_count = json_object_get_int(layer_2);
+		json_object_object_get_ex(layer_1, "valid_phase_convergence_threshold", &layer_2);
+		int valid_phase_convergence_threshold = json_object_get_int(layer_2);
+		json_object_object_get_ex(layer_1, "convergence_progress", &layer_2);
+		double convergence_progress = json_object_get_double(layer_2);
 		log_info("Disciplining detected");
 		log_info("\t- Current status: %s", status);
 		log_info("\t- tracking_only: %s", tracking_only);
+
+		if (strcmp(status,"TRACKING") == 0) {
+			log_info("\t- tracking convergence progress: %0.2f %% (%d/%d)",convergence_progress,current_phase_convergence_count,valid_phase_convergence_threshold);
+		}
+		else if (strcmp(status,"LOCK_LOW_RESOLUTION") == 0) {
+			log_info("\t- lock low resolution convergence progress: %0.2f %% (%d/%d)",convergence_progress,current_phase_convergence_count,valid_phase_convergence_threshold);
+		}
+		else if (strcmp(status,"LOCK_HIGH_RESOLUTION") == 0) {
+			log_info("\t- lock high resolution convergence progress: %0.2f %% (%d/%d)",convergence_progress,current_phase_convergence_count,valid_phase_convergence_threshold);
+		}
 	}
 
 	/* Oscillator */
