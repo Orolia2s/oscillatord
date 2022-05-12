@@ -155,6 +155,8 @@ struct gps_device_t {
 	int satellites_count;
 	/** Wether Survey In should be bypassed or not */
 	bool bypass_survey;
+	/** Survey in successfully completed */
+	bool survey_completed;
 };
 
 /**
@@ -175,7 +177,7 @@ struct gnss {
 };
 
 struct gnss* gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock);
-int gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr);
+int gnss_get_epoch_data(struct gnss *gnss, bool *valid, bool *survey, int32_t *qErr);
 void gnss_stop(struct gnss *gnss);
 void gnss_set_action(struct gnss *gnss, enum gnss_action action);
 int gnss_set_ptp_clock_time(struct gnss *gnss);

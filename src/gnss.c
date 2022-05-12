@@ -514,6 +514,9 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 		}
 	}
 
+	/* Initialize receiver's survey in flag */
+	gnss->session->survey_completed = false;
+
 	/* Check wether receiver's survey in should be bypassed or not */
 	gnss->session->bypass_survey = config_get_bool_default(
 		config,
@@ -580,7 +583,7 @@ static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
  * @param valid Output Flags indicating GNSS data are valid (Fix >= 2D + FixOk)
  * @param qErr Output Quantization error from last Epoch
  */
-int gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr)
+int gnss_get_epoch_data(struct gnss *gnss, bool *valid, bool *survey, int32_t *qErr)
 {
 	if (!gnss) {
 		return -1;
@@ -588,6 +591,8 @@ int gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr)
 
 	pthread_mutex_lock(&gnss->mutex_data);
 	pthread_cond_wait(&gnss->cond_data, &gnss->mutex_data);
+	if (survey != NULL)
+		*survey = gnss->session->survey_completed;
 	if (valid != NULL)
 		*valid = gnss->session->valid;
 	if (qErr != NULL)
@@ -636,7 +641,7 @@ static bool gnss_check_ptp_clock_time(struct gnss *gnss)
 		log_warn("Bad clock file descriptor");
 		return -1;
 	}
-	if (gnss_get_epoch_data(gnss, &valid, NULL))
+	if (gnss_get_epoch_data(gnss, &valid, NULL, NULL))
 		return -1;
 	if (valid) {
 		gnss_time = gnss_get_next_fix_tai_time(gnss);
@@ -686,7 +691,7 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	clkid = FD_TO_CLOCKID(gnss->fd_clock);
 
 	while(!clock_valid && loop) {
-		if (gnss_get_epoch_data(gnss, &valid, NULL) != 0)
+		if (gnss_get_epoch_data(gnss, &valid, NULL, NULL))
 			return -1;
 
 		if (valid) {
@@ -743,7 +748,6 @@ static void * gnss_thread(void * p_data)
 	EPOCH_t epoch;
 	struct gnss *gnss = (struct gnss*) p_data;
 	struct gps_device_t * session;
-	bool survey_completed = false;
 	enum gnss_action action = GNSS_ACTION_NONE;
 	bool stop;
 
@@ -802,10 +806,10 @@ static void * gnss_thread(void * p_data)
 					gnss_parse_ubx_nav_timels(session, msg);
 				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_TP_MSGID)
 					gnss_parse_ubx_tim_tp(session, msg);
-				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID && !survey_completed && !gnss->session->bypass_survey) {
+				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID && !session->survey_completed && !gnss->session->bypass_survey) {
 					switch (gnss_parse_ubx_tim_svin(session, msg)) {
 					case SURVEY_IN_COMPLETED:
-						survey_completed = true;
+						session->survey_completed = true;
 						break;
 					case SURVEY_IN_IN_PROGRESS:
 					case SURVEY_IN_UNKNOWN:

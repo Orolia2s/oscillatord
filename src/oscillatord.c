@@ -385,17 +385,18 @@ int main(int argc, char *argv[])
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
 
-			if (gnss_get_epoch_data(gnss, &input.valid, &input.qErr) != 0) {
+			if (gnss_get_epoch_data(gnss, &input.valid, &input.survey_completed, &input.qErr) != 0) {
 				log_error("Error getting GNSS data, exiting");
 				break;
 			}
 
 			log_info("input: phase_error = (%lds, %09ldns), "
-				"valid = %s, qErr = %d,lock = %s, fine = %d, "
+				"valid = %s, survey = %s, qErr = %d,lock = %s, fine = %d, "
 				"coarse = %d, temp = %.1f°C, calibration requested: %s",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
 				input.valid ? "true" : "false",
+				input.survey_completed ? "true" : "false",
 				input.qErr,
 				input.lock ? "true" : "false",
 				input.fine_setpoint,
@@ -512,7 +513,7 @@ int main(int argc, char *argv[])
 					monitoring->disciplining.status = INIT;
 					monitoring->disciplining.current_phase_convergence_count = -1;
 					monitoring->disciplining.valid_phase_convergence_threshold = -1;
-					monitoring->disciplining.convergence_progress = 0.00;
+					monitoring->disciplining.convergence_progress = 0.0;
 				}
 				monitoring->phase_error = sign * phase_error;
 				monitoring->tracking_only = minipod_config.tracking_only;
