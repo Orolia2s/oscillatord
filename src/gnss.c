@@ -261,6 +261,7 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, 
 			gr0.valid,
 			gr0.active
 		);
+		session->survey_in_error = sqrt(gr0.meanV)/1000;
 		if (!gr0.active && gr0.dur > SVIN_MIN_DUR)
 			return gr0.valid ? SURVEY_IN_COMPLETED : SURVEY_IN_KO;
 		else if (gr0.dur < SVIN_MAX_DUR)
@@ -309,13 +310,14 @@ static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *ms
 
 static void log_gnss_data(struct gps_device_t *session)
 {
-	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, antenna status: %d, valid %d,"
+	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, survey in error: %0.2f, antenna status: %d, valid %d,"
 		" time %lld, leapm_seconds %d, leap_notify %d, lsChange %d, "
 		"timeToLsChange %d, lsSet: %s, QErr(n) %d, qErr(n-1) %d",
 		fix_log[session->fix],
 		session->fix,
 		session->fixOk ? "True" : "False",
 		session->satellites_count,
+		session->survey_in_error,
 		session->antenna_status,
 		session->valid,
 		session->last_fix_utc_time.tv_sec,
@@ -472,7 +474,8 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	gnss->session->antenna_power = ANT_POWER_UNDEFINED;
 	gnss->rx = rxInit(gnss_device_tty, &args);
 	gnss->action = GNSS_ACTION_NONE;
-
+	/* Init Survey In Error to undefined values */
+	gnss->session->survey_in_error =-1.0;
 	if (gnss->rx == NULL)
 		goto err_rxInit;
 
