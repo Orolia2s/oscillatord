@@ -499,6 +499,7 @@ int main(int argc, char *argv[])
 				monitoring->leap_seconds = gnss->session->context->leap_seconds;
 				monitoring->lsChange = gnss->session->context->lsChange;
 				monitoring->satellites_count = gnss->session->satellites_count;
+				monitoring->survey_in_error = gnss->session->survey_in_error;
 				pthread_mutex_unlock(&gnss->mutex_data);
 			}
 			if (disciplining_mode) {
