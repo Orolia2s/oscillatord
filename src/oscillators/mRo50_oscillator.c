@@ -246,7 +246,7 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 			}
 			/* Get qErr in ps*/
 			int32_t qErr;
-			if (gnss_get_epoch_data(gnss, NULL, &qErr) != 0) {
+			if (gnss_get_epoch_data(gnss, NULL, NULL, &qErr) != 0) {
 				log_error("Could not get gnss data");
 				free(results->measures);
 				results->measures = NULL;
