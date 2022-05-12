@@ -77,6 +77,7 @@ struct monitoring* monitoring_init(const struct config *config)
 	monitoring->fixOk = false;
 	monitoring->lsChange = -10;
 	monitoring->satellites_count = -1;
+	monitoring->survey_in_error = -1,0;
 	pthread_mutex_init(&monitoring->mutex, NULL);
 	pthread_cond_init(&monitoring->cond, NULL);
 
@@ -277,6 +278,8 @@ static void handle_client(struct monitoring *monitoring, int fd)
 					json_object_new_int(monitoring->leap_seconds));
 				json_object_object_add(gnss, "satellites_count",
 					json_object_new_int(monitoring->satellites_count));
+				json_object_object_add(gnss, "survey_in_error",
+					json_object_new_int(monitoring->survey_in_error));
 
 				json_object_object_add(json_resp, "gnss", gnss);
 

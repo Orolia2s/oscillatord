@@ -215,11 +215,14 @@ int main(int argc, char *argv[]) {
 		int leap_seconds = json_object_get_int(layer_2);
 		json_object_object_get_ex(layer_1, "fixOk", &layer_2);
 		bool fixOk = json_object_get_boolean(layer_2);
+		json_object_object_get_ex(layer_1, "survey_in_error", &layer_2);
+		double survey_in_error = json_object_get_double(layer_2);
 		log_info("GNSS detected");
 		log_info("\t- fix: %u", fix);
 		log_info("\t- fixOk: %s", fixOk ? "True" : "False");
 		log_info("\t- antenna_status: %u", antenna_status);
 		log_info("\t- antenna_power: %u", antenna_power);
+		log_info("\t- survey_in_error: %0.2f m", survey_in_error);
 		log_info("\t- lsChange: %u", lsChange);
 		log_info("\t- leap_seconds: %u", leap_seconds);
 	}

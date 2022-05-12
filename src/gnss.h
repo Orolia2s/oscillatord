@@ -157,6 +157,8 @@ struct gps_device_t {
 	bool bypass_survey;
 	/** Survey in successfully completed */
 	bool survey_completed;
+	/** Survey in error in meter from meanV field from UBX-TIM-SVIN msg */
+	float survey_in_error;
 };
 
 /**
