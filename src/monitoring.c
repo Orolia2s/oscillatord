@@ -505,7 +505,7 @@ struct monitoring* monitoring_init(const struct config *config)
 	monitoring->fixOk = false;
 	monitoring->lsChange = -10;
 	monitoring->satellites_count = -1;
-	monitoring->survey_in_position_error = -1,0;
+	monitoring->survey_in_position_error = -1.0;
 	pthread_mutex_init(&monitoring->mutex, NULL);
 	pthread_cond_init(&monitoring->cond, NULL);
 
