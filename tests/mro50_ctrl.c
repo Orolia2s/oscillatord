@@ -2,6 +2,7 @@
  * mRO50 oscillator control program.
  * Allows to read / write commands to the mRO50 oscillator
  */
+#include <assert.h>
 #include <ctype.h>
 #include <getopt.h>
 #include <stdbool.h>
@@ -39,7 +40,8 @@ enum {
     TYPE_FINE,
     TYPE_COARSE,
     TYPE_TEMP,
-    TYPE_PARAM
+    TYPE_PARAM,
+    TYPE_SERIAL_ACTIVATE
 };
 
 static void print_help(void)
@@ -47,7 +49,7 @@ static void print_help(void)
     printf("usage: mro50_ctrl [-h] -d DEVICE -c COMMAND -t TYPE [WRITE_VALUE]\n");
     printf("- DEVICE: mrO50 device's path\n");
     printf("- COMMAND: 'read' or 'write'\n");
-    printf("- TYPE: 'fine' of 'coarse' or 'temp' 'parameters '(temp is read only)\n");
+    printf("- TYPE: 'fine', 'coarse', 'temp', 'parameters' or 'serial_activate' (temp is read only)\n");
     printf("- WRITE_VALUE: mandatory if command is write.\n");
     printf("- -h: prints help\n");
     return;
@@ -102,6 +104,8 @@ static int check_type(char * type)
         return TYPE_TEMP;
     else if (strcmp(type, "parameters") == 0)
         return TYPE_PARAM;
+    else if (strcmp(type, "serial_activate") == 0)
+        return TYPE_SERIAL_ACTIVATE;
     else {
         log_error("Unknown type %s\n", type);
         return -1;
@@ -145,7 +149,7 @@ int main(int argc, char ** argv)
         if (optopt == 'c')
           fprintf (stderr, "Option -%c requires an command type: either read or write.\n", optopt);
         if (optopt == 't')
-          fprintf (stderr, "Option -%c requires an control values to command: either fine or coarse.\n", optopt);
+          fprintf (stderr, "Option -%c requires an control values to command: either fine, coarse or serial_activate.\n", optopt);
         else if (isprint (optopt))
           fprintf (stderr, "Unknown option `-%c'.\n", optopt);
         else
@@ -222,6 +226,8 @@ int main(int argc, char ** argv)
             print_disciplining_parameters(&params, LOG_INFO);
             close(fd);
             return 0;
+        } else if (type_int == TYPE_SERIAL_ACTIVATE) {
+            ioctl_command = MRO50_BOARD_CONFIG_READ;
         } else
             return -1;
 
@@ -243,8 +249,7 @@ int main(int argc, char ** argv)
                     log_error("value is out of range for fine control !");
                     return -1;
                 }
-        }
-        else if (type_int == TYPE_COARSE) {
+        } else if (type_int == TYPE_COARSE) {
             ioctl_command = MRO50_ADJUST_COARSE;
             if (write_value > COARSE_RANGE_MAX) {
                     log_error("value is out of range for coarse control !");
@@ -278,8 +283,10 @@ int main(int argc, char ** argv)
                 return -1;
             }
             return 0;
-        }
-        else
+        } else if (type_int == TYPE_SERIAL_ACTIVATE){
+            ioctl_command = MRO50_BOARD_CONFIG_WRITE;
+            assert(write_value == 0 || write_value == 1);
+        } else
             return -1;
 
         err = ioctl(fd, ioctl_command, &write_value);

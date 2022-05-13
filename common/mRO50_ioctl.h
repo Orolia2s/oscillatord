@@ -14,8 +14,9 @@ typedef u_int8_t u8;
 #define MRO50_READ_TEMP		_IOR('M', 5, u32 *)
 #define MRO50_READ_CTRL		_IOR('M', 6, u32 *)
 #define MRO50_SAVE_COARSE	_IO('M', 7)
-
 #define MRO50_READ_EEPROM_BLOB _IOR('M', 8, u8*)
 #define MRO50_WRITE_EEPROM_BLOB _IOW('M', 8, u8*)
+#define MRO50_BOARD_CONFIG_READ _IOR('M', 9, u32 *)
+#define MRO50_BOARD_CONFIG_WRITE _IOW('M', 9, u32 *)
 
 #endif /* MRO50_IOCTL_H */
