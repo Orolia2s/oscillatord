@@ -37,7 +37,7 @@ struct monitoring {
 	int64_t phase_error;
 	int fix;
 	int satellites_count;
-	float survey_in_error;
+	float survey_in_position_error;
 	int leap_seconds;
 	int lsChange;
 	int8_t antenna_power;
