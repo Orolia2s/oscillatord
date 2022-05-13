@@ -261,7 +261,7 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, 
 			gr0.valid,
 			gr0.active
 		);
-		session->survey_in_error = sqrt(gr0.meanV)/1000;
+		session->survey_in_position_error = sqrt(gr0.meanV)/1000;
 		if (!gr0.active && gr0.dur > SVIN_MIN_DUR)
 			return gr0.valid ? SURVEY_IN_COMPLETED : SURVEY_IN_KO;
 		else if (gr0.dur < SVIN_MAX_DUR)
@@ -317,7 +317,7 @@ static void log_gnss_data(struct gps_device_t *session)
 		session->fix,
 		session->fixOk ? "True" : "False",
 		session->satellites_count,
-		session->survey_in_error,
+		session->survey_in_position_error,
 		session->antenna_status,
 		session->valid,
 		session->last_fix_utc_time.tv_sec,
@@ -475,7 +475,7 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	gnss->rx = rxInit(gnss_device_tty, &args);
 	gnss->action = GNSS_ACTION_NONE;
 	/* Init Survey In Error to undefined values */
-	gnss->session->survey_in_error =-1.0;
+	gnss->session->survey_in_position_error =-1.0;
 	if (gnss->rx == NULL)
 		goto err_rxInit;
 
