@@ -158,7 +158,7 @@ struct gps_device_t {
 	/** Survey in successfully completed */
 	bool survey_completed;
 	/** Survey in error in meter from meanV field from UBX-TIM-SVIN msg */
-	float survey_in_error;
+	float survey_in_position_error;
 };
 
 /**
