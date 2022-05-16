@@ -75,6 +75,8 @@ struct sa5x_oscillator {
 	int disciplining_phase;
 	struct sa5x_disciplining_status status;
 	struct timespec disciplining_start;
+	struct timespec gnss_last_fix;
+	bool gnss_fix_status;
 	char   version[20];      // SW Rev
 	char   serial[12];       // SerialNumber
 };
@@ -393,9 +395,11 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
-	if (ctrl->lock == 0) {
+	if (!sa5x->gnss_fix_status) {
 		// we are out of GNSS sync, have to restart disciplining
-		adjust_tau = (sa5x->disciplining_phase != 0);
+		// or change state to UNCALIBRATED if we are in HOLDOVER more than 24h
+		adjust_tau = (sa5x->disciplining_phase != 0) ||
+					ts.tv_sec - sa5x->gnss_last_fix.tv_sec > 24 * 3600;
 		sa5x->disciplining_phase = 0;
 		sa5x->disciplining_start = ts;
 	}
@@ -411,8 +415,10 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 		if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
 			log_debug("couldn't set TAU to %d", tau_values[sa5x->disciplining_phase]);
 		}
-		if (ctrl->lock == 0) {
-			sa5x->status.clock_class = (sa5x->status.clock_class == SA5X_CLOCK_CLASS_CALIBRATING) ? SA5X_CLOCK_CLASS_UNCALIBRATED : SA5X_CLOCK_CLASS_HOLDOVER;
+		if (!sa5x->gnss_fix_status) {
+			sa5x->status.clock_class = ((sa5x->status.clock_class == SA5X_CLOCK_CLASS_CALIBRATING) ||
+										(ts.tv_sec - sa5x->gnss_last_fix.tv_sec > 24 * 3600)) ?
+										SA5X_CLOCK_CLASS_UNCALIBRATED : SA5X_CLOCK_CLASS_HOLDOVER;
 			sa5x->status.status = SA5X_HOLDOVER;
 		} else if (sa5x->disciplining_phase == 0) {
 			sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
@@ -464,6 +470,15 @@ static int sa5x_oscillator_get_disciplining_status(struct oscillator *oscillator
 	return 0;
 }
 
+static int sa5x_oscillator_push_gnss_info(struct oscillator *oscillator, bool fixOk, const struct timespec *last_fix_utc_time)
+{
+	struct sa5x_oscillator *sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
+	sa5x->gnss_fix_status = fixOk;
+	if (last_fix_utc_time)
+		sa5x->gnss_last_fix = *last_fix_utc_time;
+	return 0;
+}
+
 static const struct oscillator_factory sa5x_oscillator_factory = {
 	.class = {
 		.name = FACTORY_NAME,
@@ -471,6 +486,7 @@ static const struct oscillator_factory sa5x_oscillator_factory = {
 		.get_temp = sa5x_oscillator_get_temp,
 		.get_phase_error = sa5x_oscillator_get_phase_error,
 		.get_disciplining_status = sa5x_oscillator_get_disciplining_status,
+		.push_gnss_info = sa5x_oscillator_push_gnss_info,
 	},
 	.new = sa5x_oscillator_new,
 	.destroy = sa5x_oscillator_destroy,
