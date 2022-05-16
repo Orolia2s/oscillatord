@@ -276,6 +276,7 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 			a->ppsindetected = val;
 		} else {
 			// this is the only parameter that we depend on
+			log_debug("SA5x doesn't return status of PPS signal");
 			return err;
 		}
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_LOCKED, sizeof(CMD_GET_LOCKED)));
@@ -395,6 +396,9 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
+	if (ctrl->lock == 0 && sa5x->gnss_fix_status) {
+		log_debug("SA5x reports loss of PPS while GNSS fix is OK");
+	}
 	if (!sa5x->gnss_fix_status) {
 		// we are out of GNSS sync, have to restart disciplining
 		// or change state to UNCALIBRATED if we are in HOLDOVER more than 24h
