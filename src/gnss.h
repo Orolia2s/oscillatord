@@ -179,5 +179,6 @@ int gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr);
 void gnss_stop(struct gnss *gnss);
 void gnss_set_action(struct gnss *gnss, enum gnss_action action);
 int gnss_set_ptp_clock_time(struct gnss *gnss);
+int gnss_get_fix_info(struct gnss *gnss, bool *valid, struct timespec *fixUtc);
 
 #endif
