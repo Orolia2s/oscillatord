@@ -478,7 +478,12 @@ int main(int argc, char *argv[])
 				temperature = 0;
 			else if (ret < 0)
 				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
-
+			if (phase_error_supported) {
+				bool fixOk;
+				struct timespec lastFix;
+				gnss_get_fix_info(gnss, &fixOk, &lastFix);
+				oscillator_push_gnss_info(oscillator, fixOk, &lastFix);
+			}
 			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
 			if (ret != 0) {
 				log_warn("Could not get control values of oscillator");
