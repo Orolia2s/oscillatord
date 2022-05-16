@@ -233,8 +233,6 @@ int main(int argc, char *argv[]) {
 	if (layer_1 != NULL)
 		log_info("Action requested: %s", json_object_get_string(layer_1));
 
-	json_send_and_receive(sockfd, REQUEST_NONE);
-
 	free(obj);
 
 	close(sockfd);
