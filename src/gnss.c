@@ -197,7 +197,7 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 		if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_GNSS) {
 			switch(UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo)) {
 				case UBX_TIM_TP_V0_REFINFO_GPS:
-					offset = GPS_EPOCH_TO_TAI; 
+					offset = GPS_EPOCH_TO_TAI;
 					break;
 				case UBX_TIM_TP_V0_REFINFO_BDS:
 					offset = BDS_EPOCH_TO_TAI;
@@ -592,6 +592,29 @@ int gnss_get_epoch_data(struct gnss *gnss, bool *valid, int32_t *qErr)
 		*valid = gnss->session->valid;
 	if (qErr != NULL)
 		*qErr = gnss->session->context->qErr_last_epoch;
+	pthread_mutex_unlock(&gnss->mutex_data);
+	return 0;
+}
+
+/**
+ * @brief Get GNSS data from epoch
+ *
+ * @param gnss
+ * @param valid Output Flags indicating GNSS data are valid (Fix >= 2D + FixOk)
+ * @param fixUtc Output Last fix time. Useful in case of fix loss
+ */
+int gnss_get_fix_info(struct gnss *gnss, bool *valid, struct timespec *fixUtc)
+{
+	if (!gnss) {
+		return -1;
+	}
+
+	pthread_mutex_lock(&gnss->mutex_data);
+	pthread_cond_wait(&gnss->cond_data, &gnss->mutex_data);
+	if (valid != NULL)
+		*valid = gnss->session->valid;
+	if (fixUtc != NULL)
+		*fixUtc = gnss->session->last_fix_utc_time;
 	pthread_mutex_unlock(&gnss->mutex_data);
 	return 0;
 }
