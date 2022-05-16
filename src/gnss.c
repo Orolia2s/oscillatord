@@ -25,7 +25,7 @@
 
 #define GNSS_CONNECT_MAX_TRY 5
 
-#define GNSS_TIMEOUT_MS 1000
+#define GNSS_TIMEOUT_MS 1200
 #define GNSS_RECONFIGURE_MAX_TRY 5
 #define SEC_IN_WEEK 604800
 
@@ -97,6 +97,14 @@ static int gnss_get_satellites(EPOCH_t *epoch)
 		return epoch->numSv;
 	}
 	return 0;
+}
+
+static void gnss_reset_session_navigation_data(struct gps_device_t *session)
+{
+	session->valid = false;
+	session->satellites_count = 0;
+	session->fix = MODE_NO_FIX;
+	session->fixOk = false;
 }
 
 /**
@@ -469,6 +477,7 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 
 	gnss->fd_clock = fd_clock;
 	gnss->session = session;
+	gnss_reset_session_navigation_data(gnss->session);
 	/* Init Antenna Status and Power to undefined values according to UBX Protocol */
 	gnss->session->antenna_status = ANT_STATUS_UNDEFINED;
 	gnss->session->antenna_power = ANT_POWER_UNDEFINED;
@@ -804,6 +813,15 @@ static void * gnss_thread(void * p_data)
 				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
 					gnss_get_antenna_data(session, msg);
 					log_trace("GNSS: Antenna status: 0x%x", session->antenna_status);
+					log_trace("GNSS: Power status: 0x%x", session->antenna_power);
+					if (session->antenna_power == UBX_MON_RF_V0_ANTPOWER_OFF) {
+						/* Antenna power is off, hence this is the only message we will get on the serial
+						 * We need to signal main thread that we do not have fix nor satellite count
+						 * Reset data because we cannot assume either of these
+						 */
+						gnss_reset_session_navigation_data(gnss->session);
+						pthread_cond_signal(&gnss->cond_data);
+					}
 				// Parse UBX-NAV-TIMELS messages there because library does not do it
 				} else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
 					gnss_parse_ubx_nav_timels(session, msg);
@@ -830,7 +848,8 @@ static void * gnss_thread(void * p_data)
 		} else {
 			log_warn("UART GNSS Timeout !");
 			pthread_mutex_lock(&gnss->mutex_data);
-			gnss->session->valid = false;
+			/* Reset data because we cannot assume either of these */
+			gnss_reset_session_navigation_data(gnss->session);
 			pthread_cond_signal(&gnss->cond_data);
 			pthread_mutex_unlock(&gnss->mutex_data);
 			usleep(5 * 1000);
