@@ -116,3 +116,12 @@ int oscillator_get_disciplining_status(struct oscillator *oscillator, void *data
 		return -ENOSYS;
 	return oscillator->class->get_disciplining_status(oscillator, data);
 }
+
+int oscillator_push_gnss_info(struct oscillator *oscillator, bool fixOk, const struct timespec *last_fix_utc_time)
+{
+	if (oscillator == NULL)
+		return -EINVAL;
+	if (oscillator->class->push_gnss_info == NULL)
+		return -ENOSYS;
+	return oscillator->class->push_gnss_info(oscillator, fixOk, last_fix_utc_time);
+}
