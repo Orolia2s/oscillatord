@@ -111,7 +111,7 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 
 	ret = ioctl(mRo50->osc_fd, MRO50_READ_COARSE, &coarse); /* ioctl call to get partition size */
 	if (ret != 0) {
-		log_error("Fail reading Coarse Parameters, err %d", ret);
+		log_error("Fail reading Coarse Parameters, err %d, errno %d", ret, errno);
 		return -1;
 	}
 	ctrl->coarse_ctrl = coarse;
@@ -119,14 +119,14 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	
 	ret = ioctl(mRo50->osc_fd, MRO50_READ_FINE, &fine); /* ioctl call to get partition size */
 	if (ret != 0) {
-		log_error("Fail reading Fine Parameters, err %d", ret);
+		log_error("Fail reading Fine Parameters, err %d, errno %d", ret, errno);
 		return -1;
 	}
 	ctrl->fine_ctrl = fine;
 
 	ret = ioctl(mRo50->osc_fd, MRO50_READ_CTRL, &ctrl_reg);
 	if (ret != 0) {
-		log_error("Fail reading ctrl registers, err %d", ret);
+		log_error("Fail reading ctrl registers, err %d, errno %d", ret, errno);
 		return -1;
 	}
 
@@ -176,7 +176,7 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	}
 	ret = ioctl(mRo50->osc_fd, command, &output->setpoint);
 	if (ret != 0) {
-		log_error("Could not prepare command request to adjust fine frequency, error %d", ret);
+		log_error("Could not prepare command request to adjust fine frequency, error %d, errno %d", ret, errno);
 		return -1;
 	}
 	return 0;
