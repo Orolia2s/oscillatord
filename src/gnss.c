@@ -438,10 +438,10 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 {
 	struct gnss *gnss;
 	const char * preferred_constellation;
-	int ret;
 	bool do_reconfiguration;
 	bool config_set = false;
 
+	int ret = -1;
 	RX_ARGS_t args = RX_ARGS_DEFAULT();
 	args.autobaud = true;
 	args.detect = true;
