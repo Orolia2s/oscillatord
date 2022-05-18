@@ -283,7 +283,6 @@ static void json_handle_request(int request_type, enum monitoring_request *mon_r
 	default:
 		json_object_object_add(resp, "Action requested",
 			json_object_new_string("None"));
-		*mon_request = REQUEST_NONE;
 		break;
 	}
 }
