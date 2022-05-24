@@ -321,6 +321,11 @@ static void json_add_disciplining_data(struct json_object *resp, struct monitori
 			monitoring->tracking_only ? "true" : "false"
 		)
 	);
+	json_object_object_add(disciplining, "ready_for_holdover",
+		json_object_new_string(
+			monitoring->disciplining.ready_for_holdover ? "true" : "false"
+		)
+	);
 	json_object_object_add(resp, "disciplining", disciplining);
 
 	/* Add clock class data */
@@ -491,6 +496,7 @@ struct monitoring* monitoring_init(const struct config *config)
 	monitoring->disciplining.current_phase_convergence_count = -1;
 	monitoring->disciplining.valid_phase_convergence_threshold = -1;
 	monitoring->disciplining.convergence_progress = 0.00;
+	monitoring->disciplining.ready_for_holdover = false;
 	monitoring->ctrl_values.fine_ctrl = -1;
 	monitoring->ctrl_values.coarse_ctrl = -1;
 	monitoring->ctrl_values.lock = false;

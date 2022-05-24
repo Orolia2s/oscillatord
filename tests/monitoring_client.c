@@ -153,9 +153,12 @@ int main(int argc, char *argv[]) {
 		int valid_phase_convergence_threshold = json_object_get_int(layer_2);
 		json_object_object_get_ex(layer_1, "convergence_progress", &layer_2);
 		double convergence_progress = json_object_get_double(layer_2);
+		json_object_object_get_ex(layer_1, "ready_for_holdover", &layer_2);
+		const char *ready_for_holdover = json_object_get_string(layer_2);
 		log_info("Disciplining detected");
 		log_info("\t- Current status: %s", status);
 		log_info("\t- tracking_only: %s", tracking_only);
+		log_info("\t- ready_for_holdover: %s", ready_for_holdover);
 
 		if (strcmp(status,"TRACKING") == 0) {
 			log_info("\t- tracking convergence progress: %0.2f %% (%d/%d)",convergence_progress,current_phase_convergence_count,valid_phase_convergence_threshold);
