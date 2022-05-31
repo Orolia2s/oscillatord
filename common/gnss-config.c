@@ -14,14 +14,14 @@
 
 #define NUMOF(x) (int)(sizeof(x)/sizeof(*(x)))
 
-bool check_gnss_config_in_flash(RX_t *rx, UBLOXCFG_KEYVAL_t *allKvCfg, int nAllKvCfg)
+bool check_gnss_config_in_ram(RX_t *rx, UBLOXCFG_KEYVAL_t *allKvCfg, int nAllKvCfg)
 {
     bool receiverconfigured = true;
 
     // Get current
     const uint32_t keys[] = { UBX_CFG_VALGET_V0_ALL_WILDCARD };
     UBLOXCFG_KEYVAL_t allKvRam[3000];
-    const int nAllKvFlash = rxGetConfig(rx, UBLOXCFG_LAYER_FLASH, keys, NUMOF(keys), allKvRam, NUMOF(allKvRam));
+    const int nAllKvRam = rxGetConfig(rx, UBLOXCFG_LAYER_RAM, keys, NUMOF(keys), allKvRam, NUMOF(allKvRam));
 
     // Check all items from config file
     for (int ixKvCfg = 0; ixKvCfg < nAllKvCfg; ixKvCfg++)
@@ -29,9 +29,9 @@ bool check_gnss_config_in_flash(RX_t *rx, UBLOXCFG_KEYVAL_t *allKvCfg, int nAllK
         const UBLOXCFG_KEYVAL_t *kvCfg = &allKvCfg[ixKvCfg];
 
         // Check current configuration
-        for (int ixKvFlash = 0; ixKvFlash < nAllKvFlash; ixKvFlash++)
+        for (int ixKvRam = 0; ixKvRam < nAllKvRam; ixKvRam++)
         {
-            const UBLOXCFG_KEYVAL_t *kvRam = &allKvRam[ixKvFlash];
+            const UBLOXCFG_KEYVAL_t *kvRam = &allKvRam[ixKvRam];
             if (kvRam->id == kvCfg->id)
             {
                 if (kvRam->val._raw != kvCfg->val._raw)
@@ -39,8 +39,8 @@ bool check_gnss_config_in_flash(RX_t *rx, UBLOXCFG_KEYVAL_t *allKvCfg, int nAllK
                     receiverconfigured = false;
                     char strCfg[UBLOXCFG_MAX_KEYVAL_STR_SIZE];
                     char strRam[UBLOXCFG_MAX_KEYVAL_STR_SIZE];
-                    if ( ubloxcfg_stringifyKeyVal(strCfg, sizeof(strCfg), kvCfg) &&
-                            ubloxcfg_stringifyKeyVal(strRam, sizeof(strRam), kvRam) )
+                    if (ubloxcfg_stringifyKeyVal(strCfg, sizeof(strCfg), kvCfg) &&
+                        ubloxcfg_stringifyKeyVal(strRam, sizeof(strRam), kvRam) )
                     {
                         log_debug("Config (%s) differs from current config (%s)", strCfg, strRam);
                     }
