@@ -401,7 +401,7 @@ static bool gnss_set_default_configuration(RX_t *rx) {
 	UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg);
 
 	/* Check if receiver is already configured */
-	receiver_configured = check_gnss_config_in_flash(rx, allKvCfg, nAllKvCfg);
+	receiver_configured = check_gnss_config_in_ram(rx, allKvCfg, nAllKvCfg);
 	if (receiver_configured)
 		log_info("Receiver already configured to default configuration");
 	else
