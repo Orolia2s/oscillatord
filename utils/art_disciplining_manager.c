@@ -29,6 +29,7 @@ enum Mode {
     ART_EEPROM_MANAGER_READ,
     ART_EEPROM_MANAGER_WRITE,
     ART_EEPROM_MANAGER_INIT,
+    ART_EEPROM_MANAGER_TEMPERATURE_TABLE_RESET,
 };
 
 static int write_disciplining_parameters_to_eeprom(const char * path, struct disciplining_parameters *calibration)
@@ -65,7 +66,7 @@ static void read_disciplining_parameters_from_eeprom(const char *path, struct di
 static int write_disciplining_parameters_to_mro50(const char * path, struct disciplining_parameters *calibration)
 {
     int fp = open(path, O_RDWR);
-    unsigned char buf[256] = {0};
+    unsigned char buf[512] = {0x0};
     int ret = 0;
 
     if (fp < 0) {
@@ -84,7 +85,7 @@ static int write_disciplining_parameters_to_mro50(const char * path, struct disc
 static void read_disciplining_parameters_from_mro50(const char *path, struct disciplining_parameters *dsc_parameters)
 {
     int fp = open(path, O_RDWR);
-    unsigned char buf[256] = {0};
+    unsigned char buf[512] = {0};
     if (fp < 0) {
         log_error("Could not open file at %s", path);
         return;
@@ -291,7 +292,7 @@ int main(int argc, char *argv[])
     int (*write_eeprom)(const char *, struct disciplining_parameters *) = NULL;
     log_set_level(LOG_INFO);
 
-    while ((option = getopt(argc, argv, ":m:p:w:fho:r")) != -1) {
+    while ((option = getopt(argc, argv, ":m:p:w:fho:rt")) != -1) {
         switch (option) {
         case 'r':
             mode = ART_EEPROM_MANAGER_READ;
@@ -324,17 +325,21 @@ int main(int argc, char *argv[])
             read_eeprom = &read_disciplining_parameters_from_mro50;
             write_eeprom = &write_disciplining_parameters_to_mro50;
             break;
+        case 't':
+            mode = ART_EEPROM_MANAGER_TEMPERATURE_TABLE_RESET;
+            break;
         case ':':
             log_error("Option needs a value ");
             break;
         case 'h':
         default:
-            log_info("art_disciplining_manager [-m mro50_path | -p eeprom_path]  [-w calibration.conf -r -f -o output_file_path -h]");
+            log_info("art_disciplining_manager [-m mro50_path | -p eeprom_path]  [-w calibration.conf | -r -o output_file_path | -t] -f  -h]");
             log_info("\t-p eeprom_path: Path to the eeprom file");
             log_info("\t-m mro50_path: Path to the mRO50 device file");
             log_info("\t-w calibration.conf: Path to the calibration paramters file to write in the eeprom");
             log_info("\t-r: Read calibration parameters from the eeprom");
             log_info("\t-f: force write operation to write factory parameters");
+            log_info("\t-t: Reset Temperature table");
             log_info("\t-o: output_file_path: write calibration parameters read in file");
             log_info("\t-h: print help");
         }
@@ -378,6 +383,18 @@ int main(int argc, char *argv[])
             if (ret != 0) {
                 log_error("Error writing calibration parameters to %s", path);
             }
+        }
+        break;
+    case ART_EEPROM_MANAGER_TEMPERATURE_TABLE_RESET:
+        log_info("Resetting temperature table");
+        struct disciplining_parameters current_parameters;
+        (*read_eeprom)(path, &current_parameters);
+        for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
+            current_parameters.mean_fine_over_temperature[i] = 0x0000;
+        }
+        ret = (*write_eeprom)(path, &current_parameters);
+        if (ret != 0) {
+            log_error("Error resetting temperature table to %s", path);
         }
         break;
     default:
