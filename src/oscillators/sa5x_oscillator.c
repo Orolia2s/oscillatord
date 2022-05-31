@@ -356,7 +356,7 @@ static struct oscillator *sa5x_oscillator_new(struct config *config)
 		log_debug("connected to MAC with serial %s, fw: %20s", sa5x->serial, sa5x->version);
 	}
 
-	sa5x->status.clock_class = SA5X_CLOCK_CLASS_UNCALIBRATED;
+	sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
 	sa5x->status.status = SA5X_INIT;
 	clock_gettime(CLOCK_MONOTONIC, &sa5x->disciplining_start);
 
