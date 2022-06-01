@@ -39,8 +39,8 @@ bool check_gnss_config_in_ram(RX_t *rx, UBLOXCFG_KEYVAL_t *allKvCfg, int nAllKvC
                     receiverconfigured = false;
                     char strCfg[UBLOXCFG_MAX_KEYVAL_STR_SIZE];
                     char strRam[UBLOXCFG_MAX_KEYVAL_STR_SIZE];
-                    if ( ubloxcfg_stringifyKeyVal(strCfg, sizeof(strCfg), kvCfg) &&
-                            ubloxcfg_stringifyKeyVal(strRam, sizeof(strRam), kvRam) )
+                    if (ubloxcfg_stringifyKeyVal(strCfg, sizeof(strCfg), kvCfg) &&
+                        ubloxcfg_stringifyKeyVal(strRam, sizeof(strRam), kvRam) )
                     {
                         log_debug("Config (%s) differs from current config (%s)", strCfg, strRam);
                     }
