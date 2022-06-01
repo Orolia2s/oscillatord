@@ -270,7 +270,7 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, 
 			gr0.active
 		);
 		session->survey_in_position_error = sqrt(gr0.meanV)/1000;
-		if (!gr0.active && gr0.dur > SVIN_MIN_DUR)
+		if (!gr0.active && gr0.dur >= SVIN_MIN_DUR)
 			return gr0.valid ? SURVEY_IN_COMPLETED : SURVEY_IN_KO;
 		else if (gr0.dur < SVIN_MAX_DUR)
 			return SURVEY_IN_IN_PROGRESS;
