@@ -44,7 +44,11 @@
 #include "ppsthread.h"
 #include "utils.h"
 
+#define UPDATE_DISCIPLINING_PARAMETERS_SEC 3600
+
 static struct gps_context_t context;
+struct od *od = NULL;
+struct oscillator *oscillator = NULL;
 
 /**
  * @brief Signal Handler to kill program gracefully
@@ -60,6 +64,23 @@ static void signal_handler(int signum)
 		exit(EXIT_FAILURE);
 	}
 	loop = false;
+}
+
+static void signal_save_disciplining_parameters(int signum) {
+	log_info("Saving disciplining parameters in EEPROM");
+	struct disciplining_parameters disciplining_parameters;
+	int ret = od_get_disciplining_parameters(od, &disciplining_parameters);
+	if (ret != 0) {
+		log_error("Could not get discipling parameters from disciplining algorithm");
+	} else {
+		ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
+		if (ret < 0)
+			log_error("Error updating disciplining parameters !");
+		else {
+			log_info("Saved calibration parameters into EEPROM");
+		}
+	}
+	alarm(UPDATE_DISCIPLINING_PARAMETERS_SEC);
 }
 
 /**
@@ -160,10 +181,7 @@ int main(int argc, char *argv[])
 	bool opposite_phase_error;
 	bool phase_error_supported = false;
 	bool ignore_next_irq = false;
-	__attribute__((cleanup(od_destroy))) struct od *od = NULL;
 	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
-	__attribute__((cleanup(oscillator_factory_destroy)))
-		struct oscillator *oscillator = NULL;
 	volatile struct pps_thread_t * pps_thread = NULL;
 
 	signal(SIGINT, signal_handler);
@@ -270,6 +288,8 @@ int main(int argc, char *argv[])
 			error(EXIT_FAILURE, errno, "od_new %s", err_msg);
 			return -EINVAL;
 		}
+		signal(SIGALRM, signal_save_disciplining_parameters);
+		alarm(UPDATE_DISCIPLINING_PARAMETERS_SEC);
 
 		/* Start Phasemeter Thread */
 		phasemeter = phasemeter_init(fd_clock);
@@ -576,6 +596,9 @@ int main(int argc, char *argv[])
 		monitoring_stop(monitoring);
 	if (fd_clock != -1)
 		close(fd_clock);
+	if (oscillator != NULL) {
+		oscillator_factory_destroy(&oscillator);
+	}
 
 	config_cleanup(&config);
 
