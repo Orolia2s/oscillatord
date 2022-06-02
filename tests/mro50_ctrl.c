@@ -51,7 +51,7 @@ static void print_help(void)
     printf("usage: mro50_ctrl [-h] -d DEVICE -c COMMAND -t TYPE [WRITE_VALUE]\n");
     printf("- DEVICE: mrO50 device's path\n");
     printf("- COMMAND: 'read' or 'write'\n");
-    printf("- TYPE: 'fine', 'coarse', 'temp', 'temp_field_a', 'temp_field_b', 'parameters' or 'serial_activate' (temp, temp_field_a and temp_field_b are read only)\n");
+    printf("- TYPE: 'fine', 'coarse', 'temp' or 'parameters' \n");
     printf("- WRITE_VALUE: mandatory if command is write.\n");
     printf("- -h: prints help\n");
     return;
@@ -106,12 +106,6 @@ static int check_type(char * type)
         return TYPE_TEMP;
     else if (strcmp(type, "parameters") == 0)
         return TYPE_PARAM;
-    else if (strcmp(type, "serial_activate") == 0)
-        return TYPE_SERIAL_ACTIVATE;
-    else if (strcmp(type, "temp_field_a") == 0)
-        return TYPE_TEMP_FIELD_A;
-    else if (strcmp(type, "temp_field_b") == 0)
-        return TYPE_TEMP_FIELD_B;
     else {
         log_error("Unknown type %s\n", type);
         return -1;
@@ -232,12 +226,6 @@ int main(int argc, char ** argv)
             print_disciplining_parameters(&params, LOG_INFO);
             close(fd);
             return 0;
-        } else if (type_int == TYPE_SERIAL_ACTIVATE) {
-            ioctl_command = MRO50_BOARD_CONFIG_READ;
-        } else if (type_int == TYPE_TEMP_FIELD_A) {
-            ioctl_command = MRO50_TEMP_FIELD_A_READ;
-        } else if (type_int == TYPE_TEMP_FIELD_B) {
-            ioctl_command = MRO50_TEMP_FIELD_B_READ;
         } else
             return -1;
 
@@ -273,19 +261,19 @@ int main(int argc, char ** argv)
             struct disciplining_parameters params = {
                 .ctrl_nodes_length = 3,
                 .ctrl_load_nodes = {0.25,0.5,0.75},
-                .ctrl_drift_coeffs = {0.121212,0.424242,-0.181818},
+                .ctrl_drift_coeffs = {1.2,0.0,-1.2},
                 .coarse_equilibrium = 4186417,
                 .ctrl_nodes_length_factory = 3,
                 .ctrl_load_nodes_factory = {0.25,0.5,0.75},
                 .ctrl_drift_coeffs_factory = {1.2,0.0,-1.2},
                 .coarse_equilibrium_factory = -1,
-                .calibration_valid = true,
+                .calibration_valid = false,
                 .calibration_date = 0
             };
             log_info("Disciplining parameters written:");
             print_disciplining_parameters(&params, LOG_INFO);
             u8 buf[256] = {0};
-            memcpy(buf, &params, sizeof(struct disciplining_parameters));
+            memcpy(buf, &params, 256);
             err = ioctl(fd, ioctl_command, buf);
             close(fd);
             if (err != 0) {
@@ -293,9 +281,6 @@ int main(int argc, char ** argv)
                 return -1;
             }
             return 0;
-        } else if (type_int == TYPE_SERIAL_ACTIVATE){
-            ioctl_command = MRO50_BOARD_CONFIG_WRITE;
-            assert(write_value == 0 || write_value == 1);
         } else
             return -1;
 

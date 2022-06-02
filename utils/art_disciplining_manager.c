@@ -74,7 +74,7 @@ static int write_disciplining_parameters_to_mro50(const char * path, struct disc
         return -1;
     }
     memcpy(buf, calibration, sizeof(*calibration));
-    if (ioctl(fp, MRO50_WRITE_EEPROM_BLOB, buf) != 0) {
+    if (ioctl(fp, MRO50_WRITE_EXTENDED_EEPROM_BLOB, buf) != 0) {
       log_error("Could not write EEPROM BLOB");
       ret = -1;
     }
@@ -90,7 +90,7 @@ static void read_disciplining_parameters_from_mro50(const char *path, struct dis
         log_error("Could not open file at %s", path);
         return;
     }
-    if (ioctl(fp, MRO50_READ_EEPROM_BLOB, buf) != 0) {
+    if (ioctl(fp, MRO50_READ_EXTENDED_EEPROM_BLOB, buf) != 0) {
         log_error("Could not read EEPROM BLOB");
     } else {
         memcpy(dsc_parameters, buf, sizeof(*dsc_parameters));

@@ -278,7 +278,7 @@ static int mRo50_oscillator_get_disciplining_parameters(struct oscillator *oscil
 	int ret;
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 	uint8_t buf[512];
-	ret = ioctl(mRo50->osc_fd, MRO50_READ_EEPROM_BLOB, buf);
+	ret = ioctl(mRo50->osc_fd, MRO50_READ_EXTENDED_EEPROM_BLOB, buf);
 	if (ret != 0) {
 		log_error("Fail reading disciplining parameters, err %d", ret);
 		return -1;
@@ -294,7 +294,7 @@ static int mRo50_oscillator_update_disciplining_parameters(struct oscillator *os
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 	uint8_t buf[512];
 	memcpy(buf, disciplining_parameters, sizeof(struct disciplining_parameters));
-	ret = ioctl(mRo50->osc_fd, MRO50_WRITE_EEPROM_BLOB, buf);
+	ret = ioctl(mRo50->osc_fd, MRO50_WRITE_EXTENDED_EEPROM_BLOB, buf);
 	if (ret != 0) {
 		log_error("Fail updating disciplining parameters, err %d", ret);
 		return -1;
