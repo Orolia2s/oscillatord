@@ -87,6 +87,16 @@ static inline void print_disciplining_parameters(struct disciplining_parameters 
     log_log(level, __FILE__, __LINE__, "coarse_equilibrium_factory = %d", calibration->coarse_equilibrium_factory);
     log_log(level, __FILE__, __LINE__, "estimated_equilibrium_ES = %d", calibration->estimated_equilibrium_ES);
 
+    /* Print temperature table */
+    log_log(level, __FILE__, __LINE__, "Temperature compensation table:");
+    for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
+        if (calibration->mean_fine_over_temperature[i] != 0) {
+            log_log(level, __FILE__, __LINE__, "Read mean value of %.2f in temperature range [%.2f, %.2f[",
+                (float) calibration->mean_fine_over_temperature[i] / 10.0,
+                (i + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
+                (i + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE);
+        }
+    }
 }
 
 #endif
