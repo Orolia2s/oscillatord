@@ -827,21 +827,23 @@ static void * gnss_thread(void * p_data)
 					gnss_parse_ubx_nav_timels(session, msg);
 				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_TP_MSGID)
 					gnss_parse_ubx_tim_tp(session, msg);
-				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID && !session->survey_completed && !gnss->session->bypass_survey) {
-					switch (gnss_parse_ubx_tim_svin(session, msg)) {
-					case SURVEY_IN_COMPLETED:
-						session->survey_completed = true;
-						break;
-					case SURVEY_IN_IN_PROGRESS:
-					case SURVEY_IN_UNKNOWN:
-						break;
-					case SURVEY_IN_KO:
-					default:
-						log_error("Survey In did not complete in time. GNSS conditions are not stable enough for optimal timing performance");
-						log_error("Please check your antenna setup (antenna on roof is way more precise) to pass survey in.");
-						break;
+				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID) {
+					enum SurveyInState surveyInState = gnss_parse_ubx_tim_svin(session, msg);
+					if (!session->survey_completed && !gnss->session->bypass_survey) {
+						switch (surveyInState) {
+						case SURVEY_IN_COMPLETED:
+							session->survey_completed = true;
+							break;
+						case SURVEY_IN_IN_PROGRESS:
+						case SURVEY_IN_UNKNOWN:
+							break;
+						case SURVEY_IN_KO:
+						default:
+							log_error("Survey In did not complete in time. GNSS conditions are not stable enough for optimal timing performance");
+							log_error("Please check your antenna setup (antenna on roof is way more precise) to pass survey in.");
+							break;
+						}
 					}
-
 				}
 			}
 			pthread_mutex_unlock(&gnss->mutex_data);
