@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 
 	/* Start Monitoring Thread */
 	if (monitoring_mode) {
-		monitoring = monitoring_init(&config);
+		monitoring = monitoring_init(&config, oscillator);
 		if (monitoring == NULL) {
 			log_error("Error creating monitoring socket thread");
 			return -EINVAL;

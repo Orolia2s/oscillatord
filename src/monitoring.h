@@ -21,6 +21,8 @@ enum monitoring_request {
 	REQUEST_CALIBRATION,
 	REQUEST_GNSS_START,
 	REQUEST_GNSS_STOP,
+	REQUEST_READ_EEPROM,
+	REQUEST_SAVE_EEPROM
 };
 
 /**
@@ -34,6 +36,7 @@ struct monitoring {
 	struct od_monitoring disciplining;
 	struct oscillator_ctrl ctrl_values;
 	const char *oscillator_model;
+	struct oscillator *oscillator;
 	int64_t phase_error;
 	int fix;
 	int satellites_count;
@@ -51,6 +54,6 @@ struct monitoring {
 	bool phase_error_supported;
 };
 
-struct monitoring* monitoring_init(const struct config *config);
+struct monitoring* monitoring_init(const struct config *config, struct oscillator *oscillator);
 void monitoring_stop(struct monitoring *monitoring);
 #endif // MONITORING_H

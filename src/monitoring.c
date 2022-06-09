@@ -252,6 +252,133 @@ static fd_status_t on_peer_ready_recv(int sockfd) {
 						.want_write = ready_to_send};
 }
 
+static void json_add_float_array(struct json_object *json, char * array_name, float * array, int length) {
+	char array_str[256];
+	sprintf(array_str, "[");
+	for (int i = 0; i < length; i ++) {
+		char item[32];
+		sprintf(item, "%.2f", array[i]);
+		strcat(array_str, item);
+		if (i < length - 1) {
+			strcat(array_str, ", ");
+		} else {
+			strcat(array_str, "]");
+		}
+	}
+	json_object_object_add(
+		json,
+		array_name,
+		json_object_new_string(array_str)
+	);
+	return;
+}
+
+/**
+ * @brief Add disciplining_parameters to json response
+ *
+ * @param resp
+ * @param disciplining_parameters
+ */
+static void json_add_disciplining_disciplining_parameters(struct json_object *resp, struct disciplining_parameters *disciplining_parameters)
+{
+	struct json_object *disc_parameters_json = json_object_new_object();
+	struct json_object *calibration_parameters_json = json_object_new_object();
+	struct json_object *temperature_table = json_object_new_object();
+
+	json_object_object_add(
+		calibration_parameters_json,
+		"ctrl_nodes_length",
+		json_object_new_int(disciplining_parameters->ctrl_nodes_length)
+	);
+	if (disciplining_parameters->ctrl_nodes_length > 0) {
+		json_add_float_array(
+			calibration_parameters_json,
+			"ctrl_load_nodes",
+			disciplining_parameters->ctrl_load_nodes,
+			disciplining_parameters->ctrl_nodes_length
+		);
+		json_add_float_array(
+			calibration_parameters_json,
+			"ctrl_drift_coeffs",
+			disciplining_parameters->ctrl_drift_coeffs,
+			disciplining_parameters->ctrl_nodes_length
+		);
+	}
+	json_object_object_add(
+		calibration_parameters_json,
+		"coarse_equilibrium",
+		json_object_new_int64(disciplining_parameters->coarse_equilibrium)
+	);
+	json_object_object_add(
+		calibration_parameters_json,
+		"calibration_date",
+		json_object_new_int64(disciplining_parameters->calibration_date)
+	);
+	json_object_object_add(
+		calibration_parameters_json,
+		"calibration_valid",
+		json_object_new_string(disciplining_parameters->calibration_valid ? "True" : "False")
+	);
+
+	json_object_object_add(
+		calibration_parameters_json,
+		"ctrl_nodes_length_factory",
+		json_object_new_int(disciplining_parameters->ctrl_nodes_length_factory)
+	);
+	if (disciplining_parameters->ctrl_nodes_length > 0) {
+		json_add_float_array(
+			calibration_parameters_json,
+			"ctrl_load_nodes_factory",
+			disciplining_parameters->ctrl_load_nodes_factory,
+			disciplining_parameters->ctrl_nodes_length_factory
+		);
+		json_add_float_array(
+			calibration_parameters_json,
+			"ctrl_drift_coeffs_factory",
+			disciplining_parameters->ctrl_drift_coeffs_factory,
+			disciplining_parameters->ctrl_nodes_length_factory
+		);
+	}
+	json_object_object_add(
+		calibration_parameters_json,
+		"coarse_equilibrium_factory",
+		json_object_new_int64(disciplining_parameters->coarse_equilibrium_factory)
+	);
+
+	json_object_object_add(
+		calibration_parameters_json,
+		"estimated_equilibrium_ES",
+		json_object_new_int64(disciplining_parameters->estimated_equilibrium_ES)
+	);
+	json_object_object_add(disc_parameters_json, "calibration_parameters", calibration_parameters_json);
+
+	for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
+		if (disciplining_parameters->mean_fine_over_temperature[i] != 0) {
+			char temperature_range[64];
+			sprintf(
+				temperature_range,
+				"[%.2f, %.2f[",
+				(i + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
+				(i + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE
+			);
+			char mean_value[32];
+			sprintf(
+				mean_value,
+				"%.1f",
+				(float) disciplining_parameters->mean_fine_over_temperature[i] / 10
+			);
+			json_object_object_add(
+				temperature_table,
+				temperature_range,
+				json_object_new_string(mean_value)
+			);
+		}
+	}
+	json_object_object_add(disc_parameters_json, "temperature_table", temperature_table);
+	json_object_object_add(resp, "disciplining_parameters", disc_parameters_json);	
+	return;
+}
+
 /**
  * @brief Handle request received by setting monitoring request
  * and add action rquest in json response
@@ -260,7 +387,7 @@ static fd_status_t on_peer_ready_recv(int sockfd) {
  * @param mon_request
  * @param resp
  */
-static void json_handle_request(int request_type, enum monitoring_request *mon_request, struct json_object *resp)
+static void json_handle_request(struct monitoring *monitoring, int request_type, enum monitoring_request *mon_request, struct json_object *resp)
 {
 	switch (request_type)
 	{
@@ -278,6 +405,22 @@ static void json_handle_request(int request_type, enum monitoring_request *mon_r
 		json_object_object_add(resp, "Action requested",
 			json_object_new_string("GNSS stop"));
 		*mon_request = REQUEST_GNSS_STOP;
+		break;
+	case REQUEST_READ_EEPROM:
+	{
+		struct disciplining_parameters disciplining_parameters;
+		int ret = oscillator_get_disciplining_parameters(monitoring->oscillator, &disciplining_parameters);
+		if (ret != 0) {
+			log_error("Monitoring: Could not get disciplining parameters");
+		} else {
+			json_add_disciplining_disciplining_parameters(resp, &disciplining_parameters);
+		}
+		break;
+	}
+	case REQUEST_SAVE_EEPROM:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("Save EEPROM"));
+		*mon_request = REQUEST_SAVE_EEPROM;
 		break;
 	case REQUEST_NONE:
 	default:
@@ -418,7 +561,7 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
 
 	json_resp = json_object_new_object();
 
-	json_handle_request(request_type, &monitoring->request, json_resp);
+	json_handle_request(monitoring, request_type, &monitoring->request, json_resp);
 
 	if (monitoring->disciplining_mode || monitoring->phase_error_supported)
 		json_add_disciplining_data(json_resp, monitoring);
@@ -429,11 +572,10 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
 	pthread_mutex_unlock(&monitoring->mutex);
 
 	const char *resp = json_object_to_json_string(json_resp);
-
 	json_object_object_del(json_resp, "disciplining");
 	json_object_object_del(json_resp, "gnss");
 	json_object_object_del(json_resp, "oscillator");
-
+	json_object_object_del(json_resp, "disciplining_parameters");
 	ret = send(sockfd, resp, strlen(resp), 0);
 	if (ret == -1) {
 		log_error("Monitoring: Error sending response: %d", ret);
@@ -459,7 +601,7 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
  * @param config
  * @return struct monitoring*
  */
-struct monitoring* monitoring_init(const struct config *config)
+struct monitoring* monitoring_init(const struct config *config, struct oscillator *oscillator)
 {
 	int port;
 	int ret;
@@ -490,6 +632,7 @@ struct monitoring* monitoring_init(const struct config *config)
 	monitoring->stop = false;
 	monitoring->disciplining_mode = config_get_bool_default(config, "disciplining", false);
 	monitoring->phase_error_supported = false;
+	monitoring->oscillator = oscillator;
 
 	monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
 	monitoring->disciplining.status = INIT;
@@ -601,8 +744,14 @@ static void *monitoring_thread(void * p_data)
 		int nready = epoll_wait(epollfd, events, MAXFDS, SOCKET_TIMEOUT_MS);
 		for (int i = 0; i < nready; i++) {
 			if (events[i].events & EPOLLERR) {
-				log_error("epoll_wait returned EPOLLERR");
-				return NULL;
+				log_error("received EPOLLERR");
+				log_debug("socket %d closing", events[i].data.fd);
+				if (epoll_ctl(epollfd, EPOLL_CTL_DEL, events[i].data.fd, NULL) < 0) {
+					log_error("epoll_ctl EPOLL_CTL_DEL");
+					return NULL;
+				}
+				close(events[i].data.fd);
+				continue;
 			}
 
 			if (events[i].data.fd == monitoring->sockfd) {

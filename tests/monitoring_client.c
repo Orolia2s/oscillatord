@@ -25,6 +25,8 @@ static void print_help(void)
 	printf("\t- calibration: request a calibration of the algorithm\n");
 	printf("\t- gnss_start: start gnss receiver\n");
 	printf("\t- gnss_stop: stop gnss receiver.\n");
+	printf("\t- read_eeprom: read disciplining data from EEPROM.\n");
+	printf("\t- save_eeprom: save minipod's disciplining data in EEPROM.\n");
 	printf("- -h: prints help\n");
 	return;
 }
@@ -48,8 +50,8 @@ static struct json_object *json_send_and_receive(int sockfd, int request)
 		return NULL;
 	}
 
-	char *resp = (char *)malloc(sizeof(char) * 1024);
-	ret = recv(sockfd, resp, 1024, 0);
+	char *resp = (char *)malloc(sizeof(char) * 2048);
+	ret = recv(sockfd, resp, 2048, 0);
 	if (-1 == ret)
 	{
 		log_error("Error receiving response: %d", ret);
@@ -82,6 +84,10 @@ int main(int argc, char *argv[]) {
 			request = REQUEST_GNSS_START;
 		else if (strcmp(optarg, "gnss_stop") == 0)
 			request = REQUEST_GNSS_STOP;
+		else if (strcmp(optarg, "read_eeprom") == 0)
+			request = REQUEST_READ_EEPROM;
+		else if (strcmp(optarg, "save_eeprom") == 0)
+			request = REQUEST_SAVE_EEPROM;
 		else {
 			log_error("Unknown request %s", optarg);
 			return -1;
