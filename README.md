@@ -181,16 +181,37 @@ art-eeprom-format -p PATH -s SERIAL_NUMBER
 This program allows user to R/W disciplining parameters from/to a config file such as [art_calibration.conf](utils/art_calibration.conf) to/from EEPROM file of the ART Card.
 
 Reading from disciplining parameters from the EEPROM into a config file allows user to modify the disciplining parameters inside the config file before writing the updated parameters into the EEPROM in order to increase/decrease the number of *ctrl_load_nodes* and *ctrl_drift_coeffs* (which must be *ctrl_nodes_length* at all time)
+Resetting temperature table will only reset temperature table and not modify the rest of the EEPROM
 
 ```
-art_disciplining_manager -p eeprom_path  [-w calibration.conf -r -f -o output_file_path -h]
+art_disciplining_manager -p eeprom_path  [-w calibration.conf -r -f -o output_file_path -t -h]
 ```
 * **-p eeprom_path**: Path to the eeprom file
 * **-w calibration.conf**: Path to the calibration paramters file to write in the eeprom
 * **-r**: Read calibration parameters from the eeprom
 * **-f**: force write operation to write factory parameters
 * **-o**: output_file_path: write calibration parameters read in file
+* **-t**: Reset Temperature Table
 * **-h**: print help
+
+
+### Monitoring Client
+
+monitoring_client program offers a simple interface to test and interact with monitoring socket inside oscillatord
+
+Program allows to fetch data sent by the monitoring socket as well as perform the different actions oscillatord can respond to coming from a socket client:
+
+```
+monitoring_client -a address -p port [-r request]
+```
+* **-a address**: address of the socket server (set in oscillatord.conf)
+* **-p port**: socket port to bind to (set in oscillatord.conf)
+* **-r request**: allows to send a request. If empty, program will only output monitoring data. Possible values are:
+  * **calibration**: Requests algorithm to perform a calibration of the card
+  * **gnss_start**: Sends GNSS_START command to GNSS receiver
+  * **gnss_stop**: Sends GNSS_STOP command to GNSS receiver (receiver will not send data over UART and stop itself)
+  * **read_eeprom**: Reads content of EEPROM and send it to monitoring client
+  * **save_eeprom**: Requests oscillatord to save current disciplining data used by algorithm to the EEPROM
 
 ## Source tree organisation
 
