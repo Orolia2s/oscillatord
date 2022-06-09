@@ -80,7 +80,8 @@ static void signal_save_disciplining_parameters(int signum) {
 			log_info("Saved calibration parameters into EEPROM");
 		}
 	}
-	alarm(UPDATE_DISCIPLINING_PARAMETERS_SEC);
+	if (signum == SIGALRM)
+		alarm(UPDATE_DISCIPLINING_PARAMETERS_SEC);
 }
 
 /**
@@ -244,6 +245,7 @@ int main(int argc, char *argv[])
 		monitoring->oscillator_model = oscillator->class->name;
 		monitoring->phase_error_supported = phase_error_supported;
 		pthread_mutex_unlock(&monitoring->mutex);
+		signal(SIGUSR1, signal_save_disciplining_parameters);
 	}
 
 
@@ -560,6 +562,12 @@ int main(int argc, char *argv[])
 				log_info("Monitoring: GNSS Stop requested");
 				gnss_set_action(gnss, GNSS_ACTION_STOP);
 				break;
+			case REQUEST_SAVE_EEPROM:
+				log_info("Monitoring: Saving EEPROM data");
+				/* Sends itself a SIGUSR1 to save disciplining data */
+				kill(getpid(), SIGUSR1);
+				break;
+			case REQUEST_READ_EEPROM:
 			case REQUEST_NONE:
 			default:
 				break;
