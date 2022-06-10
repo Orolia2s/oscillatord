@@ -368,6 +368,18 @@ static bool gnss_set_time_scale(RX_t *rx, uint8_t time_scale) {
 }
 
 /**
+ * @brief Set Antenna cable delay of the GNSS Receiver.
+ *
+ * @param rx pointer to serial communication handler
+ * @param delay signed number of nanoseconds delay
+ * @return boolean indicating value was set
+ */
+static bool gnss_set_cable_delay(RX_t *rx, int16_t delay) {
+	const UBLOXCFG_KEYVAL_t tp_ant_cabledelay = UBLOXCFG_KEYVAL_ANY(CFG_TP_ANT_CABLEDELAY, delay);
+	return rxSetConfig(rx, &tp_ant_cabledelay, 1, true, false, false);
+}
+
+/**
  * @brief Connect to serial device of the GNSS Receiver.
  * Try to connect a maximum of GNSS_CONNECT_MAX_TRY time
  *
@@ -448,6 +460,7 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	const char * preferred_constellation;
 	bool do_reconfiguration;
 	bool config_set = false;
+	int16_t cable_delay = 0;
 
 	int ret = -1;
 	RX_ARGS_t args = RX_ARGS_DEFAULT();
@@ -523,6 +536,27 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 			log_info("Preferred time scale set to %s", preferred_constellation);
 		} else {
 			log_warn("Preferred time scale has not been set, assuming GNSS receiver is correctly set");
+		}
+	}
+
+	/* Add cable delay compensation value */
+	ret = config_get_int16_t(config, "gnss-cable-delay", &cable_delay);
+
+	if (!ret) {
+		if (cable_delay && !gnss_set_cable_delay(gnss->rx, cable_delay)) {
+			log_warn("Cannot set cable delay compensation");
+		}
+	} else {
+		switch(ret) {
+		case -ERANGE:
+			log_warn("gnss-cable-delay value is out of range");
+			break;
+		case -EINVAL:
+			log_warn("gnss-cable-delay value is invalid - not a number");
+			break;
+		default:
+			log_warn("Error parsing gnss-cable-delay value");
+			break;
 		}
 	}
 
