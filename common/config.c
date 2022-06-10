@@ -162,6 +162,28 @@ long config_get_unsigned_number(const struct config *config, const char *key)
 	return value;
 }
 
+/* Get a signed number between INT16_MIN and INT16_MAX */
+int config_get_int16_t(const struct config *config, const char *key, int16_t *val)
+{
+	const char *str_value;
+	char *endptr;
+	long value;
+
+	str_value = config_get(config, key);
+	if (str_value == NULL)
+		return errno != 0 ? -errno : -ESRCH;
+
+	value = strtol(str_value, &endptr, 0);
+	if (*str_value == '\0' || *endptr != '\0')
+		return -EINVAL;
+
+	if (value > INT16_MAX || value < INT16_MIN)
+		return -ERANGE;
+
+	*val = (int16_t)value;
+	return 0;
+}
+
 int config_get_uint8_t(const struct config *config, const char *key)
 {
 
