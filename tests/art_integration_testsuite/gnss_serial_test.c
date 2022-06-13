@@ -52,7 +52,7 @@ bool test_gnss_serial(char * path)
         if (res) {
             log_info("Successfully reconfigured GNSS receiver");
             log_debug("Performing software reset");
-            if (!rxReset(rx, RX_RESET_SOFT)) {
+            if (!rxReset(rx, RX_RESET_HARD)) {
                 free(allKvCfg);
                 return false;
             }
@@ -96,7 +96,7 @@ bool test_gnss_serial(char * path)
         {
             if(epochCollect(&coll, msg, &epoch))
             {
-                if(epoch.haveFix && epoch.fixOk && epoch.fix >= EPOCH_FIX_S3D && !got_gnss_fix) {
+                if(epoch.haveFix && epoch.fixOk && (epoch.fix >= EPOCH_FIX_S3D || epoch.fix == EPOCH_FIX_TIME) && !got_gnss_fix) {
                     log_info("\t- Got fix !");
                     got_gnss_fix = true;
                 }
