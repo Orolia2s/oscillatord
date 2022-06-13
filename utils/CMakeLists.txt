@@ -12,10 +12,13 @@ if(BUILD_UTILS)
 	file(GLOB EXTTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts.[ch])
 	file(GLOB ART_EEPROM_FORMAT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/art_eeprom_format.c)
 	file(GLOB ART_EEPROM_FULL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/art_full_display.c)
+	file(GLOB ART_MONITORING_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/art_monitoring_client.c ${PROJECT_SOURCE_DIR}/src/monitoring.h)
+
 
 	add_executable(art_disciplining_manager ${ART_EEPROM_MANAGER_SOURCES} ${COMMON_SOURCES} ${EEPROM_SOURCES})
 	add_executable(art_eeprom_format ${ART_EEPROM_FORMAT_SOURCES} ${COMMON_SOURCES} ${EEPROM_SOURCES})
 	add_executable(art_full_display ${ART_EEPROM_FULL_SOURCES} ${COMMON_SOURCES} ${EEPROM_SOURCES})
+	add_executable(art_monitoring_client ${ART_MONITORING_SOURCES} ${COMMON_SOURCES})
 
 	target_link_libraries(art_disciplining_manager PRIVATE
 		m)
@@ -24,9 +27,13 @@ if(BUILD_UTILS)
 		m)
 	target_link_libraries(art_full_display PRIVATE
 		m)
+	target_link_libraries(art_monitoring_client PRIVATE
+		json-c
+		m)
 
 	install(TARGETS art_disciplining_manager RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS art_eeprom_format RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS art_full_display RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+	install(TARGETS art_monitoring_client RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 endif(BUILD_UTILS)

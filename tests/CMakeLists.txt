@@ -14,7 +14,6 @@ if(BUILD_TESTS)
 		${PROJECT_SOURCE_DIR}/common/f9_defvalsets.[ch]
 		${PROJECT_SOURCE_DIR}/common/gnss-config.[ch]
 	)
-	file(GLOB MONITORING_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/monitoring_client.c ${PROJECT_SOURCE_DIR}/src/monitoring.h)
 	file(GLOB MRO50_CTRL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/mro50_ctrl.c)
 	file(GLOB ART_INTEGRATION_TEST_SUITE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/*.[ch])
 	file(GLOB ART_INTEGRATION_IN_SERVER_TEST_SOURCES
@@ -32,13 +31,12 @@ if(BUILD_TESTS)
 	include_directories(${SYSTEMD_INCLUDE_DIRS})
 
 	add_executable(oscillator_sim ${SIM_SOURCES} ${COMMON_SOURCES})
-	add_executable(monitoring_client ${MONITORING_SOURCES} ${COMMON_SOURCES})
 	add_executable(mro50_ctrl ${MRO50_CTRL_SOURCES} ${COMMON_SOURCES})
 	add_executable(art_integration_test_suite
-	${ART_INTEGRATION_TEST_SUITE_SOURCES}
-	${COMMON_SOURCES}
-	${EXTTS_SOURCES}
-	${COMMON_GNSS_SOURCES}
+		${ART_INTEGRATION_TEST_SUITE_SOURCES}
+		${COMMON_SOURCES}
+		${EXTTS_SOURCES}
+		${COMMON_GNSS_SOURCES}
 	)
 	add_executable(art_integration_in_server_test
 		${ART_INTEGRATION_IN_SERVER_TEST_SOURCES}
@@ -49,9 +47,6 @@ if(BUILD_TESTS)
 	add_executable(extts_test ${EXTTS_TEST_SOURCES} ${COMMON_SOURCES} ${EXTTS_SOURCES})
 
 	target_link_libraries(oscillator_sim PRIVATE
-		m)
-	target_link_libraries(monitoring_client PRIVATE
-		json-c
 		m)
 	target_link_libraries(mro50_ctrl PRIVATE
 		m)
@@ -69,7 +64,6 @@ if(BUILD_TESTS)
 		m)
 
 	install(TARGETS oscillator_sim RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-	install(TARGETS monitoring_client RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS mro50_ctrl RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS art_integration_test_suite RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS art_integration_in_server_test RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

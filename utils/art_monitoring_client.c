@@ -1,5 +1,12 @@
-/*
- * Test checking how monitoring socket works and which data it displays
+/**
+ * @file art_monitoring_client.c
+ * @author Charles Parent (charles.parent@orolia2s.com)
+ * @brief Program providing a simple interface to interact wit oscillatord
+ * through its monitoring socket
+ * @date 2022-06-13
+ *
+ * @copyright Copyright (c) 2022
+ *
  */
 #include <arpa/inet.h>
 #include <assert.h>
@@ -18,7 +25,7 @@
 
 static void print_help(void)
 {
-	printf("usage: monitoring_client [-h -r REQUEST_TYPE] -a ADDRESS -p PORT\n");
+	printf("usage: art_monitoring_client [-h -r REQUEST_TYPE] -a ADDRESS -p PORT\n");
 	printf("- -a ADDRESS: Adress socket should bind to\n");
 	printf("- -p PORT: Port socket should bind to\n");
 	printf("- -r REQUEST_TYPE: send a request to oscillatord. Accepted values are:\n");
