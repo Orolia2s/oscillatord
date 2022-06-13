@@ -1,7 +1,10 @@
 #include <errno.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "eeprom.h"
+#include "mRO50_ioctl.h"
 
 #define min(a,b) a < b ? a : b
 
@@ -150,4 +153,39 @@ void init_eeprom_data(struct eeprom_data *data, char *serial_number)
     data->system_manufacturing_date_year = current_time->tm_year + 1900;
 
     data->crc8 = gencrc((uint8_t *) data, sizeof(struct eeprom_data) - 1);
+}
+
+int write_disciplining_parameters_to_mro50(const char * path, struct disciplining_parameters *calibration)
+{
+    int fp = open(path, O_RDWR);
+    unsigned char buf[512] = {0x0};
+    int ret = 0;
+
+    if (fp < 0) {
+        log_error("Could not open file at %s", path);
+        return -1;
+    }
+    memcpy(buf, calibration, sizeof(*calibration));
+    if (ioctl(fp, MRO50_WRITE_EXTENDED_EEPROM_BLOB, buf) != 0) {
+      log_error("Could not write EEPROM BLOB");
+      ret = -1;
+    }
+    close(fp);
+    return ret;
+}
+
+void read_disciplining_parameters_from_mro50(const char *path, struct disciplining_parameters *dsc_parameters)
+{
+    int fp = open(path, O_RDWR);
+    unsigned char buf[512] = {0};
+    if (fp < 0) {
+        log_error("Could not open file at %s", path);
+        return;
+    }
+    if (ioctl(fp, MRO50_READ_EXTENDED_EEPROM_BLOB, buf) != 0) {
+        log_error("Could not read EEPROM BLOB");
+    } else {
+        memcpy(dsc_parameters, buf, sizeof(*dsc_parameters));
+    }
+    return;
 }

@@ -22,7 +22,6 @@
 #include "config.h"
 #include "eeprom.h"
 #include "log.h"
-#include "mRO50_ioctl.h"
 
 enum Mode {
     ART_EEPROM_MANAGER_NONE,
@@ -59,41 +58,6 @@ static void read_disciplining_parameters_from_eeprom(const char *path, struct di
         fclose(fp);
     } else {
         log_error("Could not open file at %s", path);
-    }
-    return;
-}
-
-static int write_disciplining_parameters_to_mro50(const char * path, struct disciplining_parameters *calibration)
-{
-    int fp = open(path, O_RDWR);
-    unsigned char buf[512] = {0x0};
-    int ret = 0;
-
-    if (fp < 0) {
-        log_error("Could not open file at %s", path);
-        return -1;
-    }
-    memcpy(buf, calibration, sizeof(*calibration));
-    if (ioctl(fp, MRO50_WRITE_EXTENDED_EEPROM_BLOB, buf) != 0) {
-      log_error("Could not write EEPROM BLOB");
-      ret = -1;
-    }
-    close(fp);
-    return ret;
-}
-
-static void read_disciplining_parameters_from_mro50(const char *path, struct disciplining_parameters *dsc_parameters)
-{
-    int fp = open(path, O_RDWR);
-    unsigned char buf[512] = {0};
-    if (fp < 0) {
-        log_error("Could not open file at %s", path);
-        return;
-    }
-    if (ioctl(fp, MRO50_READ_EXTENDED_EEPROM_BLOB, buf) != 0) {
-        log_error("Could not read EEPROM BLOB");
-    } else {
-        memcpy(dsc_parameters, buf, sizeof(*dsc_parameters));
     }
     return;
 }

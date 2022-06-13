@@ -97,6 +97,7 @@ int write_eeprom(const char *path, struct eeprom_data *data, struct disciplining
 int read_eeprom_data(const char *path, struct eeprom_data *data);
 int read_disciplining_parameters(const char *path, struct disciplining_parameters *dsc_parameters);
 void init_eeprom_data(struct eeprom_data *data, char *serial_number);
-
+int write_disciplining_parameters_to_mro50(const char * path, struct disciplining_parameters *calibration);
+void read_disciplining_parameters_from_mro50(const char *path, struct disciplining_parameters *dsc_parameters);
 
 #endif /* EEPROM_H */
