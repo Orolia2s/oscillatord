@@ -51,6 +51,20 @@ int log_add_fp(FILE *fp, int level);
 void log_log(int level, const char *file, int line, const char *fmt, ...);
 void ppsthread_log(volatile struct pps_thread_t *pps_thread, int level, const char *fmt, ...);
 
+static inline void print_temperature_table(int16_t mean_fine_over_temperature[MEAN_TEMPERATURE_ARRAY_MAX], int level)
+{
+    /* Print temperature table */
+    log_log(level, __FILE__, __LINE__, "Temperature compensation table:");
+    for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
+        if (mean_fine_over_temperature[i] >= -32000 && mean_fine_over_temperature[i] <= 32000) {
+            log_log(level, __FILE__, __LINE__, "Read mean value of %.2f in temperature range [%.2f, %.2f[",
+                (float) mean_fine_over_temperature[i] / 10.0,
+                (i + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
+                (i + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE);
+        }
+    }
+}
+
 static inline void print_disciplining_parameters(struct disciplining_parameters *calibration, int level)
 {
     log_log(level, __FILE__, __LINE__, "Calibration parameters:");
@@ -87,16 +101,7 @@ static inline void print_disciplining_parameters(struct disciplining_parameters 
     log_log(level, __FILE__, __LINE__, "coarse_equilibrium_factory = %d", calibration->coarse_equilibrium_factory);
     log_log(level, __FILE__, __LINE__, "estimated_equilibrium_ES = %d", calibration->estimated_equilibrium_ES);
 
-    /* Print temperature table */
-    log_log(level, __FILE__, __LINE__, "Temperature compensation table:");
-    for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
-        if (calibration->mean_fine_over_temperature[i] != 0) {
-            log_log(level, __FILE__, __LINE__, "Read mean value of %.2f in temperature range [%.2f, %.2f[",
-                (float) calibration->mean_fine_over_temperature[i] / 10.0,
-                (i + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
-                (i + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE);
-        }
-    }
+    print_temperature_table(calibration->mean_fine_over_temperature, level);
 }
 
 #endif
