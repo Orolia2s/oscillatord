@@ -184,16 +184,29 @@ Reading from disciplining parameters from the EEPROM into a config file allows u
 Resetting temperature table will only reset temperature table and not modify the rest of the EEPROM
 
 ```
-art_disciplining_manager -p eeprom_path  [-w calibration.conf -r -f -o output_file_path -t -h]
+art_disciplining_manager [-p eeprom_path | -m mro50_path]  [-w calibration.conf -r -f -o output_file_path -t -h]
 ```
 * **-p eeprom_path**: Path to the eeprom file
+* **-m mro50_path**: Path to mro50 device
 * **-w calibration.conf**: Path to the calibration paramters file to write in the eeprom
 * **-r**: Read calibration parameters from the eeprom
 * **-f**: force write operation to write factory parameters
-* **-o**: output_file_path: write calibration parameters read in file
+* **-o output_file_path**: write calibration parameters read in file
 * **-t**: Reset Temperature Table
 * **-h**: print help
 
+### ART Temperature table manager
+
+This program allows user to R/W temperature table from/to a text file such as [relative_temp_table.txt](utils/relative_temp_table.txt ) to/from EEPROM file of the ART Card.
+
+```
+art_temperature_table_manager -m eeprom_path  [-w input_file | -r -o output_file_path | -h]
+```
+* **-p eeprom_path**: Path to the eeprom file
+* **-w input_file**: Path to the text file containing the temperature table
+* **-r**: Read and display temperature table
+* **-o output_file_path**: write calibration parameters read in file
+* **-h**: print help
 
 ### Monitoring Client
 
