@@ -140,6 +140,7 @@ static int mRO50_oscillator_get_temp(struct oscillator *oscillator, double *temp
 	int ret;
 	uint32_t read_value;
 	double temperature;
+	double resistance;
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 
 	ret = ioctl(mRo50->osc_fd, MRO50_READ_TEMP, &read_value);
@@ -147,9 +148,54 @@ static int mRO50_oscillator_get_temp(struct oscillator *oscillator, double *temp
 		log_error("Could not read temperature from mRO50 oscillator, err %d", ret);
 		return -1;
 	}
-	temperature = compute_temp(read_value);
-	if (temperature == DUMMY_TEMPERATURE_VALUE)
+	resistance = compute_resistance(read_value, TEMPERATURE_RESISTANCE_MULTIPLICATOR, TEMPERATURE_RESISTANCE_REG_DIVIDER);
+	if (resistance == DUMMY_RESISTANCE_VALUE)
 		return -1;
+	temperature = compute_temp(resistance);
+	*temp = temperature;
+	return 0;
+}
+
+static int mRO50_oscillator_get_cell_temp(struct oscillator *oscillator, double *temp)
+{
+	struct mRo50_oscillator *mRo50;
+	int ret;
+	uint32_t read_value;
+	double temperature;
+	double resistance;
+	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
+
+	ret = ioctl(mRo50->osc_fd, MRO50_READ_CELL_TEMP, &read_value);
+	if (ret != 0) {
+		log_error("Could not read temperature from mRO50 oscillator, err %d", ret);
+		return -1;
+	}
+	resistance = compute_resistance(read_value, CELL_TEMPERATURE_RESISTANCE_MULTIPLICATOR, CELL_TEMPERATURE_RESISTANCE_REG_DIVIDER);
+	if (resistance == DUMMY_RESISTANCE_VALUE)
+		return -1;
+	temperature = compute_temp(resistance);
+	*temp = temperature;
+	return 0;
+}
+
+static int mRO50_oscillator_get_laser_temp(struct oscillator *oscillator, double *temp)
+{
+	struct mRo50_oscillator *mRo50;
+	int ret;
+	uint32_t read_value;
+	double temperature;
+	double resistance;
+	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
+
+	ret = ioctl(mRo50->osc_fd, MRO50_READ_LASER_TEMP, &read_value);
+	if (ret != 0) {
+		log_error("Could not read temperature from mRO50 oscillator, err %d", ret);
+		return -1;
+	}
+	resistance = compute_resistance(read_value, LASER_TEMPERATURE_RESISTANCE_MULTIPLICATOR, LASER_TEMPERATURE_RESISTANCE_REG_DIVIDER);
+	if (resistance == DUMMY_RESISTANCE_VALUE)
+		return -1;
+	temperature = compute_temp(resistance);
 	*temp = temperature;
 	return 0;
 }
@@ -308,6 +354,8 @@ static const struct oscillator_factory mRo50_oscillator_factory = {
 			.get_ctrl = mRo50_oscillator_get_ctrl,
 			.save = NULL,
 			.get_temp = mRO50_oscillator_get_temp,
+			.get_cell_temp = mRO50_oscillator_get_cell_temp,
+			.get_laser_temp = mRO50_oscillator_get_laser_temp,
 			.apply_output = mRo50_oscillator_apply_output,
 			.calibrate = mRo50_oscillator_calibrate,
 			.get_disciplining_parameters = mRo50_oscillator_get_disciplining_parameters,

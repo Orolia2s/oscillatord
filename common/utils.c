@@ -34,16 +34,20 @@ void fd_cleanup(int *fd)
 	*fd = -1;
 }
 
-// Formula to compute mRO50 temperature
-double compute_temp(uint32_t reg)
+double compute_resistance(uint32_t reg, float multiplicator, float reg_divider)
 {
-	double x = (double) reg / 4095.0;
+	double x = (double) reg / reg_divider;
 	if (x == 1.0) {
 		log_warn("Cannot compute temperature\n");
 		// Return absurd value so that user know it is not possible
-		return DUMMY_TEMPERATURE_VALUE;
+		return DUMMY_RESISTANCE_VALUE;
 	}
-	double resistance = 47000.0 * x / (1.0 - x);
+	return multiplicator * x / (1.0 - x);
+}
+
+// Formula to compute mRO50 temperature
+double compute_temp(double resistance)
+{
 	double temperature = (
 		4100.0 * 298.15
 		/ (298.15 * log(pow(10, -5) * resistance) + 4100.0)

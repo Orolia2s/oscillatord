@@ -46,6 +46,8 @@ struct monitoring {
 	int8_t antenna_power;
 	int8_t antenna_status;
 	double temperature;
+	double cell_temperature;
+	double laser_temperature;
 	int sockfd;
 	bool fixOk;
 	bool stop;

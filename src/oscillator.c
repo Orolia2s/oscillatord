@@ -53,6 +53,26 @@ int oscillator_get_temp(struct oscillator *oscillator, double *temp)
 	return oscillator->class->get_temp(oscillator, temp);
 }
 
+int oscillator_get_cell_temp(struct oscillator *oscillator, double *temp)
+{
+	if (oscillator == NULL || temp == NULL)
+		return -EINVAL;
+	if (oscillator->class->get_cell_temp == NULL)
+		return -ENOSYS;
+
+	return oscillator->class->get_cell_temp(oscillator, temp);
+}
+
+int oscillator_get_laser_temp(struct oscillator *oscillator, double *temp)
+{
+	if (oscillator == NULL || temp == NULL)
+		return -EINVAL;
+	if (oscillator->class->get_laser_temp == NULL)
+		return -ENOSYS;
+
+	return oscillator->class->get_laser_temp(oscillator, temp);
+}
+
 int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output) {
 	if (oscillator == NULL || output == NULL)
 		return -EINVAL;

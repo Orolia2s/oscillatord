@@ -172,6 +172,8 @@ int main(int argc, char *argv[])
 	const char *path;
 	char err_msg[OD_ERR_MSG_LEN];
 	double temperature;
+	double cell_temperature;
+	double laser_temperature;
 	int64_t phase_error;
 	int phasemeter_status;
 	int ret;
@@ -376,6 +378,24 @@ int main(int argc, char *argv[])
 			else if (ret < 0)
 				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
 
+			ret = oscillator_get_cell_temp(oscillator, &cell_temperature);
+			if (ret == -ENOSYS)
+				cell_temperature = 0.0;
+			else if (ret < 0)
+				log_error("Could not get cell temperature from oscillator");
+
+			ret = oscillator_get_laser_temp(oscillator, &laser_temperature);
+			if (ret == -ENOSYS)
+				laser_temperature = 0.0;
+			else if (ret < 0)
+				log_error("Could not get laser temperature from oscillator");
+			log_debug(
+				"oscillator temperature: EP temperature = %.2f°C, Cell temperature = %.2f°C, Laser temperature = %.2f°C",
+				temperature,
+				cell_temperature,
+				laser_temperature
+			);
+
 			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
 			if (ret != 0) {
 				log_warn("Could not get control values of oscillator");
@@ -548,6 +568,8 @@ int main(int argc, char *argv[])
 				oscillator_get_disciplining_status(oscillator, &monitoring->disciplining);
 			}
 			monitoring->temperature = temperature;
+			monitoring->cell_temperature = cell_temperature;
+			monitoring->laser_temperature = laser_temperature;
 			monitoring->ctrl_values = ctrl_values;
 			switch(monitoring->request) {
 			case REQUEST_CALIBRATION:

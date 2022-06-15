@@ -198,12 +198,18 @@ int main(int argc, char *argv[]) {
 		bool lock = json_object_get_boolean(layer_2);
 		json_object_object_get_ex(layer_1, "temperature", &layer_2);
 		double temperature = json_object_get_double(layer_2);
+		json_object_object_get_ex(layer_1, "cell_temperature", &layer_2);
+		double cell_temperature = json_object_get_double(layer_2);
+		json_object_object_get_ex(layer_1, "laser_temperature", &layer_2);
+		double laser_temperature = json_object_get_double(layer_2);
 		log_info("Oscillator detected");
 		log_info("\t- model: %s", model);
 		log_info("\t- fine_ctrl: %u", fine_ctrl);
 		log_info("\t- coarse_ctrl: %u", coarse_ctrl);
 		log_info("\t- lock: %s", lock ? "True" : "False");
-		log_info("\t- temperature: %f", temperature);
+		log_info("\t- temperature: %.2f", temperature);
+		log_info("\t- cell_temperature: %.2f", cell_temperature);
+		log_info("\t- laser_temperature: %.2f", laser_temperature);
 	}
 
 	/* Oscillator */
