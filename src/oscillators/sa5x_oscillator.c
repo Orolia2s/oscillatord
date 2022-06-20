@@ -67,6 +67,10 @@ enum SA5x_Disciplining_State {
 struct sa5x_disciplining_status {
 	enum SA5x_Disciplining_State status;
 	enum SA5x_ClockClass clock_class;
+	int current_phase_convergence_count;
+	int valid_phase_convergence_threshold;
+	float convergence_progress;
+	bool holdover_ready;
 };
 
 struct sa5x_oscillator {
@@ -358,6 +362,10 @@ static struct oscillator *sa5x_oscillator_new(struct config *config)
 
 	sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
 	sa5x->status.status = SA5X_INIT;
+	sa5x->status.current_phase_convergence_count = -1;
+	sa5x->status.valid_phase_convergence_threshold = -1;
+	sa5x->status.convergence_progress = 0.0f
+	sa5x->status.holdover_ready = false;
 	clock_gettime(CLOCK_MONOTONIC, &sa5x->disciplining_start);
 
 	cmd_len = snprintf(answer_str, answer_len, CMD_SET_TAU, tau_values[0]);
@@ -431,6 +439,7 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 			sa5x->status.clock_class = SA5X_CLOCK_CLASS_LOCK;
 			sa5x->status.status = SA5X_CALIBRATION + sa5x->disciplining_phase;
 		}
+		sa5x->status.holdover_ready = sa5x->disciplining_phase == (DISCIPLINING_PHASES - 1) ? true : false;
 	}
 
 	return 0;
