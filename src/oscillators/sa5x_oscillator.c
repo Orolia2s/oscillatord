@@ -364,7 +364,7 @@ static struct oscillator *sa5x_oscillator_new(struct config *config)
 	sa5x->status.status = SA5X_INIT;
 	sa5x->status.current_phase_convergence_count = -1;
 	sa5x->status.valid_phase_convergence_threshold = -1;
-	sa5x->status.convergence_progress = 0.0f
+	sa5x->status.convergence_progress = 0.0f;
 	sa5x->status.holdover_ready = false;
 	clock_gettime(CLOCK_MONOTONIC, &sa5x->disciplining_start);
 
