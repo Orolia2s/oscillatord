@@ -109,6 +109,24 @@ const char *config_get(const struct config *config, const char *key)
 	return envz_get(config->argz, config->len, key);
 }
 
+bool config_get_bool_auto(const struct config *config, const char *key,
+		bool default_value)
+{
+	const char *value;
+
+	value = config_get(config, key);
+	if (value == NULL)
+		return default_value;
+
+	if (strcmp(value, "auto") == 0)
+		return true;
+	else
+		return false;
+
+	return default_value;
+}
+
+
 const char *config_get_default(const struct config *config, const char *key,
 		const char *default_value)
 {

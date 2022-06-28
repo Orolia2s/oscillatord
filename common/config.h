@@ -24,6 +24,8 @@ extern volatile int loop;
 
 int config_init(struct config *config, const char *path);
 const char *config_get(const struct config *config, const char *key);
+bool config_get_bool_auto(const struct config *config, const char *key,
+		bool default_value);
 const char *config_get_default(const struct config *config, const char *key,
 		const char *default_value);
 bool config_get_bool_default(const struct config *config, const char *key,

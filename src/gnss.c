@@ -454,12 +454,48 @@ static bool gnss_set_default_configuration(RX_t *rx) {
  * @param fd_clock file pointer to PHC
  * @return struct gnss*
  */
+
+static void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
+{
+    char dev_repository[1024];   /* should alwys be big enough */
+    sprintf(dev_repository, "%s/%s", dirname, dir->d_name );
+    char dev_name[100];
+    char * token = strtok(realpath(dev_repository, NULL), "/");
+    while(token != NULL) {
+        strncpy(dev_name, token, sizeof(dev_name));
+        token = strtok(NULL, "/");
+    }
+    printf("%s/%s", "/dev", dev_name );
+}
+
+static bool test_ocp_directory(char * ocp_path) {
+    DIR * ocp_dir = opendir(ocp_path);
+    bool gnss_receiver_passed = false;
+    uint32_t mro50_coarse_value;
+    bool mro50_passed = false;
+    bool found_eeprom = false;
+    bool ptp_passed = false;
+    struct dirent * entry = readdir(ocp_dir);
+    while (entry != NULL) {
+        /* I2C TEST: Find EEPROM File
+         * EEPROM file will be written if test is successful
+         */
+        if (strncmp(entry->d_name, "ttyGNSS", 7) == 0) {
+            log_info("ttyGPS detected");
+            find_dev_path(ocp_path, entry);
+        }
+
+        entry = readdir(ocp_dir);
+    }
+
+
 struct gnss * gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock)
 {
 	struct gnss *gnss;
 	const char * preferred_constellation;
 	bool do_reconfiguration;
 	bool config_set = false;
+	bool auto_config;
 	int16_t cable_delay = 0;
 
 	int ret = -1;
@@ -467,15 +503,27 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	args.autobaud = true;
 	args.detect = true;
 
-	const char *gnss_device_tty = config_get(config, "gnss-device-tty");
-	if (gnss_device_tty == NULL) {
-		log_error("device-tty not defined in config %s", config->path);
-		return NULL;
+
+	auto_config = config_get_bool_auto(config, "gnss-device-tty",false);
+
+	if (auto_config) {
+			char *sysfs_path = NULL;
+			gnss_device_tty
+	}
+
+	else {
+		const char *gnss_device_tty = config_get(config, "gnss-device-tty");
+	
+		if (gnss_device_tty == NULL) {
+			log_error("device-tty not defined in config %s", config->path);
+			return NULL;
+		}
 	}
 
 	if (strchr(gnss_device_tty, '@')) {
 		args.autobaud = false;
 	}
+
 
 	if (session == NULL) {
 		log_error("No gps session provided");
