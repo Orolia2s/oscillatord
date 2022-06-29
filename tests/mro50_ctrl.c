@@ -51,7 +51,7 @@ static void print_help(void)
     printf("usage: mro50_ctrl [-h] -d DEVICE -c COMMAND -t TYPE [WRITE_VALUE]\n");
     printf("- DEVICE: mrO50 device's path\n");
     printf("- COMMAND: 'read' or 'write'\n");
-    printf("- TYPE: 'fine', 'coarse', 'temp' or 'parameters' \n");
+    printf("- TYPE: 'fine', 'coarse', 'temp', 'temp_field_a', 'temp_field_b', 'parameters' or 'serial_activate' (temp, temp_field_a and temp_field_b are read only)\n");
     printf("- WRITE_VALUE: mandatory if command is write.\n");
     printf("- -h: prints help\n");
     return;
@@ -106,6 +106,12 @@ static int check_type(char * type)
         return TYPE_TEMP;
     else if (strcmp(type, "parameters") == 0)
         return TYPE_PARAM;
+    else if (strcmp(type, "serial_activate") == 0)
+        return TYPE_SERIAL_ACTIVATE;
+    else if (strcmp(type, "temp_field_a") == 0)
+        return TYPE_TEMP_FIELD_A;
+    else if (strcmp(type, "temp_field_b") == 0)
+        return TYPE_TEMP_FIELD_B;
     else {
         log_error("Unknown type %s\n", type);
         return -1;
@@ -226,6 +232,12 @@ int main(int argc, char ** argv)
             print_disciplining_parameters(&params, LOG_INFO);
             close(fd);
             return 0;
+        } else if (type_int == TYPE_SERIAL_ACTIVATE) {
+            ioctl_command = MRO50_BOARD_CONFIG_READ;
+        } else if (type_int == TYPE_TEMP_FIELD_A) {
+            ioctl_command = MRO50_TEMP_FIELD_A_READ;
+        } else if (type_int == TYPE_TEMP_FIELD_B) {
+            ioctl_command = MRO50_TEMP_FIELD_B_READ;
         } else
             return -1;
 
@@ -281,6 +293,9 @@ int main(int argc, char ** argv)
                 return -1;
             }
             return 0;
+        } else if (type_int == TYPE_SERIAL_ACTIVATE){
+            ioctl_command = MRO50_BOARD_CONFIG_WRITE;
+            assert(write_value == 0 || write_value == 1);
         } else
             return -1;
 
