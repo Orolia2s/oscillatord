@@ -51,12 +51,12 @@ int log_add_fp(FILE *fp, int level);
 void log_log(int level, const char *file, int line, const char *fmt, ...);
 void ppsthread_log(volatile struct pps_thread_t *pps_thread, int level, const char *fmt, ...);
 
-static inline void print_temperature_table(int16_t mean_fine_over_temperature[MEAN_TEMPERATURE_ARRAY_MAX], int level)
+static inline void print_temperature_table(uint16_t mean_fine_over_temperature[MEAN_TEMPERATURE_ARRAY_MAX], int level)
 {
     /* Print temperature table */
     log_log(level, __FILE__, __LINE__, "Temperature compensation table:");
     for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
-        if (mean_fine_over_temperature[i] >= -32000 && mean_fine_over_temperature[i] <= 32000) {
+        if (mean_fine_over_temperature[i] > 0 && mean_fine_over_temperature[i] <= 48000) {
             log_log(level, __FILE__, __LINE__, "Read mean value of %.2f in temperature range [%.2f, %.2f[",
                 (float) mean_fine_over_temperature[i] / 10.0,
                 (i + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
