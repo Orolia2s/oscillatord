@@ -128,7 +128,7 @@ static int set_serial_attributes(int fd)
 static struct oscillator *mRo50_oscillator_new(struct config *config)
 {
 	struct mRo50_oscillator *mRo50;
-	int fd;
+	int fd, ret;
 	int serial_fd;
 	char * osc_device_name;
 	char * osc_serial_name;
@@ -153,6 +153,14 @@ static struct oscillator *mRo50_oscillator_new(struct config *config)
 		goto error;
 	}
 	mRo50->osc_fd = fd;
+
+	/* Activate serial in order to use mro50-serial device */
+	uint32_t serial_activate = 1;
+	ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
+	if (ret != 0) {
+		log_error("Could not activate mro50 serial");
+		goto error;
+	}
 
 	/* Get device path for mRo50 serial */
 	osc_serial_name = (char *) config_get(config, "mro50-serial");
