@@ -229,6 +229,11 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 		memset(answer_str, 0, rbytes);
 		return -1;
 	}
+	if (answer_str[rbytes -1] != '\n' || answer_str[rbytes - 2] != '\n') {
+		log_error("oscillator_get_attributes answer does not contain LFLF: %s", answer_str);
+		memset(answer_str, 0, rbytes);
+		return -1;
+	}
 	return rbytes;
 }
 
@@ -242,6 +247,7 @@ static int mRo50_oscillatord_get_attributes(struct oscillator *oscillator, struc
 
 	err = mRo50_oscillator_cmd(mRo50, CMD_READ_STATUS, sizeof(CMD_READ_STATUS) - 1);
 	if (err == STATUS_ANSWER_SIZE) {
+		log_debug("MONITOR1 from mro50 gives %s", answer_str);
 		/* Parse mRo50 EP temperature */
 		strncpy(EP_temperature, &answer_str[STATUS_EP_TEMPERATURE_INDEX], STATUS_ANSWER_FIELD_SIZE);
 		read_value = strtoul(EP_temperature, NULL, 16);
