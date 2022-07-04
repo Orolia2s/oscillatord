@@ -373,8 +373,10 @@ int main(int argc, char *argv[])
 			ret = oscillator_get_temp(oscillator, &temperature);
 			if (ret == -ENOSYS)
 				temperature = 0;
-			else if (ret < 0)
-				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
+			else if (ret < 0) {
+				log_warn("Coud not get temperature of oscillator");
+				continue;
+			}
 
 			ret = oscillator_get_ctrl(oscillator, &ctrl_values);
 			if (ret != 0) {
