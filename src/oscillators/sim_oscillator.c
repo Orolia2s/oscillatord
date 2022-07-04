@@ -80,11 +80,12 @@ static int sim_oscillator_save(struct oscillator *oscillator)
 	return -ENOSYS;
 }
 
-static int sim_oscillator_get_temp(struct oscillator *oscillator, double *temp)
+static int sim_oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes)
 {
-	*temp = (rand() % (55 - 10)) + 10;
+	attributes->temperature = (rand() % (55 - 10)) + 10;
+	attributes->locked = false;
 
-	log_info("%s(%p, %g)", __func__, oscillator, *temp);
+	log_info("%s(%p, %g)", __func__, oscillator, attributes->temperature);
 
 	return 0;
 }
@@ -181,7 +182,7 @@ static const struct oscillator_factory sim_oscillator_factory = {
 			.name = FACTORY_NAME,
 			.get_ctrl = sim_oscillator_get_ctrl,
 			.save = sim_oscillator_save,
-			.get_temp = sim_oscillator_get_temp,
+			.parse_attributes = sim_oscillator_parse_attributes,
 			.apply_output = sim_oscillator_apply_output,
 			.dac_min = SIM_SETPOINT_MIN,
 			.dac_max = SIM_SETPOINT_MAX,

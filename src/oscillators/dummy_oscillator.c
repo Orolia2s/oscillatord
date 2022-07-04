@@ -48,11 +48,12 @@ static int dummy_oscillator_save(struct oscillator *oscillator)
 	return 0;
 }
 
-static int dummy_oscillator_get_temp(struct oscillator *oscillator, double *temp)
+static int dummy_oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes)
 {
-	*temp = (rand() % (55 - 10)) + 10;
+	attributes->temperature = (rand() % (55 - 10)) + 10;
+	attributes->locked = false;
 
-	log_info("%s(%p, %g)", __func__, oscillator, *temp);
+	log_info("%s(%p, %g)", __func__, oscillator, attributes->temperature);
 
 	return 0;
 }
@@ -88,7 +89,7 @@ static const struct oscillator_factory dummy_oscillator_factory = {
 			.name = FACTORY_NAME,
 			.get_ctrl = dummy_oscillator_get_ctrl,
 			.save = dummy_oscillator_save,
-			.get_temp = dummy_oscillator_get_temp,
+			.parse_attributes = dummy_oscillator_parse_attributes,
 			.apply_output = dummy_oscillator_apply_output,
 			.dac_min = DUMMY_SETPOINT_MIN,
 			.dac_max = DUMMY_SETPOINT_MAX,

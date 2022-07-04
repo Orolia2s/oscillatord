@@ -35,6 +35,7 @@ struct monitoring {
 	enum monitoring_request request;
 	struct od_monitoring disciplining;
 	struct oscillator_ctrl ctrl_values;
+	struct oscillator_attributes osc_attributes;
 	const char *oscillator_model;
 	struct oscillator *oscillator;
 	int64_t phase_error;
@@ -45,7 +46,6 @@ struct monitoring {
 	int lsChange;
 	int8_t antenna_power;
 	int8_t antenna_status;
-	double temperature;
 	int sockfd;
 	bool fixOk;
 	bool stop;
