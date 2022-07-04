@@ -385,19 +385,17 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 
 	// coarse_ctrl wil contain TAU value
 	if (!err) {
-		ctrl->lock = a.ppsindetected;
 		ctrl->fine_ctrl = a.lastcorrection;
 		ctrl->coarse_ctrl = a.tau;
 	} else {
 		ctrl->fine_ctrl = -1;
 		ctrl->coarse_ctrl = 0;
-		ctrl->lock = 0;
 		return 0;
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
-	if (ctrl->lock == 0 && sa5x->gnss_fix_status) {
+	if (a.ppsindetected == 0 && sa5x->gnss_fix_status) {
 		log_debug("SA5x reports loss of PPS while GNSS fix is OK");
 	}
 	if (!sa5x->gnss_fix_status) {
@@ -438,15 +436,17 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 	return 0;
 }
 
-static int sa5x_oscillator_get_temp(struct oscillator *oscillator, double *temp)
+static int sa5x_oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes)
 {
 	struct sa5x_attributes a;
 	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_STATUS);
 	if (!err) {
 		// mDegC to DegC
-		*temp = a.temperature / 1000.0;
+		attributes->temperature = a.temperature / 1000.0;
+		attributes->locked = a.ppsindetected;
 	} else {
-		*temp = -400.0;
+		attributes->temperature = -400.0;
+		attributes->locked = 0;
 	}
 	// we cannot propagate error further
 	return 0;
@@ -489,9 +489,9 @@ static const struct oscillator_factory sa5x_oscillator_factory = {
 	.class = {
 		.name = FACTORY_NAME,
 		.get_ctrl = sa5x_oscillator_get_ctrl,
-		.get_temp = sa5x_oscillator_get_temp,
 		.get_phase_error = sa5x_oscillator_get_phase_error,
 		.get_disciplining_status = sa5x_oscillator_get_disciplining_status,
+		.parse_attributes = sa5x_oscillator_parse_attributes,
 		.push_gnss_info = sa5x_oscillator_push_gnss_info,
 	},
 	.new = sa5x_oscillator_new,

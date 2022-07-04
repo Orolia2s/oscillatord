@@ -43,14 +43,14 @@ int oscillator_save(struct oscillator *oscillator)
 	return oscillator->class->save(oscillator);
 }
 
-int oscillator_get_temp(struct oscillator *oscillator, double *temp)
+int oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes)
 {
-	if (oscillator == NULL || temp == NULL)
+	if (oscillator == NULL || attributes == NULL)
 		return -EINVAL;
-	if (oscillator->class->get_temp == NULL)
+	if (oscillator->class->parse_attributes == NULL)
 		return -ENOSYS;
 
-	return oscillator->class->get_temp(oscillator, temp);
+	return oscillator->class->parse_attributes(oscillator, attributes);
 }
 
 int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output) {
