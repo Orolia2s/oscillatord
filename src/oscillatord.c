@@ -168,6 +168,46 @@ static void prepare_minipod_config(struct minipod_config* minipod_config, struct
 	minipod_config->fine_table_output_path = config_get_default(config, "fine_table_output_path", "/tmp/");
 }
 
+static int get_devices_path_from_sysfs(
+	struct config *config,
+	struct devices_path *devices_path,
+	bool disciplining_mode,
+	bool monitoring_mode
+) {
+	const char *sysfs_path;
+	DIR * ocp_dir;
+
+	sysfs_path = config_get(config, "sysfs-path");
+	if (sysfs_path == NULL) {
+		log_error("No sysfs-path provided in oscillatord config file !");
+		return -EINVAL;
+	}
+	log_info("Scanning sysfs path %s", sysfs_path);
+
+	ocp_dir = opendir(sysfs_path);
+	struct dirent * entry = readdir(ocp_dir);
+	while (entry != NULL) {
+		if (strncmp(entry->d_name, "mro50", 6) == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->mro_path);
+			log_debug("mro50 device detected: %s", devices_path->mro_path);
+		} else if (strncmp(entry->d_name, "ptp", 4) == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->ptp_path);
+			log_debug("ptp clock device detected: %s", devices_path->ptp_path);
+		} else if (strncmp(entry->d_name, "ttyGNSS", 7) == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->gnss_path);
+			log_debug("ttyGPS detected: %s", devices_path->gnss_path);
+		} else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->mac_path);
+			log_debug("ttyMAC detected: %s", devices_path->mac_path);
+		}
+
+		entry = readdir(ocp_dir);
+	}
+
+	return 0;
+}
+
+
 /**
  * @brief Main program function
  *
@@ -186,7 +226,7 @@ int main(int argc, char *argv[])
 	struct od_output output = {0};
 	struct minipod_config minipod_config = {0};
 	struct disciplining_parameters disciplining_parameters = {0};
-	const char *ptp_clock;
+	struct devices_path devices_path = { 0 };
 	const char *path;
 	char err_msg[OD_ERR_MSG_LEN];
 	double temperature;
@@ -229,19 +269,20 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
+	/* Get devices' path from sysfs directory */
+	ret = get_devices_path_from_sysfs(&config, &devices_path, disciplining_mode, monitoring_mode);
+	if (ret != 0) {
+		error(EXIT_FAILURE, -ret, "get_devices_path_from_sysfs");
+		return -EINVAL;
+	}
+
 	/* Set log level according to configuration */
 	log_level = config_get_unsigned_number(&config, "debug");
 	log_set_level(log_level >= 0 ? log_level : 0);
 	log_info("Starting Oscillatord v%s", PACKAGE_VERSION);
 
-	ptp_clock = config_get(&config, "ptp-clock");
-	if (ptp_clock == NULL) {
-		log_warn("ptp-clock not defined in config %s", path);
-	}
-	log_info("PTP Clock: %s", ptp_clock);
-
 	/* Create oscillator object */
-	oscillator = oscillator_factory_new(&config);
+	oscillator = oscillator_factory_new(&config, &devices_path);
 	if (oscillator == NULL) {
 		error(EXIT_FAILURE, errno, "oscillator_factory_new");
 		return -EINVAL;
@@ -267,14 +308,11 @@ int main(int argc, char *argv[])
 
 
 	/* Open PTP clock file descriptor */
-	if (ptp_clock == NULL) {
-		fd_clock = -1;
-	} else {
-		fd_clock = open(ptp_clock, O_RDWR);
-		if (fd_clock == -1) {
-			error(EXIT_FAILURE, errno, "open(%s)", ptp_clock);
-			return -EINVAL;
-		}
+	fd_clock = open(devices_path.ptp_path, O_RDWR);
+	if (fd_clock == -1 && disciplining_mode) {
+		log_error("Could not open ptp clock device while disciplining_mode is activated !");
+		error(EXIT_FAILURE, errno, "open(%s)", devices_path.ptp_path);
+		return -EINVAL;
 	}
 
 	/* Init GPS session and context */
@@ -286,7 +324,7 @@ int main(int argc, char *argv[])
 	pps_thread->context = &session;
 
 	/* Start GNSS Thread */
-	gnss = gnss_init(&config, &session, fd_clock);
+	gnss = gnss_init(&config, devices_path.gnss_path, &session, fd_clock);
 	if (gnss == NULL) {
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 		return -EINVAL;
@@ -321,7 +359,7 @@ int main(int argc, char *argv[])
 		/* Check that program should still be running before setting PTP time */
 		if (loop) {
 			/* Init PTP clock time */
-			log_info("Initialize time of ptp clock %s", ptp_clock);
+			log_info("Initialize time of ptp clock %s", devices_path.ptp_path);
 			ret = gnss_set_ptp_clock_time(gnss);
 			if (ret != 0) {
 				log_error("Could not set ptp clock time: err %d", ret);
@@ -340,7 +378,7 @@ int main(int argc, char *argv[])
 			log_info("Applying initial phase jump before setting PTP clock time");
 			ret = apply_phase_offset(
 				fd_clock,
-				ptp_clock,
+				devices_path.ptp_path,
 				-phase_error * sign
 			);
 			if (ret < 0)
@@ -457,7 +495,7 @@ int main(int argc, char *argv[])
 				log_info("Phase jump requested");
 				ret = apply_phase_offset(
 					fd_clock,
-					ptp_clock,
+					devices_path.ptp_path,
 					-output.value_phase_ctrl
 				);
 

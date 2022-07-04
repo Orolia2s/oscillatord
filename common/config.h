@@ -20,6 +20,14 @@ struct config {
 	char *path;
 };
 
+struct devices_path {
+	char gnss_path[256];
+	char mac_path[256];
+	char mro_path[256];
+	char ptp_path[256];
+	char eeprom_path[256];
+};
+
 extern volatile int loop;
 
 int config_init(struct config *config, const char *path);

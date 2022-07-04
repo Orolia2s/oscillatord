@@ -114,7 +114,7 @@ static void sim_oscillator_destroy(struct oscillator **oscillator)
 	*oscillator = NULL;
 }
 
-static struct oscillator *sim_oscillator_new(struct config *config)
+static struct oscillator *sim_oscillator_new(struct devices_path *devices_path)
 {
 	struct sim_oscillator *sim;
 	int ret;
@@ -123,7 +123,7 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 
 	__attribute__((cleanup(string_cleanup))) char *simulator_command = NULL;
 
-	ret = asprintf(&simulator_command, "oscillator_sim %s", config->path);
+	ret = asprintf(&simulator_command, "oscillator_sim");
 	if (ret < 0) {
 		log_error("asprintf error");
 		errno = ENOMEM;
@@ -166,12 +166,6 @@ static struct oscillator *sim_oscillator_new(struct config *config)
 		goto error;
 	}
 	log_debug("pts name is %s", sim->pps_pts);
-
-	ret = config_set(config, "pps-device", sim->pps_pts);
-	if (ret < 0) {
-		log_error("config_set: %s\n", strerror(-ret));
-		goto error;
-	}
 
 	log_info("instantiated " FACTORY_NAME " oscillator");
 

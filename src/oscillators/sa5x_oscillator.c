@@ -320,11 +320,10 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	return 0;
 }
 
-static struct oscillator *sa5x_oscillator_new(struct config *config)
+static struct oscillator *sa5x_oscillator_new(struct devices_path *devices_path)
 {
 	struct sa5x_oscillator *sa5x;
 	int fd;
-	char *osc_device_name;
 	struct oscillator *oscillator;
 	int cmd_len;
 
@@ -334,13 +333,7 @@ static struct oscillator *sa5x_oscillator_new(struct config *config)
 	oscillator = &sa5x->oscillator;
 	sa5x->osc_fd = -1;
 
-	osc_device_name = (char *) config_get(config, "sa5x-device");
-	if (osc_device_name == NULL) {
-		log_error("sa5x-device config key must be provided");
-		goto error;
-	}
-
-	fd = open(osc_device_name, O_RDWR|O_NONBLOCK);
+	fd = open(devices_path->mac_path, O_RDWR|O_NONBLOCK);
 	if (fd == -1) {
 		log_error("Could not open sa5x device\n");
 		goto error;

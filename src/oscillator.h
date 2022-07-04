@@ -23,7 +23,7 @@
 struct oscillator;
 struct oscillator_ctrl;
 
-typedef struct oscillator *(*oscillator_new_cb)(struct config *config);
+typedef struct oscillator *(*oscillator_new_cb)(struct devices_path *devices_path);
 typedef int (*oscillator_get_ctrl_cb)(struct oscillator *oscillator,
 		struct oscillator_ctrl *ctrl);
 typedef int (*oscillator_save_cb)(struct oscillator *oscillator);
