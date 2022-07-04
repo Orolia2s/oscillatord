@@ -8,7 +8,9 @@
  */
 #ifndef UTILS_H_
 #define UTILS_H_
+#include <dirent.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <inttypes.h>
 
 #define NS_IN_SECOND 1000000000l
@@ -25,4 +27,6 @@ void string_cleanup(char **s);
 void fd_cleanup(int *fd);
 // Formula to compute mRO50 temperature
 double compute_temp(uint32_t reg);
+void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path);
+bool find_file(char * path , char * name, char * file_path);
 #endif /* UTILS_H_ */

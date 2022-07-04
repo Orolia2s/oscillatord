@@ -454,7 +454,7 @@ static bool gnss_set_default_configuration(RX_t *rx) {
  * @param fd_clock file pointer to PHC
  * @return struct gnss*
  */
-struct gnss * gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock)
+struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, struct gps_device_t *session, int fd_clock)
 {
 	struct gnss *gnss;
 	const char * preferred_constellation;
@@ -466,12 +466,6 @@ struct gnss * gnss_init(const struct config *config, struct gps_device_t *sessio
 	RX_ARGS_t args = RX_ARGS_DEFAULT();
 	args.autobaud = true;
 	args.detect = true;
-
-	const char *gnss_device_tty = config_get(config, "gnss-device-tty");
-	if (gnss_device_tty == NULL) {
-		log_error("device-tty not defined in config %s", config->path);
-		return NULL;
-	}
 
 	if (strchr(gnss_device_tty, '@')) {
 		args.autobaud = false;

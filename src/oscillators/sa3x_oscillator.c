@@ -102,11 +102,10 @@ static int set_serial_attributes(int fd)
 	return 0;
 }
 
-static struct oscillator *sa3x_oscillator_new(struct config *config)
+static struct oscillator *sa3x_oscillator_new(struct devices_path *devices_path)
 {
 	struct sa3x_oscillator *sa3x;
 	int fd;
-	char *osc_device_name;
 	struct oscillator *oscillator;
 
 	sa3x = calloc(1, sizeof(*sa3x));
@@ -116,13 +115,7 @@ static struct oscillator *sa3x_oscillator_new(struct config *config)
 	sa3x->osc_fd = -1;
 	// calloc sets memory to 0, we don't need to init structures
 
-	osc_device_name = (char *) config_get(config, "sa3x-device");
-	if (osc_device_name == NULL) {
-		log_error("sa3x-device config key must be provided");
-		goto error;
-	}
-
-	fd = open(osc_device_name, O_RDWR|O_NONBLOCK);
+	fd = open(devices_path->mac_path, O_RDWR|O_NONBLOCK);
 	if (fd == -1) {
 		log_error("Could not open sa3x device\n");
 		goto error;

@@ -178,7 +178,7 @@ struct gnss {
 	bool stop;
 };
 
-struct gnss* gnss_init(const struct config *config, struct gps_device_t *session, int fd_clock);
+struct gnss* gnss_init(const struct config *config, char *gnss_device_tty, struct gps_device_t *session, int fd_clock);
 int gnss_get_epoch_data(struct gnss *gnss, bool *valid, bool *survey, int32_t *qErr);
 void gnss_stop(struct gnss *gnss);
 void gnss_set_action(struct gnss *gnss, enum gnss_action action);
