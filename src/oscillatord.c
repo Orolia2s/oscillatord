@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
 	struct devices_path devices_path = { 0 };
 	const char *path;
 	char err_msg[OD_ERR_MSG_LEN];
-	double temperature;
+	struct oscillator_attributes osc_attr = { 0 };
 	int64_t phase_error;
 	int phasemeter_status;
 	int ret;
@@ -429,10 +429,11 @@ int main(int argc, char *argv[])
 			/* Oscillator control values and temperature are needed for
 			* the disciplining algorithm and monitoring, get both of them
 			*/
-			ret = oscillator_get_temp(oscillator, &temperature);
-			if (ret == -ENOSYS)
-				temperature = 0;
-			else if (ret < 0) {
+			ret = oscillator_parse_attributes(oscillator, &osc_attr);
+			if (ret == -ENOSYS) {
+				osc_attr.temperature = 0.0;
+				osc_attr.locked = false;
+			} else if (ret < 0) {
 				log_warn("Coud not get temperature of oscillator");
 				continue;
 			}
@@ -462,8 +463,8 @@ int main(int argc, char *argv[])
 			/* Fills in input structure for disciplining algorithm */
 			input.coarse_setpoint = ctrl_values.coarse_ctrl;
 			input.fine_setpoint = ctrl_values.fine_ctrl;
-			input.temperature = temperature;
-			input.lock = ctrl_values.lock;
+			input.temperature = osc_attr.temperature;
+			input.lock = osc_attr.locked;
 			input.phase_error = (struct timespec) {
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
@@ -553,10 +554,11 @@ int main(int argc, char *argv[])
 			 * sleep for a second.
 			 */
 			usleep(1000);
-			ret = oscillator_get_temp(oscillator, &temperature);
-			if (ret == -ENOSYS)
-				temperature = 0;
-			else if (ret < 0)
+			ret = oscillator_parse_attributes(oscillator, &osc_attr);
+			if (ret == -ENOSYS) {
+				osc_attr.temperature = 0.0;
+				osc_attr.locked = false;
+			} else if (ret < 0)
 				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
 			if (phase_error_supported) {
 				bool fixOk;
@@ -603,7 +605,7 @@ int main(int argc, char *argv[])
 				oscillator_get_phase_error(oscillator, &monitoring->phase_error);
 				oscillator_get_disciplining_status(oscillator, &monitoring->disciplining);
 			}
-			monitoring->temperature = temperature;
+			monitoring->osc_attributes = osc_attr;
 			monitoring->ctrl_values = ctrl_values;
 			switch(monitoring->request) {
 			case REQUEST_CALIBRATION:

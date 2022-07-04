@@ -255,7 +255,6 @@ static int mRo50_oscillatord_get_attributes(struct oscillator *oscillator, struc
 
 static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl)
 {
-	struct mRo50_attributes mRo50_attributes;
 	struct mRo50_oscillator *mRo50;
 	uint32_t coarse, fine;
 	int ret;
@@ -292,17 +291,10 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 		return -1;
 	}
 
-	ret = mRo50_oscillatord_get_attributes(oscillator, &mRo50_attributes);
-	if (ret != 0) {
-		log_error("Fail reading mRo attributes, err %d", ret);
-		return -1;
-	}
-	ctrl->lock = mRo50_attributes.locked;
-
 	return 0;
 }
 
-static int mRO50_oscillator_get_temp(struct oscillator *oscillator, double *temp)
+static int mRO50_oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes)
 {
 	struct mRo50_attributes mRo50_attributes;
 	int ret;
@@ -310,7 +302,8 @@ static int mRO50_oscillator_get_temp(struct oscillator *oscillator, double *temp
 	if (ret != 0) {
 		return -1;
 	}
-	*temp = mRo50_attributes.EP_temperature;
+	attributes->temperature = mRo50_attributes.EP_temperature;
+	attributes->locked = mRo50_attributes.locked;
 	return 0;
 }
 
@@ -468,7 +461,7 @@ static const struct oscillator_factory mRo50_oscillator_factory = {
 			.name = FACTORY_NAME,
 			.get_ctrl = mRo50_oscillator_get_ctrl,
 			.save = NULL,
-			.get_temp = mRO50_oscillator_get_temp,
+			.parse_attributes = mRO50_oscillator_parse_attributes,
 			.apply_output = mRo50_oscillator_apply_output,
 			.calibrate = mRo50_oscillator_calibrate,
 			.get_disciplining_parameters = mRo50_oscillator_get_disciplining_parameters,

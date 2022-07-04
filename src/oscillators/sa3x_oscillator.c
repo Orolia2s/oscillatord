@@ -197,28 +197,27 @@ static struct sa3x_attributes *sa3x_oscillator_get_attributes(struct oscillator 
 
 static int sa3x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl)
 {
-	struct sa3x_attributes *a = sa3x_oscillator_get_attributes(oscillator);
-
-	if (a && a->bite == 0) {
-		ctrl->lock = 1;
-	} else {
-		ctrl->lock = 0;
-	}
 	// Used for mRO50
 	ctrl->fine_ctrl = 0;
 	ctrl->coarse_ctrl = 0;
 	return 0;
 }
 
-static int sa3x_oscillator_get_temp(struct oscillator *oscillator, double *temp)
+static int sa3x_oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes)
 {
 	struct sa3x_attributes *a = sa3x_oscillator_get_attributes(oscillator);
 
 	if (a) {
+		if (a->bite == 0) {
+			attributes->locked = 1;
+		} else {
+			attributes->locked = 0;
+		}
 		// mDegC to DegC
-		*temp = a->temperature / 1000.0;
+		attributes->temperature = a->temperature / 1000.0;
 	} else {
-		*temp = -400.0;
+		attributes->temperature = -400.0;
+		attributes->temperature = 0;
 	}
 	// we cannot propagate error further
 	return 0;
@@ -228,7 +227,7 @@ static const struct oscillator_factory sa3x_oscillator_factory = {
 	.class = {
 			.name = FACTORY_NAME,
 			.get_ctrl = sa3x_oscillator_get_ctrl,
-			.get_temp = sa3x_oscillator_get_temp,
+			.parse_attributes = sa3x_oscillator_parse_attributes,
 	},
 	.new = sa3x_oscillator_new,
 	.destroy = sa3x_oscillator_destroy,

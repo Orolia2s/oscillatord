@@ -498,9 +498,9 @@ static void json_add_oscillator_data(struct json_object *resp, struct monitoring
 	json_object_object_add(oscillator, "coarse_ctrl",
 		json_object_new_int(monitoring->ctrl_values.coarse_ctrl));
 	json_object_object_add(oscillator, "lock",
-		json_object_new_boolean(monitoring->ctrl_values.lock));
+		json_object_new_boolean(monitoring->osc_attributes.locked));
 	json_object_object_add(oscillator, "temperature",
-		json_object_new_double(monitoring->temperature));
+		json_object_new_double(monitoring->osc_attributes.temperature));
 
 	json_object_object_add(resp, "oscillator", oscillator);
 }
@@ -642,8 +642,8 @@ struct monitoring* monitoring_init(const struct config *config, struct oscillato
 	monitoring->disciplining.ready_for_holdover = false;
 	monitoring->ctrl_values.fine_ctrl = -1;
 	monitoring->ctrl_values.coarse_ctrl = -1;
-	monitoring->ctrl_values.lock = false;
-	monitoring->temperature = -400.0;
+	monitoring->osc_attributes.locked = false;
+	monitoring->osc_attributes.temperature = -400.0;
 
 	monitoring->antenna_power = -1;
 	monitoring->antenna_status = -1;
