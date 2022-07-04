@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
                         return -1;
                     }
                     temperature_index = (int) floor(STEPS_BY_DEGREE * (temp_value_tuple[0] - MIN_TEMPERATURE));
-                    log_info("writing %.2f to range [%.2f, %.2f",
+                    log_info("writing %.2f to range [%.2f, %.2f[",
                         (float) round(temp_value_tuple[1] * 10) / 10,
                         (temperature_index + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
                         (temperature_index + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE
