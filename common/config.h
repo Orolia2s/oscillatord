@@ -6,6 +6,7 @@
 #define CONFIG_H_
 #include <stddef.h>
 #include <stdbool.h>
+#include <linux/limits.h>
 
 /**
  * @struct config
@@ -18,6 +19,14 @@ struct config {
 	size_t len_defconfig;
 	const char *defconfig_key;
 	char *path;
+};
+
+struct devices_path {
+	char gnss_path[PATH_MAX];
+	char mac_path[PATH_MAX];
+	char mro_path[PATH_MAX];
+	char ptp_path[PATH_MAX];
+	char eeprom_path[PATH_MAX];
 };
 
 extern volatile int loop;

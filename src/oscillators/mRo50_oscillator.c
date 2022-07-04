@@ -125,13 +125,11 @@ static int set_serial_attributes(int fd)
 	return 0;
 }
 
-static struct oscillator *mRo50_oscillator_new(struct config *config)
+static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path)
 {
 	struct mRo50_oscillator *mRo50;
 	int fd, ret;
 	int serial_fd;
-	char * osc_device_name;
-	char * osc_serial_name;
 	struct oscillator *oscillator;
 
 	mRo50 = calloc(1, sizeof(*mRo50));
@@ -140,14 +138,7 @@ static struct oscillator *mRo50_oscillator_new(struct config *config)
 	oscillator = &mRo50->oscillator;
 	mRo50->osc_fd = 0;
 
-	/* Get device path for mRo50 device */
-	osc_device_name = (char *) config_get(config, "mro50-device");
-	if (osc_device_name == NULL) {
-		log_error("mro50-device config key must be provided");
-		goto error;
-	}
-
-	fd = open(osc_device_name, O_RDWR);
+	fd = open(devices_path->mro_path, O_RDWR);
 	if (fd < 0) {
 		log_error("Could not open mRo50 device\n");
 		goto error;
@@ -162,14 +153,7 @@ static struct oscillator *mRo50_oscillator_new(struct config *config)
 		goto error;
 	}
 
-	/* Get device path for mRo50 serial */
-	osc_serial_name = (char *) config_get(config, "mro50-serial");
-	if (osc_serial_name == NULL) {
-		log_error("mro50-serial config key must be provided");
-		goto error;
-	}
-	log_info("mRO50 serial device: %s", osc_serial_name);
-	serial_fd = open(osc_serial_name, O_RDWR|O_NONBLOCK);
+	serial_fd = open(devices_path->mac_path, O_RDWR|O_NONBLOCK);
 	if (serial_fd < 0) {
 		log_error("Could not open mRo50 device\n");
 		goto error;

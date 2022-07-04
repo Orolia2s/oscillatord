@@ -61,7 +61,7 @@ static int dummy_oscillator_apply_output(struct oscillator *oscillator, struct o
 	return dummy_oscillator_set_dac(oscillator, output->setpoint);
 }
 
-static struct oscillator *dummy_oscillator_new(struct config *config)
+static struct oscillator *dummy_oscillator_new(struct devices_path *devices_path)
 {
 	struct oscillator *oscillator;
 

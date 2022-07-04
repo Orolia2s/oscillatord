@@ -29,7 +29,7 @@ static const struct oscillator_factory *oscillator_factory_get_by_name(
 	return NULL;
 }
 
-struct oscillator *oscillator_factory_new(struct config *config)
+struct oscillator *oscillator_factory_new(struct config *config, struct devices_path *devices_path)
 {
 	int ret;
 	const char *name;
@@ -53,7 +53,7 @@ struct oscillator *oscillator_factory_new(struct config *config)
 		return NULL;
 	}
 
-	return factory->new(config);
+	return factory->new(devices_path);
 }
 
 static bool oscillator_factory_is_valid

@@ -30,13 +30,6 @@
 
 #define SOCKET_PORT 2970
 
-struct devices_path {
-    char eeprom_path[1024];
-    char mro_path[256];
-    char ptp_path[256];
-    char gnss_path[256];
-};
-
 static void print_help(void)
 {
     printf("usage: art_integration_test_suite [-h] -p SYSFS_PATH\n");
@@ -44,51 +37,6 @@ static void print_help(void)
     printf("- -p SYSFS_PATH: path to ART card sysfs (ex: /sys/class/timecard/ocp0)\n");
     printf("- -h: prints help\n");
     return;
-}
-
-/* find device path in /dev from symlink in sysfs */
-static void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
-{
-    char dev_repository[1024];   /* should alwys be big enough */
-    sprintf(dev_repository, "%s/%s", dirname, dir->d_name );
-    char dev_name[100];
-    char * token = strtok(realpath(dev_repository, NULL), "/");
-    while(token != NULL) {
-        strncpy(dev_name, token, sizeof(dev_name));
-        token = strtok(NULL, "/");
-    }
-    sprintf(dev_path, "%s/%s", "/dev", dev_name );
-}
-
-/* Find file by name recursively in a directory */
-static bool find_file(char * path , char * name, char * file_path)
-{
-    DIR * directory;
-    struct dirent * dp;
-    bool found = false;
-    if(!(directory = opendir(path)))
-        return false;
-
-    while ((dp = readdir(directory)) != NULL) {
-        if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
-            continue;
-
-        if (dp->d_type == DT_DIR) {
-            char subpath[1024];
-            sprintf(subpath, "%s/%s", path, dp->d_name);
-            found = find_file(subpath, name, file_path);
-            if (found)
-                break;
-        } else if (!strcmp(dp->d_name, name)) {
-            log_info("\t- file %s is in %s/%s", name, path, dp->d_name);
-            if (file_path != NULL)
-                sprintf(file_path, "%s/%s", path, dp->d_name);
-            found = true;
-            break;
-        }
-    }
-    closedir(directory);
-    return found;
 }
 
 static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_path) {

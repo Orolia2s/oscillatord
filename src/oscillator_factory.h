@@ -18,7 +18,7 @@ struct oscillator_factory {
 	struct oscillator_class class;
 };
 
-struct oscillator *oscillator_factory_new(struct config *config);
+struct oscillator *oscillator_factory_new(struct config *config, struct devices_path *devices_path);
 __attribute__((__format__(printf, 3, 4)))
 void oscillator_factory_init(const char *factory_name,
 		struct oscillator *oscillator, const char *fmt, ...);
