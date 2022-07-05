@@ -205,7 +205,8 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 	while (1) {
 		err = poll(&pfd, 1, 50);
 		if (err == -1) {
-			log_error("oscillator_get_attributes poll error: %d (%s)", errno, strerror(errno));
+			log_warn("oscillator_get_attributes poll error: %d (%s)", errno, strerror(errno));
+			memset(answer_str, 0, rbytes);
 			return -1;
 		}
 		// poll call timed out - check the answer
@@ -214,6 +215,7 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 		err = read(mRo50->serial_fd, &answer_str[rbytes], mro_answer_len - rbytes);
 		if (err < 0) {
 			log_error("oscillator_get_attributes rbyteserror: %d (%s)", errno, strerror(errno));
+			memset(answer_str, 0, rbytes);
 			return -1;
 		}
 		rbytes += err;
@@ -261,7 +263,7 @@ static int mRo50_oscillatord_get_attributes(struct oscillator *oscillator, struc
 		a->locked = lock >> STATUS_CLOCK_LOCKED_BIT;
 		memset(answer_str, 0, STATUS_ANSWER_SIZE);
 	} else {
-		log_error("Fail reading attributes, err %d, errno %d", err, errno);
+		log_warn("Fail reading attributes, err %d, errno %d", err, errno);
 		return -1;
 	}
 	return 0;
@@ -322,7 +324,6 @@ static int mRO50_oscillator_get_temp(struct oscillator *oscillator, double *temp
 	int ret;
 	ret = mRo50_oscillatord_get_attributes(oscillator, &mRo50_attributes);
 	if (ret != 0) {
-		log_error("Fail reading mRo attributes, err %d", ret);
 		return -1;
 	}
 	*temp = mRo50_attributes.EP_temperature;
