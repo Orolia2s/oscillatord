@@ -364,6 +364,10 @@ int main(int argc, char *argv[])
 			/* Get Phase error and status*/
 			phasemeter_status = get_phase_error(phasemeter, &phase_error);
 
+			if (gnss_get_epoch_data(gnss, &input.valid, &input.survey_completed, &input.qErr) != 0) {
+				log_error("Error getting GNSS data, exiting");
+				break;
+			}
 			/* Wait for phase error before getting oscillator control values */
 			/* This prevents control values to be read right after writting them */
 
@@ -409,11 +413,6 @@ int main(int argc, char *argv[])
 				.tv_sec = sign * phase_error / NS_IN_SECOND,
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
-
-			if (gnss_get_epoch_data(gnss, &input.valid, &input.survey_completed, &input.qErr) != 0) {
-				log_error("Error getting GNSS data, exiting");
-				break;
-			}
 
 			log_info("input: phase_error = (%lds, %09ldns), "
 				"valid = %s, survey = %s, qErr = %d,lock = %s, fine = %d, "
