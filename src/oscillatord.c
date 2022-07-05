@@ -49,6 +49,7 @@
 static struct gps_context_t context;
 struct od *od = NULL;
 struct oscillator *oscillator = NULL;
+pthread_t save_dsc_params_thread;
 
 /**
  * @brief Signal Handler to kill program gracefully
@@ -66,7 +67,7 @@ static void signal_handler(int signum)
 	loop = false;
 }
 
-static void signal_save_disciplining_parameters(int signum) {
+static void save_disciplining_parameters(struct od *od) {
 	log_info("Saving disciplining parameters in EEPROM");
 	struct disciplining_parameters disciplining_parameters;
 	int ret = od_get_disciplining_parameters(od, &disciplining_parameters);
@@ -80,6 +81,22 @@ static void signal_save_disciplining_parameters(int signum) {
 			log_info("Saved calibration parameters into EEPROM");
 		}
 	}
+}
+
+static void * save_disciplining_parameters_thread(void *p_data) {
+	struct od *od = (struct od*) p_data;
+	save_disciplining_parameters(od);
+	return NULL;
+}
+
+static void signal_save_disciplining_parameters(int signum) {
+	/* Create thread to save disciplining _parameters */
+	pthread_create(
+		&save_dsc_params_thread,
+		NULL,
+		save_disciplining_parameters_thread,
+		od
+	);
 	if (signum == SIGALRM)
 		alarm(UPDATE_DISCIPLINING_PARAMETERS_SEC);
 }
@@ -245,7 +262,6 @@ int main(int argc, char *argv[])
 		monitoring->oscillator_model = oscillator->class->name;
 		monitoring->phase_error_supported = phase_error_supported;
 		pthread_mutex_unlock(&monitoring->mutex);
-		signal(SIGUSR1, signal_save_disciplining_parameters);
 	}
 
 
@@ -565,8 +581,12 @@ int main(int argc, char *argv[])
 				break;
 			case REQUEST_SAVE_EEPROM:
 				log_info("Monitoring: Saving EEPROM data");
-				/* Sends itself a SIGUSR1 to save disciplining data */
-				kill(getpid(), SIGUSR1);
+				pthread_create(
+					&save_dsc_params_thread,
+					NULL,
+					save_disciplining_parameters_thread,
+					od
+				);
 				break;
 			case REQUEST_READ_EEPROM:
 			case REQUEST_NONE:
@@ -582,6 +602,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	pthread_join(save_dsc_params_thread, NULL);
 	enable_pps(fd_clock, false);
 	if (pps_thread != NULL && pps_thread->devicename != NULL)
 		ntpshm_link_deactivate(&session);
