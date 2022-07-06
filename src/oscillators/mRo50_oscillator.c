@@ -181,7 +181,7 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 	struct pollfd pfd = {};
 	int err, rbytes = 0;
 	if (write(mRo50->serial_fd, cmd, cmd_len) != cmd_len) {
-		log_error("oscillator_get_attributes send command error: %d (%s)", errno, strerror(errno));
+		log_error("mRo50_oscillator_cmd send command error: %d (%s)", errno, strerror(errno));
 		return -1;
 	}
 	pfd.fd = mRo50->serial_fd;
@@ -189,7 +189,7 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 	while (1) {
 		err = poll(&pfd, 1, 50);
 		if (err == -1) {
-			log_warn("oscillator_get_attributes poll error: %d (%s)", errno, strerror(errno));
+			log_warn("mRo50_oscillator_cmd poll error: %d (%s)", errno, strerror(errno));
 			memset(answer_str, 0, rbytes);
 			return -1;
 		}
@@ -198,25 +198,25 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 			break;
 		err = read(mRo50->serial_fd, &answer_str[rbytes], mro_answer_len - rbytes);
 		if (err < 0) {
-			log_error("oscillator_get_attributes rbyteserror: %d (%s)", errno, strerror(errno));
+			log_error("mRo50_oscillator_cmd rbyteserror: %d (%s)", errno, strerror(errno));
 			memset(answer_str, 0, rbytes);
 			return -1;
 		}
 		rbytes += err;
 	}
 	if (rbytes == 0) {
-		log_error("oscillator_get_attributes didn't get answer, zero length");
+		log_error("mRo50_oscillator_cmd didn't get answer, zero length");
 		return -1;
 	}
 	// Verify that first caracter of the answer is not equal to '?'
 	if (answer_str[0] == '?') {
 		// answer format doesn't fit protocol
-		log_error("oscillator_get_attributes answer protocol error: %s", answer_str);
+		log_error("mRo50_oscillator_cmd answer protocol error: %s", answer_str);
 		memset(answer_str, 0, rbytes);
 		return -1;
 	}
 	if (answer_str[rbytes -1] != '\n' || answer_str[rbytes - 2] != '\n') {
-		log_error("oscillator_get_attributes answer does not contain LFLF: %s", answer_str);
+		log_error("mRo50_oscillator_cmd answer does not contain LFLF: %s", answer_str);
 		memset(answer_str, 0, rbytes);
 		return -1;
 	}
@@ -232,24 +232,32 @@ static int mRo50_oscillatord_get_attributes(struct oscillator *oscillator, struc
 	int err;
 
 	err = mRo50_oscillator_cmd(mRo50, CMD_READ_STATUS, sizeof(CMD_READ_STATUS) - 1);
-	if (err == STATUS_ANSWER_SIZE) {
-		log_debug("MONITOR1 from mro50 gives %s", answer_str);
-		/* Parse mRo50 EP temperature */
-		strncpy(EP_temperature, &answer_str[STATUS_EP_TEMPERATURE_INDEX], STATUS_ANSWER_FIELD_SIZE);
-		read_value = strtoul(EP_temperature, NULL, 16);
-		double temperature = compute_temp(read_value);
-		if (temperature == DUMMY_TEMPERATURE_VALUE)
-			return -1;
-		a->EP_temperature = temperature;
-
-		/* Parse mRO50 clock lock flag */
-		uint8_t lock = answer_str[STATUS_CLOCK_LOCKED_INDEX] & (1 << STATUS_CLOCK_LOCKED_BIT);
-		a->locked = lock >> STATUS_CLOCK_LOCKED_BIT;
-		memset(answer_str, 0, STATUS_ANSWER_SIZE);
-	} else {
+	if (err != STATUS_ANSWER_SIZE) {
 		log_warn("Fail reading attributes, err %d, errno %d", err, errno);
-		return -1;
+		if (errno == EINTR) {
+			/* Retry mechanism due to interrupt */
+			err = mRo50_oscillator_cmd(mRo50, CMD_READ_STATUS, sizeof(CMD_READ_STATUS) - 1);
+			if (err != STATUS_ANSWER_SIZE) {
+				log_error("Could not prepare command request to read attributes, error %d, errno %d", err, errno);
+				return -1;
+			}
+		} else {
+			return -1;
+		}
 	}
+	log_debug("MONITOR1 from mro50 gives %s", answer_str);
+	/* Parse mRo50 EP temperature */
+	strncpy(EP_temperature, &answer_str[STATUS_EP_TEMPERATURE_INDEX], STATUS_ANSWER_FIELD_SIZE);
+	read_value = strtoul(EP_temperature, NULL, 16);
+	double temperature = compute_temp(read_value);
+	if (temperature == DUMMY_TEMPERATURE_VALUE)
+		return -1;
+	a->EP_temperature = temperature;
+
+	/* Parse mRO50 clock lock flag */
+	uint8_t lock = answer_str[STATUS_CLOCK_LOCKED_INDEX] & (1 << STATUS_CLOCK_LOCKED_BIT);
+	a->locked = lock >> STATUS_CLOCK_LOCKED_BIT;
+	memset(answer_str, 0, STATUS_ANSWER_SIZE);
 	return 0;
 }
 
@@ -262,32 +270,50 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 
 	ret = mRo50_oscillator_cmd(mRo50, CMD_READ_COARSE, sizeof(CMD_READ_COARSE) - 1);
-	if (ret > 0) {
-		int res = sscanf(answer_str, "%x\r\n", &coarse);
-		memset(answer_str, 0, ret);
-		if (res > 0) {
-			ctrl->coarse_ctrl = coarse;
+	if (ret <= 0) {
+		log_error("Fail reading Coarse Parameters, err %d, errno %d", ret, errno);
+		if (errno == EINTR) {
+			/* Retry mechanism due to interrupt */
+			ret = mRo50_oscillator_cmd(mRo50, CMD_READ_COARSE, sizeof(CMD_READ_COARSE) - 1);
+			if (ret <= 0) {
+				log_error("Could not prepare command request to read coarse parameters, error %d, errno %d", ret, errno);
+				return -1;
+			}
 		} else {
-			log_error("Could not parse coarse parameter");
 			return -1;
 		}
+	}
+
+	int res = sscanf(answer_str, "%x\r\n", &coarse);
+	memset(answer_str, 0, ret);
+	if (res > 0) {
+		ctrl->coarse_ctrl = coarse;
 	} else {
-		log_error("Fail reading Coarse Parameters, err %d, errno %d", ret, errno);
+		log_error("Could not parse coarse parameter");
 		return -1;
 	}
 
 	ret = mRo50_oscillator_cmd(mRo50, CMD_READ_FINE, sizeof(CMD_READ_FINE) - 1);
-	if (ret > 0) {
-		int res = sscanf(answer_str, "%x\r\n", &fine);
-		memset(answer_str, 0, ret);
-		if (res > 0) {
-			ctrl->fine_ctrl = fine;
+	if (ret <= 0) {
+		log_error("Fail reading Fine Parameters, err %d, errno %d", ret, errno);
+		if (errno == EINTR) {
+			/* Retry mechanism due to interrupt */
+			ret = mRo50_oscillator_cmd(mRo50, CMD_READ_FINE, sizeof(CMD_READ_FINE) - 1);
+			if (ret <= 0) {
+				log_error("Could not prepare command request to read fine parameters, error %d, errno %d", ret, errno);
+				return -1;
+			}
 		} else {
-			log_error("Could not parse fine parameter");
 			return -1;
 		}
+	}
+
+	int res = sscanf(answer_str, "%x\r\n", &fine);
+	memset(answer_str, 0, ret);
+	if (res > 0) {
+		ctrl->fine_ctrl = fine;
 	} else {
-		log_error("Fail reading Fine Parameters, err %d, errno %d", ret, errno);
+		log_error("Could not parse fine parameter");
 		return -1;
 	}
 
@@ -330,7 +356,16 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	ret = mRo50_oscillator_cmd(mRo50, command, strlen(command));
 	if (ret != 2) {
 		log_error("Could not prepare command request to adjust fine frequency, error %d, errno %d", ret, errno);
-		return -1;
+		if (errno == EINTR) {
+			/* Retry mechanism due to interrupt */
+			ret = mRo50_oscillator_cmd(mRo50, command, strlen(command));
+			if (ret != 2) {
+				log_error("Could not prepare command request to adjust fine frequency, error %d, errno %d", ret, errno);
+				return -1;
+			}
+		} else {
+			return -1;
+		}
 	}
 	memset(answer_str, 0, mro_answer_len);
 	return 0;
