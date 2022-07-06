@@ -89,18 +89,6 @@ static void * save_disciplining_parameters_thread(void *p_data) {
 	return NULL;
 }
 
-static void signal_save_disciplining_parameters(int signum) {
-	/* Create thread to save disciplining _parameters */
-	pthread_create(
-		&save_dsc_params_thread,
-		NULL,
-		save_disciplining_parameters_thread,
-		od
-	);
-	if (signum == SIGALRM)
-		alarm(UPDATE_DISCIPLINING_PARAMETERS_SEC);
-}
-
 /**
  * @brief Phase jump: Apply a phase offset to the PHC
  *
@@ -245,6 +233,7 @@ int main(int argc, char *argv[])
 	bool ignore_next_irq = false;
 	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	volatile struct pps_thread_t * pps_thread = NULL;
+	time_t start_save_epprom_parameters, end_save_eeprom_parameters;
 
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
@@ -348,8 +337,8 @@ int main(int argc, char *argv[])
 			error(EXIT_FAILURE, errno, "od_new %s", err_msg);
 			return -EINVAL;
 		}
-		signal(SIGALRM, signal_save_disciplining_parameters);
-		alarm(UPDATE_DISCIPLINING_PARAMETERS_SEC);
+		/* Get time to know when to save disciplining parameters */
+		time(&start_save_epprom_parameters);
 
 		/* Start Phasemeter Thread */
 		phasemeter = phasemeter_init(fd_clock);
@@ -644,6 +633,20 @@ int main(int argc, char *argv[])
 			}
 
 			pthread_mutex_unlock(&monitoring->mutex);
+		}
+
+		/* Check if time elapsed is superior to periodic time to save EEPROM data */
+		time(&end_save_eeprom_parameters);
+		if (difftime(end_save_eeprom_parameters, start_save_epprom_parameters) >= (double) UPDATE_DISCIPLINING_PARAMETERS_SEC) {
+			log_info("Periodically saving EEPROM data");
+			pthread_create(
+				&save_dsc_params_thread,
+				NULL,
+				save_disciplining_parameters_thread,
+				od
+			);
+			/* Reset time to save eeprom data*/
+			time(&start_save_epprom_parameters);
 		}
 	}
 
