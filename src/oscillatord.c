@@ -546,8 +546,9 @@ int main(int argc, char *argv[])
 					}
 			} else if (output.action != NO_OP) {
 				ret = oscillator_apply_output(oscillator, &output);
-				if (ret < 0)
-					error(EXIT_FAILURE, -ret, "oscillator_apply_output");
+				if (ret < 0) {
+					log_error("Could not apply output on oscillator !");
+				}
 			}
 		} else {
 			/* Used for monitoring only */
