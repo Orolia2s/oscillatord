@@ -128,7 +128,7 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
     } else {
         log_info("All tests passed\n");
         log_info("Writing EEPROM manufacturing data and factory disciplining parameters");
-        char command[2048];
+        char command[4126];
         sprintf(command, "art_eeprom_format -p %s -s %s -c %d", devices_path->eeprom_path, serial_number, mro50_coarse_value);
         if (system(command) != 0) {
             log_error("Could not write EEPROM data");
