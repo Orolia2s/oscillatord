@@ -164,9 +164,7 @@ static void prepare_minipod_config(struct minipod_config* minipod_config, struct
 
 static int get_devices_path_from_sysfs(
 	struct config *config,
-	struct devices_path *devices_path,
-	bool disciplining_mode,
-	bool monitoring_mode
+	struct devices_path *devices_path
 ) {
 	const char *sysfs_path;
 	DIR * ocp_dir;
@@ -273,7 +271,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Get devices' path from sysfs directory */
-	ret = get_devices_path_from_sysfs(&config, &devices_path, disciplining_mode, monitoring_mode);
+	ret = get_devices_path_from_sysfs(&config, &devices_path);
 	if (ret != 0) {
 		error(EXIT_FAILURE, -ret, "get_devices_path_from_sysfs");
 		return -EINVAL;
