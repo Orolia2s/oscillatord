@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
     switch (mode) {
         case ART_TEMPERATURE_TABLE_READ:
             read_disciplining_parameters_from_mro50(mro50_path, &dsc_parameters);
-            print_temperature_table(dsc_parameters.mean_fine_over_temperature, LOG_INFO);
+            print_temperature_table(dsc_parameters.temp_table.mean_fine_over_temperature, LOG_INFO);
             if (output_file != NULL) {
                 log_info("writing value in %s", output_file);
                 fp = fopen(output_file, "w");
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
                 }
                 for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX  ; i++) {
                     char line[256];
-                    sprintf(line, "%.2f,%.2f\n",  MIN_TEMPERATURE + (float) i / STEPS_BY_DEGREE, (float) dsc_parameters.mean_fine_over_temperature[i] / 10.0);
+                    sprintf(line, "%.2f,%.2f\n",  MIN_TEMPERATURE + (float) i / STEPS_BY_DEGREE, (float) dsc_parameters.temp_table.mean_fine_over_temperature[i] / 10.0);
                     fputs(line, fp);
                 }
                 fclose(fp);
@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
                         (temperature_index + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
                         (temperature_index + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE
                     );
-                    dsc_parameters.mean_fine_over_temperature[temperature_index] = round(temp_value_tuple[1] * 10);
+                    dsc_parameters.temp_table.mean_fine_over_temperature[temperature_index] = round(temp_value_tuple[1] * 10);
                 }
                 free(temp_value_tuple);
             }

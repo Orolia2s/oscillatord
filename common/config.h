@@ -23,13 +23,13 @@ struct config {
 
 struct devices_path {
 	char eeprom_path[PATH_MAX];
-	char disciplining_config[PATH_MAX];
+	char disciplining_config_path[PATH_MAX];
 	char gnss_path[PATH_MAX];
 	char mac_path[PATH_MAX];
 	char mro_path[PATH_MAX];
 	char pps_path[PATH_MAX];
 	char ptp_path[PATH_MAX];
-	char temperature_table[PATH_MAX];
+	char temperature_table_path[PATH_MAX];
 };
 
 extern volatile int loop;

@@ -467,36 +467,6 @@ clean_calibration:
 	return NULL;
 }
 
-static int mRo50_oscillator_get_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)
-{
-	struct mRo50_oscillator *mRo50;
-	int ret;
-	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
-	uint8_t buf[512];
-	ret = ioctl(mRo50->osc_fd, MRO50_READ_EXTENDED_EEPROM_BLOB, buf);
-	if (ret != 0) {
-		log_error("Fail reading disciplining parameters, err %d", ret);
-		return -1;
-	}
-	memcpy(disciplining_parameters, buf, sizeof(struct disciplining_parameters));
-	return 0;
-}
-
-static int mRo50_oscillator_update_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)
-{
-	struct mRo50_oscillator *mRo50;
-	int ret;
-	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
-	uint8_t buf[512];
-	memcpy(buf, disciplining_parameters, sizeof(struct disciplining_parameters));
-	ret = ioctl(mRo50->osc_fd, MRO50_WRITE_EXTENDED_EEPROM_BLOB, buf);
-	if (ret != 0) {
-		log_error("Fail updating disciplining parameters, err %d", ret);
-		return -1;
-	}
-	return 0;
-}
-
 static const struct oscillator_factory mRo50_oscillator_factory = {
 	.class = {
 			.name = FACTORY_NAME,
@@ -505,8 +475,6 @@ static const struct oscillator_factory mRo50_oscillator_factory = {
 			.parse_attributes = mRO50_oscillator_parse_attributes,
 			.apply_output = mRo50_oscillator_apply_output,
 			.calibrate = mRo50_oscillator_calibrate,
-			.get_disciplining_parameters = mRo50_oscillator_get_disciplining_parameters,
-			.update_disciplining_parameters = mRo50_oscillator_update_disciplining_parameters,
 			.dac_min = MRO50_SETPOINT_MIN,
 			.dac_max = MRO50_SETPOINT_MAX,
 	},

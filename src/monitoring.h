@@ -37,7 +37,7 @@ struct monitoring {
 	struct oscillator_ctrl ctrl_values;
 	struct oscillator_attributes osc_attributes;
 	const char *oscillator_model;
-	struct oscillator *oscillator;
+	struct devices_path devices_path;
 	int64_t phase_error;
 	int fix;
 	int satellites_count;
@@ -54,6 +54,6 @@ struct monitoring {
 	bool phase_error_supported;
 };
 
-struct monitoring* monitoring_init(const struct config *config, struct oscillator *oscillator);
+struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path);
 void monitoring_stop(struct monitoring *monitoring);
 #endif // MONITORING_H

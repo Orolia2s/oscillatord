@@ -34,6 +34,7 @@
 #include <linux/ptp_clock.h>
 
 #include "config.h"
+#include "eeprom_config.h"
 #include "gnss.h"
 #include "log.h"
 #include "monitoring.h"
@@ -49,6 +50,7 @@
 static struct gps_context_t context;
 struct od *od = NULL;
 struct oscillator *oscillator = NULL;
+struct devices_path devices_path = { 0 };
 pthread_t save_dsc_params_thread;
 
 /**
@@ -69,12 +71,16 @@ static void signal_handler(int signum)
 
 static void save_disciplining_parameters(struct od *od) {
 	log_info("Saving disciplining parameters in EEPROM");
-	struct disciplining_parameters disciplining_parameters;
-	int ret = od_get_disciplining_parameters(od, &disciplining_parameters);
+	struct disciplining_parameters dsc_params;
+	int ret = od_get_disciplining_parameters(od, &dsc_params);
 	if (ret != 0) {
 		log_error("Could not get discipling parameters from disciplining algorithm");
 	} else {
-		ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
+		ret = write_disciplining_parameters_in_eeprom(
+			devices_path.disciplining_config_path,
+			devices_path.temperature_table_path,
+			&dsc_params
+		);
 		if (ret < 0)
 			log_error("Error updating disciplining parameters !");
 		else {
@@ -191,11 +197,11 @@ static int get_devices_path_from_sysfs(
 			find_dev_path(sysfs_path, entry, devices_path->mac_path);
 			log_debug("ttyMAC detected: %s", devices_path->mac_path);
 		} else if (strncmp(entry->d_name, "disciplining_config", 19) == 0) {
-			find_file((char *) sysfs_path, "disciplining_config", devices_path->disciplining_config);
-			log_debug("disciplining_config detected: %s", devices_path->disciplining_config);
+			find_file((char *) sysfs_path, "disciplining_config", devices_path->disciplining_config_path);
+			log_debug("disciplining_config detected: %s", devices_path->disciplining_config_path);
 		} else if (strncmp(entry->d_name, "temperature_table", 17) == 0) {
-			find_file((char *) sysfs_path, "temperature_table", devices_path->temperature_table);
-			log_debug("temperature_table detected: %s", devices_path->temperature_table);
+			find_file((char *) sysfs_path, "temperature_table", devices_path->temperature_table_path);
+			log_debug("temperature_table detected: %s", devices_path->temperature_table_path);
 		}
 
 		entry = readdir(ocp_dir);
@@ -222,8 +228,7 @@ int main(int argc, char *argv[])
 	struct od_input input = {0};
 	struct od_output output = {0};
 	struct minipod_config minipod_config = {0};
-	struct disciplining_parameters disciplining_parameters = {0};
-	struct devices_path devices_path = { 0 };
+	struct disciplining_parameters dsc_params = {0};
 	const char *path;
 	char err_msg[OD_ERR_MSG_LEN];
 	struct oscillator_attributes osc_attr = { 0 };
@@ -289,7 +294,7 @@ int main(int argc, char *argv[])
 
 	/* Start Monitoring Thread */
 	if (monitoring_mode) {
-		monitoring = monitoring_init(&config, oscillator);
+		monitoring = monitoring_init(&config, &devices_path);
 		if (monitoring == NULL) {
 			log_error("Error creating monitoring socket thread");
 			return -EINVAL;
@@ -330,7 +335,11 @@ int main(int argc, char *argv[])
 
 	if (disciplining_mode) {
 		/* Get disciplining parameters from mRO50  device */
-		ret = oscillator_get_disciplining_parameters(oscillator, &disciplining_parameters);
+		ret = read_disciplining_parameters_from_eeprom(devices_path.disciplining_config_path, devices_path.temperature_table_path, &dsc_params);
+		if (ret != 0) {
+			log_error("Failed to read disciplining_parameters from EEPROM");
+			return -EINVAL;
+		}
 		opposite_phase_error = config_get_bool_default(&config,
 				"opposite-phase-error", false);
 		sign = opposite_phase_error ? -1 : 1;
@@ -338,7 +347,7 @@ int main(int argc, char *argv[])
 		prepare_minipod_config(&minipod_config, &config);
 
 		/* Create shared library oscillator object */
-		od = od_new_from_config(&minipod_config, &disciplining_parameters, err_msg);
+		od = od_new_from_config(&minipod_config, &dsc_params, err_msg);
 		if (od == NULL) {
 			error(EXIT_FAILURE, errno, "od_new %s", err_msg);
 			return -EINVAL;
@@ -524,14 +533,21 @@ int main(int argc, char *argv[])
 				}
 
 			} else if (output.action == SAVE_DISCIPLINING_PARAMETERS) {
-					ret = od_get_disciplining_parameters(od, &disciplining_parameters);
+					ret = od_get_disciplining_parameters(od, &dsc_params);
 					if (ret != 0)
 						log_error("Could not get discipling parameters from disciplining algorithm");
-					disciplining_parameters.calibration_date = time(NULL);
-					ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
-					if (ret < 0)
-						error(EXIT_FAILURE, -ret, "oscillator_update_disciplining_parameters");
-					log_info("Saved calibration parameters into EEPROM");
+					dsc_params.dsc_config.calibration_date = time(NULL);
+
+					ret = write_disciplining_parameters_in_eeprom(
+						devices_path.disciplining_config_path,
+						devices_path.temperature_table_path,
+						&dsc_params
+					);
+					if (ret < 0) {
+						log_error("Error saving data to EEPROM");
+					} else {
+						log_info("Saved disciplining parameters into EEPROM");
+					}
 
 					/* Disable calibrate first to prevent a new calibration when rebooting */
 					config_set(&config, "calibrate_first", "false");
@@ -665,14 +681,21 @@ int main(int argc, char *argv[])
 
 	if (disciplining_mode) {
 		phasemeter_stop(phasemeter);
-		ret = od_get_disciplining_parameters(od, &disciplining_parameters);
+		ret = od_get_disciplining_parameters(od, &dsc_params);
 		if (ret != 0) {
 			log_error("Could not get discipling parameters from disciplining algorithm");
 		} else {
-			ret = oscillator_update_disciplining_parameters(oscillator, &disciplining_parameters);
+			log_debug("Printing disciplining_parameters");
+			print_disciplining_parameters(&dsc_params, LOG_INFO);
+			ret = write_disciplining_parameters_in_eeprom(
+				devices_path.disciplining_config_path,
+				devices_path.temperature_table_path,
+				&dsc_params
+			);
 			if (ret < 0)
-				error(EXIT_FAILURE, -ret, "oscillator_update_disciplining_parameters");
-			log_info("Saved calibration parameters into EEPROM");
+				log_error("Error saving data to EEPROM");
+			else
+				log_info("Saved calibration parameters into EEPROM");
 		}
 		od_destroy(&od);
 	}

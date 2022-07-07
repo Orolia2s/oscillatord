@@ -20,6 +20,8 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include "eeprom_config.h"
 #include "monitoring.h"
 #include "log.h"
 
@@ -279,81 +281,82 @@ static void json_add_float_array(struct json_object *json, char * array_name, fl
  * @param resp
  * @param disciplining_parameters
  */
-static void json_add_disciplining_disciplining_parameters(struct json_object *resp, struct disciplining_parameters *disciplining_parameters)
+static void json_add_disciplining_disciplining_parameters(struct json_object *resp, struct disciplining_parameters *dsc_params)
 {
 	struct json_object *disc_parameters_json = json_object_new_object();
 	struct json_object *calibration_parameters_json = json_object_new_object();
-	struct json_object *temperature_table = json_object_new_object();
+	struct json_object *temp_table = json_object_new_object();
+	struct disciplining_config *dsc_config = &dsc_params->dsc_config;
 
 	json_object_object_add(
 		calibration_parameters_json,
 		"ctrl_nodes_length",
-		json_object_new_int(disciplining_parameters->ctrl_nodes_length)
+		json_object_new_int(dsc_config->ctrl_nodes_length)
 	);
-	if (disciplining_parameters->ctrl_nodes_length > 0) {
+	if (dsc_config->ctrl_nodes_length > 0) {
 		json_add_float_array(
 			calibration_parameters_json,
 			"ctrl_load_nodes",
-			disciplining_parameters->ctrl_load_nodes,
-			disciplining_parameters->ctrl_nodes_length
+			dsc_config->ctrl_load_nodes,
+			dsc_config->ctrl_nodes_length
 		);
 		json_add_float_array(
 			calibration_parameters_json,
 			"ctrl_drift_coeffs",
-			disciplining_parameters->ctrl_drift_coeffs,
-			disciplining_parameters->ctrl_nodes_length
+			dsc_config->ctrl_drift_coeffs,
+			dsc_config->ctrl_nodes_length
 		);
 	}
 	json_object_object_add(
 		calibration_parameters_json,
 		"coarse_equilibrium",
-		json_object_new_int64(disciplining_parameters->coarse_equilibrium)
+		json_object_new_int64(dsc_config->coarse_equilibrium)
 	);
 	json_object_object_add(
 		calibration_parameters_json,
 		"calibration_date",
-		json_object_new_int64(disciplining_parameters->calibration_date)
+		json_object_new_int64(dsc_config->calibration_date)
 	);
 	json_object_object_add(
 		calibration_parameters_json,
 		"calibration_valid",
-		json_object_new_string(disciplining_parameters->calibration_valid ? "True" : "False")
+		json_object_new_string(dsc_config->calibration_valid ? "True" : "False")
 	);
 
 	json_object_object_add(
 		calibration_parameters_json,
 		"ctrl_nodes_length_factory",
-		json_object_new_int(disciplining_parameters->ctrl_nodes_length_factory)
+		json_object_new_int(dsc_config->ctrl_nodes_length_factory)
 	);
-	if (disciplining_parameters->ctrl_nodes_length > 0) {
+	if (dsc_config->ctrl_nodes_length > 0) {
 		json_add_float_array(
 			calibration_parameters_json,
 			"ctrl_load_nodes_factory",
-			disciplining_parameters->ctrl_load_nodes_factory,
-			disciplining_parameters->ctrl_nodes_length_factory
+			dsc_config->ctrl_load_nodes_factory,
+			dsc_config->ctrl_nodes_length_factory
 		);
 		json_add_float_array(
 			calibration_parameters_json,
 			"ctrl_drift_coeffs_factory",
-			disciplining_parameters->ctrl_drift_coeffs_factory,
-			disciplining_parameters->ctrl_nodes_length_factory
+			dsc_config->ctrl_drift_coeffs_factory,
+			dsc_config->ctrl_nodes_length_factory
 		);
 	}
 	json_object_object_add(
 		calibration_parameters_json,
 		"coarse_equilibrium_factory",
-		json_object_new_int64(disciplining_parameters->coarse_equilibrium_factory)
+		json_object_new_int64(dsc_config->coarse_equilibrium_factory)
 	);
 
 	json_object_object_add(
 		calibration_parameters_json,
 		"estimated_equilibrium_ES",
-		json_object_new_int64(disciplining_parameters->estimated_equilibrium_ES)
+		json_object_new_int64(dsc_config->estimated_equilibrium_ES)
 	);
 	json_object_object_add(disc_parameters_json, "calibration_parameters", calibration_parameters_json);
 
 	for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
-		if (disciplining_parameters->mean_fine_over_temperature[i] != 0) {
+		if (dsc_params->temp_table.mean_fine_over_temperature[i] != 0) {
 			char temperature_range[64];
 			sprintf(
 				temperature_range,
@@ -365,16 +368,16 @@ static void json_add_disciplining_disciplining_parameters(struct json_object *re
 			sprintf(
 				mean_value,
 				"%.1f",
-				(float) disciplining_parameters->mean_fine_over_temperature[i] / 10
+				(float) dsc_params->temp_table.mean_fine_over_temperature[i] / 10
 			);
 			json_object_object_add(
-				temperature_table,
+				temp_table,
 				temperature_range,
 				json_object_new_string(mean_value)
 			);
 		}
 	}
-	json_object_object_add(disc_parameters_json, "temperature_table", temperature_table);
+	json_object_object_add(disc_parameters_json, "temperature_table", temp_table);
 	json_object_object_add(resp, "disciplining_parameters", disc_parameters_json);	
 	return;
 }
@@ -408,12 +411,16 @@ static void json_handle_request(struct monitoring *monitoring, int request_type,
 		break;
 	case REQUEST_READ_EEPROM:
 	{
-		struct disciplining_parameters disciplining_parameters;
-		int ret = oscillator_get_disciplining_parameters(monitoring->oscillator, &disciplining_parameters);
+		struct disciplining_parameters dsc_params;
+		int ret = write_disciplining_parameters_in_eeprom(
+			monitoring->devices_path.disciplining_config_path,
+			monitoring->devices_path.temperature_table_path,
+			&dsc_params
+		);
 		if (ret != 0) {
 			log_error("Monitoring: Could not get disciplining parameters");
 		} else {
-			json_add_disciplining_disciplining_parameters(resp, &disciplining_parameters);
+			json_add_disciplining_disciplining_parameters(resp, &dsc_params);
 		}
 		break;
 	}
@@ -601,7 +608,7 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
  * @param config
  * @return struct monitoring*
  */
-struct monitoring* monitoring_init(const struct config *config, struct oscillator *oscillator)
+struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path)
 {
 	int port;
 	int ret;
@@ -623,6 +630,11 @@ struct monitoring* monitoring_init(const struct config *config, struct oscillato
 		return NULL;
 	}
 
+	if (devices_path == NULL) {
+		log_error("No struct devices path passed !");
+		return NULL;
+	}
+
 	monitoring = (struct monitoring *) malloc(sizeof(struct monitoring));
 	if (monitoring == NULL) {
 		log_error("Monitoring: Could not allocate memory for monitoring struct");
@@ -632,7 +644,7 @@ struct monitoring* monitoring_init(const struct config *config, struct oscillato
 	monitoring->stop = false;
 	monitoring->disciplining_mode = config_get_bool_default(config, "disciplining", false);
 	monitoring->phase_error_supported = false;
-	monitoring->oscillator = oscillator;
+	memcpy(&monitoring->devices_path, devices_path, sizeof(struct devices_path));
 
 	monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
 	monitoring->disciplining.status = INIT;

@@ -81,24 +81,6 @@ struct calibration_results * oscillator_calibrate(
 	return oscillator->class->calibrate(oscillator, phasemeter, gnss, calib_params, phase_sign);
 }
 
-int oscillator_get_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)
-{
-	if(oscillator == NULL || disciplining_parameters == NULL)
-		return -EINVAL;
-	if(oscillator->class->get_disciplining_parameters == NULL)
-		return -ENOSYS;
-	return oscillator->class->get_disciplining_parameters(oscillator, disciplining_parameters);
-}
-
-int oscillator_update_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters)
-{
-	if(oscillator == NULL || disciplining_parameters == NULL)
-		return -EINVAL;
-	if(oscillator->class->update_disciplining_parameters == NULL)
-		return -ENOSYS;
-	return oscillator->class->update_disciplining_parameters(oscillator, disciplining_parameters);
-}
-
 int oscillator_get_phase_error(struct oscillator *oscillator, int64_t *phase_error)
 {
 	if (oscillator == NULL || phase_error == NULL)

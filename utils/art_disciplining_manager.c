@@ -138,49 +138,49 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
 
     memcpy(result, &factory_parameters, sizeof(struct disciplining_parameters));
 
-    result->calibration_valid = config_get_bool_default(&config, "calibration_valid", false);
-    result->coarse_equilibrium = atoi(config_get_default(&config, "coarse_equilibrium", "-1"));
+    result->dsc_config.calibration_valid = config_get_bool_default(&config, "calibration_valid", false);
+    result->dsc_config.coarse_equilibrium = atoi(config_get_default(&config, "coarse_equilibrium", "-1"));
 
     factory_coarse = atoi(config_get_default(&config, "coarse_equilibrium_factory", "-1"));
     if (factory_coarse > 0) {
         log_info("Update coarse equilibrium factory to %d", factory_coarse);
-        result->coarse_equilibrium_factory = factory_coarse;
+        result->dsc_config.coarse_equilibrium_factory = factory_coarse;
     }
 
     if (config_get_unsigned_number(&config, "ctrl_nodes_length") > 0) {
-        result->ctrl_nodes_length = config_get_unsigned_number(&config, "ctrl_nodes_length");
+        result->dsc_config.ctrl_nodes_length = config_get_unsigned_number(&config, "ctrl_nodes_length");
     } else {
         log_error("error parsing key ctrl_nodes_length, aborting");
         return -1;
     }
 
     if (config_get_unsigned_number(&config, "calibration_date") > 0)
-        result->calibration_date = config_get_unsigned_number(&config, "calibration_date");
+        result->dsc_config.calibration_date = config_get_unsigned_number(&config, "calibration_date");
     else
-        result->calibration_date = time(NULL);
+        result->dsc_config.calibration_date = time(NULL);
 
-    ctrl_load_nodes = get_double_array_from_config(&config, "ctrl_load_nodes", result->ctrl_nodes_length);
+    ctrl_load_nodes = get_double_array_from_config(&config, "ctrl_load_nodes", result->dsc_config.ctrl_nodes_length);
     if (ctrl_load_nodes == NULL) {
         log_error("Could not get ctrl_load_nodes from config file at %s", path);
         return -1;
     }
 
-    ctrl_drift_coeffs = get_double_array_from_config(&config, "ctrl_drift_coeffs", result->ctrl_nodes_length);
+    ctrl_drift_coeffs = get_double_array_from_config(&config, "ctrl_drift_coeffs", result->dsc_config.ctrl_nodes_length);
     if (ctrl_drift_coeffs == NULL) {
         log_error("Could not get ctrl_drift_coeffs from config file at %s", path);
         free(ctrl_load_nodes);
         return -1;
     }
 
-    for (uint i = 0; i < result->ctrl_nodes_length; i++) {
-        result->ctrl_load_nodes[i] = ctrl_load_nodes[i];
-        result->ctrl_drift_coeffs[i] = ctrl_drift_coeffs[i];
+    for (uint i = 0; i < result->dsc_config.ctrl_nodes_length; i++) {
+        result->dsc_config.ctrl_load_nodes[i] = ctrl_load_nodes[i];
+        result->dsc_config.ctrl_drift_coeffs[i] = ctrl_drift_coeffs[i];
     }
     if (config_get_unsigned_number(&config, "estimated_equilibrium_ES") > 0) {
-        result->estimated_equilibrium_ES = config_get_unsigned_number(&config, "estimated_equilibrium_ES");
+        result->dsc_config.estimated_equilibrium_ES = config_get_unsigned_number(&config, "estimated_equilibrium_ES");
     } else {
         log_warn("Could not find key estimated_equilibrium_ES, setting value to 0");
-        result->estimated_equilibrium_ES = 0;
+        result->dsc_config.estimated_equilibrium_ES = 0;
     }
 
     log_info("Disciplining parameters that will be written in %s", path);
@@ -201,38 +201,38 @@ static int write_disciplining_parameters_to_config_file(const char *path, struct
 
     memset(&config, 0, sizeof(config));
     memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%d", dsc_parameters->coarse_equilibrium);
+    sprintf(buffer, "%d", dsc_parameters->dsc_config.coarse_equilibrium);
     config_set(&config, "coarse_equilibrium", buffer);
 
 
-    sprintf(buffer, "%u", dsc_parameters->ctrl_nodes_length);
+    sprintf(buffer, "%u", dsc_parameters->dsc_config.ctrl_nodes_length);
     config_set(&config, "ctrl_nodes_length", buffer);
 
     memset(buffer, 0, sizeof(buffer));
-    for (int i = 0; i < dsc_parameters->ctrl_nodes_length; i++) {
-        sprintf(float_buffer, "%f", dsc_parameters->ctrl_load_nodes[i]);
+    for (int i = 0; i < dsc_parameters->dsc_config.ctrl_nodes_length; i++) {
+        sprintf(float_buffer, "%f", dsc_parameters->dsc_config.ctrl_load_nodes[i]);
         strncat(buffer, float_buffer, strlen(float_buffer));
-        if (i != dsc_parameters->ctrl_nodes_length - 1)
+        if (i != dsc_parameters->dsc_config.ctrl_nodes_length - 1)
             strcat(buffer, ",");
     }
     config_set(&config, "ctrl_load_nodes", buffer);
 
     memset(buffer, 0, sizeof(buffer));
-    for (int i = 0; i < dsc_parameters->ctrl_nodes_length; i++) {
-        sprintf(float_buffer, "%f", dsc_parameters->ctrl_drift_coeffs[i]);
+    for (int i = 0; i < dsc_parameters->dsc_config.ctrl_nodes_length; i++) {
+        sprintf(float_buffer, "%f", dsc_parameters->dsc_config.ctrl_drift_coeffs[i]);
         strncat(buffer, float_buffer, strlen(float_buffer));
-        if (i != dsc_parameters->ctrl_nodes_length - 1)
+        if (i != dsc_parameters->dsc_config.ctrl_nodes_length - 1)
             strcat(buffer, ",");
     }
     config_set(&config, "ctrl_drift_coeffs", buffer);
 
-    sprintf(buffer, "%s", dsc_parameters->calibration_valid ? "true" : "false");
+    sprintf(buffer, "%s", dsc_parameters->dsc_config.calibration_valid ? "true" : "false");
     config_set(&config, "calibration_valid", buffer);
 
-    sprintf(buffer, "%ld", dsc_parameters->calibration_date);
+    sprintf(buffer, "%ld", dsc_parameters->dsc_config.calibration_date);
     config_set(&config, "calibration_date", buffer);
 
-    sprintf(buffer, "%d\n", dsc_parameters->estimated_equilibrium_ES);
+    sprintf(buffer, "%d\n", dsc_parameters->dsc_config.estimated_equilibrium_ES);
     config_set(&config, "estimated_equilibrium_ES", buffer);
 
     config_dump(&config, buffer, 2048);
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
         struct disciplining_parameters current_parameters;
         (*read_eeprom)(path, &current_parameters);
         for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
-            current_parameters.mean_fine_over_temperature[i] = 0x0000;
+            current_parameters.temp_table.mean_fine_over_temperature[i] = 0x0000;
         }
         ret = (*write_eeprom)(path, &current_parameters);
         if (ret != 0) {

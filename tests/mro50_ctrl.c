@@ -271,16 +271,18 @@ int main(int argc, char ** argv)
         } else if (type_int == TYPE_PARAM) {
             ioctl_command = MRO50_WRITE_EEPROM_BLOB;
             struct disciplining_parameters params = {
-                .ctrl_nodes_length = 3,
-                .ctrl_load_nodes = {0.25,0.5,0.75},
-                .ctrl_drift_coeffs = {1.2,0.0,-1.2},
-                .coarse_equilibrium = 4186417,
-                .ctrl_nodes_length_factory = 3,
-                .ctrl_load_nodes_factory = {0.25,0.5,0.75},
-                .ctrl_drift_coeffs_factory = {1.2,0.0,-1.2},
-                .coarse_equilibrium_factory = -1,
-                .calibration_valid = false,
-                .calibration_date = 0
+                .dsc_config = {
+                    .ctrl_nodes_length = 3,
+                    .ctrl_load_nodes = {0.25,0.5,0.75},
+                    .ctrl_drift_coeffs = {1.2,0.0,-1.2},
+                    .coarse_equilibrium = 4186417,
+                    .ctrl_nodes_length_factory = 3,
+                    .ctrl_load_nodes_factory = {0.25,0.5,0.75},
+                    .ctrl_drift_coeffs_factory = {1.2,0.0,-1.2},
+                    .coarse_equilibrium_factory = -1,
+                    .calibration_valid = false,
+                    .calibration_date = 0
+                }
             };
             log_info("Disciplining parameters written:");
             print_disciplining_parameters(&params, LOG_INFO);

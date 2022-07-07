@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
 
     print_eeprom_data(data);
     if (factory_coarse_valid)
-        factory_parameters.coarse_equilibrium_factory = (int32_t) factory_coarse;
+        factory_parameters.dsc_config.coarse_equilibrium_factory = (int32_t) factory_coarse;
 
     ret = write_eeprom(path, data, (struct disciplining_parameters *) &factory_parameters);
     if (ret != 0) {

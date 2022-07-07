@@ -36,10 +36,6 @@ typedef void (*oscillator_destroy_cb)(struct oscillator **oscillator);
 typedef struct calibration_results* (*oscillator_calibrate_cb)(struct oscillator *oscillator,
 		struct phasemeter *phasemeter, struct gnss *gnss, struct calibration_parameters *calib_params,
 		int phase_sign);
-typedef int (*oscillator_get_disciplining_parameters_cb)(struct oscillator *oscillator,
-		struct disciplining_parameters *disciplining_parameters);
-typedef int (*oscillator_update_disciplining_parameters_cb)(struct oscillator *oscillator,
-		struct disciplining_parameters *disciplining_parameters);
 typedef int (*oscillator_get_phase_error_cb)(struct oscillator *oscillator,
 		int64_t *phase_error);
 typedef int (*oscillator_get_disciplining_status_cb)(struct oscillator *oscillator, void *data);
@@ -52,8 +48,6 @@ struct oscillator_class {
 	oscillator_parse_attributes_cb parse_attributes;
 	oscillator_apply_output_cb apply_output;
 	oscillator_calibrate_cb calibrate;
-	oscillator_get_disciplining_parameters_cb get_disciplining_parameters;
-	oscillator_update_disciplining_parameters_cb update_disciplining_parameters;
 	oscillator_get_phase_error_cb get_phase_error;
 	oscillator_get_disciplining_status_cb get_disciplining_status;
 	oscillator_push_gnss_info_cb push_gnss_info;
@@ -92,8 +86,6 @@ int oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *c
 int oscillator_save(struct oscillator *oscillator);
 int oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes);
 int oscillator_apply_output(struct oscillator *oscillator, struct od_output *output);
-int oscillator_get_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters * disciplining_parameters);
-int oscillator_update_disciplining_parameters(struct oscillator *oscillator, struct disciplining_parameters *disciplining_parameters);
 int oscillator_get_disciplining_status(struct oscillator *oscillator, void *data);
 int oscillator_push_gnss_info(struct oscillator *oscillator, bool fixOk, const struct timespec *last_fix_utc_time);
 struct calibration_results * oscillator_calibrate(
