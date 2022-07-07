@@ -67,7 +67,7 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
             sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
             found_eeprom = find_file(realpath(pathname, NULL), "eeprom", devices_path->eeprom_path);
             if (found_eeprom) {
-                log_info("\t- Found EEPROM file\n");
+                log_info("\t- Found EEPROM file: %s\n", devices_path->eeprom_path);
             } else {
                 log_warn("\t- Could not find EEPROM file\n");
             }

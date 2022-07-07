@@ -86,7 +86,6 @@ bool find_file(char * path , char * name, char * file_path)
             if (found)
                 break;
         } else if (!strcmp(dp->d_name, name)) {
-            log_info("\t- file %s is in %s/%s", name, path, dp->d_name);
             if (file_path != NULL)
                 sprintf(file_path, "%s/%s", path, dp->d_name);
             found = true;

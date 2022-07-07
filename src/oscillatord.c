@@ -190,6 +190,12 @@ static int get_devices_path_from_sysfs(
 		} else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
 			find_dev_path(sysfs_path, entry, devices_path->mac_path);
 			log_debug("ttyMAC detected: %s", devices_path->mac_path);
+		} else if (strncmp(entry->d_name, "disciplining_config", 19) == 0) {
+			find_file((char *) sysfs_path, "disciplining_config", devices_path->disciplining_config);
+			log_debug("disciplining_config detected: %s", devices_path->disciplining_config);
+		} else if (strncmp(entry->d_name, "temperature_table", 17) == 0) {
+			find_file((char *) sysfs_path, "temperature_table", devices_path->temperature_table);
+			log_debug("temperature_table detected: %s", devices_path->temperature_table);
 		}
 
 		entry = readdir(ocp_dir);
