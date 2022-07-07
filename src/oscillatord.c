@@ -330,8 +330,12 @@ int main(int argc, char *argv[])
 	}
 
 	if (disciplining_mode) {
-		/* Get disciplining parameters from mRO50  device */
-		ret = read_disciplining_parameters_from_eeprom(devices_path.disciplining_config_path, devices_path.temperature_table_path, &dsc_params);
+		/* Get disciplining parameters files exposed by driver */
+		ret = read_disciplining_parameters_from_eeprom(
+			devices_path.disciplining_config_path,
+			devices_path.temperature_table_path,
+			&dsc_params
+		);
 		if (ret != 0) {
 			log_error("Failed to read disciplining_parameters from EEPROM");
 			return -EINVAL;
