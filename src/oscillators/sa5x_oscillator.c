@@ -439,7 +439,7 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 			sa5x->status.clock_class = SA5X_CLOCK_CLASS_LOCK;
 			sa5x->status.status = SA5X_CALIBRATION + sa5x->disciplining_phase;
 		}
-		sa5x->status.holdover_ready = sa5x->disciplining_phase == (DISCIPLINING_PHASES - 1) ? true : false;
+		sa5x->status.holdover_ready = sa5x->status.status == SA5X_LOCK_HIGH_RESOLUTION;
 	}
 
 	return 0;
