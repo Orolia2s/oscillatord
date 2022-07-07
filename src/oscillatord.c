@@ -251,8 +251,6 @@ int main(int argc, char *argv[])
 		error(EXIT_FAILURE, 0, "usage: %s config_file_path", argv[0]);
 	path = argv[1];
 
-	config.defconfig_key = "eeprom";
-
 	/* Read Config file */
 	ret = config_init(&config, path);
 	if (ret != 0) {

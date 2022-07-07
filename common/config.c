@@ -67,10 +67,6 @@ static int read_file(const char *path, char **argz, size_t *argz_len)
 int config_init(struct config *config, const char *path)
 {
 	int ret;
-	const char *defconfig_path = NULL;
-	const char *defconfig_key = NULL;
-
-	defconfig_key = config->defconfig_key;
 
 	memset(config, 0, sizeof(*config));
 
@@ -79,28 +75,6 @@ int config_init(struct config *config, const char *path)
 		return -errno;
 
 	ret = read_file(path, &config->argz, &config->len);
-	if (ret)
-		return ret;
-
-	if (defconfig_key != NULL) {
-		defconfig_path = config_get(config, defconfig_key);
-		config->defconfig_key = defconfig_key;
-	}
-
-	if (defconfig_path == NULL)
-		return 0;
-
-	ret = read_file(defconfig_path, &config->argz_defconfig, &config->len_defconfig);
-	if (ret)
-		return ret;
-
-	ret = envz_merge(&config->argz_defconfig, &config->len_defconfig,
-			 config->argz, config->len, 1);
-	if (ret)
-		return ret;
-
-	ret = envz_merge(&config->argz, &config->len,
-			config->argz_defconfig, config->len_defconfig, 0);
 	return ret;
 }
 
