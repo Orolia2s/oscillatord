@@ -1,6 +1,6 @@
 /**
  * @file art_disciplining_manager.c
- * @brief Read and Write dsiciplining parameters to ART card's EEPROM
+ * @brief Read and Write dsiciplining config to ART card's EEPROM use disciplining_config_file
  * @version 0.1
  * @date 2022-01-24
  *
@@ -20,6 +20,7 @@
 #include <oscillator-disciplining/oscillator-disciplining.h>
 
 #include "config.h"
+#include "eeprom_config.h"
 #include "eeprom.h"
 #include "log.h"
 
@@ -27,39 +28,76 @@ enum Mode {
     ART_EEPROM_MANAGER_NONE,
     ART_EEPROM_MANAGER_READ,
     ART_EEPROM_MANAGER_WRITE,
-    ART_EEPROM_MANAGER_INIT,
-    ART_EEPROM_MANAGER_TEMPERATURE_TABLE_RESET,
+    ART_EEPROM_MANAGER_INIT
 };
 
-static int write_disciplining_parameters_to_eeprom(const char * path, struct disciplining_parameters *calibration)
+struct disciplining_config factory_config = {
+    .header = HEADER_MAGIC,
+    .version = 1,
+    .ctrl_nodes_length = 3,
+    .ctrl_load_nodes = {0.25,0.5,0.75},
+    .ctrl_drift_coeffs = {0.0,0.0,0.0},
+    .coarse_equilibrium = -1,
+    .ctrl_nodes_length_factory = 3,
+    .ctrl_load_nodes_factory = {0.25,0.5,0.75},
+    .ctrl_drift_coeffs_factory = {1.2,0.0,-1.2},
+    .coarse_equilibrium_factory = -1,
+    .calibration_valid = false,
+    .calibration_date = 0
+};
+
+static int write_disciplining_parameters_to_disciplining_config_file(const char * path, struct disciplining_config *config)
 {
-    FILE *fp = fopen(path,"wb");
-    if(fp != NULL) {
-        fwrite(calibration, 1, sizeof(*calibration), fp);
-        fclose(fp);
-    } else {
-        log_error("Could not open file at %s", path);
+    char buffer[DISCIPLINING_CONFIG_FILE_SIZE];
+    int ret;
+
+    if (config == NULL) {
+        log_error("config is NULL");
+        return -EINVAL;
+    }
+
+    memset(buffer, 0, DISCIPLINING_CONFIG_FILE_SIZE * sizeof(char));
+    memcpy(buffer, config, sizeof(struct disciplining_config_V_1));
+
+    ret = write_file((char *) path, buffer, DISCIPLINING_CONFIG_FILE_SIZE);
+    if (ret != 0) {
+        log_error("Could not write data in %s", path);
         return -1;
     }
+
     return 0;
 }
 
-static void read_disciplining_parameters_from_eeprom(const char *path, struct disciplining_parameters *dsc_parameters)
+static int read_disciplining_parameters_from_disciplining_config_file(const char *path, struct disciplining_config *config)
 {
-    FILE *fp = fopen(path,"rb");
-    if (fp != NULL) {
-        int ret = fread(dsc_parameters, sizeof(struct disciplining_parameters), 1, fp);
-        log_debug("ret is %d, sizeof struct is %ld", ret, sizeof(struct disciplining_parameters));
-        if (ret != 1) {
-            log_error("Error reading calibration parameters from %s", path);
-            return;
-        }
-        print_disciplining_parameters(dsc_parameters, LOG_INFO);
-        fclose(fp);
-    } else {
-        log_error("Could not open file at %s", path);
+    char buffer[DISCIPLINING_CONFIG_FILE_SIZE];
+    int dsc_config_version = 0;
+    int ret;
+
+    ret = read_file((char *) path, (char *) buffer, DISCIPLINING_CONFIG_FILE_SIZE);
+    if (ret != 0) {
+        log_error("Could not read disciplining config at %s", path);
+        return -1;
     }
-    return;
+    if (check_header_valid(buffer[0])) {
+        dsc_config_version = buffer[1];
+        log_info("Version of disciplining_config file: %d", dsc_config_version);
+        if (dsc_config_version == 1) {
+            /*
+             * Data in files is stored in format version 1
+             * fill struct disciplining_parameters
+             */
+            memcpy(config, buffer, sizeof(struct disciplining_config_V_1));
+            return 0;
+        } else {
+            log_error("Unknown version %d", dsc_config_version);
+            return -1;
+        }
+    } else {
+        log_error("Header in %s is not valid !", path);
+        log_error("Please upgrade disciplining_config and temperature table using art_eeprom_data_updater !");
+        return -1;
+    }
 }
 
 static int double_array_parser(const char* value, double **result) {
@@ -124,7 +162,7 @@ static double * get_double_array_from_config(struct config *config, const char *
     return result;
 }
 
-static int read_disciplining_parameters_from_config_file(const char *path, struct disciplining_parameters *result)
+static int read_disciplining_parameters_from_file(const char *path, struct disciplining_config *dsc_config)
 {
     double *ctrl_drift_coeffs;
     double *ctrl_load_nodes;
@@ -136,55 +174,55 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
     if (ret != 0)
         error(EXIT_FAILURE, -ret, "config_init(%s)", path);
 
-    memcpy(result, &factory_parameters, sizeof(struct disciplining_parameters));
+    memcpy(dsc_config, &factory_config, sizeof(struct disciplining_config));
 
-    result->dsc_config.calibration_valid = config_get_bool_default(&config, "calibration_valid", false);
-    result->dsc_config.coarse_equilibrium = atoi(config_get_default(&config, "coarse_equilibrium", "-1"));
-
+    dsc_config->calibration_valid = config_get_bool_default(&config, "calibration_valid", false);
+    dsc_config->coarse_equilibrium = atoi(config_get_default(&config, "coarse_equilibrium", "-1"));
     factory_coarse = atoi(config_get_default(&config, "coarse_equilibrium_factory", "-1"));
     if (factory_coarse > 0) {
         log_info("Update coarse equilibrium factory to %d", factory_coarse);
-        result->dsc_config.coarse_equilibrium_factory = factory_coarse;
+        dsc_config->coarse_equilibrium_factory = factory_coarse;
     }
 
+
     if (config_get_unsigned_number(&config, "ctrl_nodes_length") > 0) {
-        result->dsc_config.ctrl_nodes_length = config_get_unsigned_number(&config, "ctrl_nodes_length");
+        dsc_config->ctrl_nodes_length = config_get_unsigned_number(&config, "ctrl_nodes_length");
     } else {
         log_error("error parsing key ctrl_nodes_length, aborting");
         return -1;
     }
 
     if (config_get_unsigned_number(&config, "calibration_date") > 0)
-        result->dsc_config.calibration_date = config_get_unsigned_number(&config, "calibration_date");
+        dsc_config->calibration_date = config_get_unsigned_number(&config, "calibration_date");
     else
-        result->dsc_config.calibration_date = time(NULL);
+        dsc_config->calibration_date = time(NULL);
 
-    ctrl_load_nodes = get_double_array_from_config(&config, "ctrl_load_nodes", result->dsc_config.ctrl_nodes_length);
+
+    ctrl_load_nodes = get_double_array_from_config(&config, "ctrl_load_nodes", dsc_config->ctrl_nodes_length);
     if (ctrl_load_nodes == NULL) {
         log_error("Could not get ctrl_load_nodes from config file at %s", path);
         return -1;
     }
-
-    ctrl_drift_coeffs = get_double_array_from_config(&config, "ctrl_drift_coeffs", result->dsc_config.ctrl_nodes_length);
+    ctrl_drift_coeffs = get_double_array_from_config(&config, "ctrl_drift_coeffs", dsc_config->ctrl_nodes_length);
     if (ctrl_drift_coeffs == NULL) {
         log_error("Could not get ctrl_drift_coeffs from config file at %s", path);
         free(ctrl_load_nodes);
         return -1;
     }
-
-    for (uint i = 0; i < result->dsc_config.ctrl_nodes_length; i++) {
-        result->dsc_config.ctrl_load_nodes[i] = ctrl_load_nodes[i];
-        result->dsc_config.ctrl_drift_coeffs[i] = ctrl_drift_coeffs[i];
+    for (uint i = 0; i < dsc_config->ctrl_nodes_length; i++) {
+        dsc_config->ctrl_load_nodes[i] = ctrl_load_nodes[i];
+        dsc_config->ctrl_drift_coeffs[i] = ctrl_drift_coeffs[i];
     }
+
     if (config_get_unsigned_number(&config, "estimated_equilibrium_ES") > 0) {
-        result->dsc_config.estimated_equilibrium_ES = config_get_unsigned_number(&config, "estimated_equilibrium_ES");
+        dsc_config->estimated_equilibrium_ES = config_get_unsigned_number(&config, "estimated_equilibrium_ES");
     } else {
         log_warn("Could not find key estimated_equilibrium_ES, setting value to 0");
-        result->dsc_config.estimated_equilibrium_ES = 0;
+        dsc_config->estimated_equilibrium_ES = 0;
     }
 
-    log_info("Disciplining parameters that will be written in %s", path);
-    print_disciplining_parameters(result, LOG_INFO);
+    log_info("Disciplining parameters that written from %s:", path);
+    print_disciplining_config(dsc_config, LOG_INFO);
 
     free(ctrl_drift_coeffs);
     free(ctrl_load_nodes);
@@ -193,7 +231,7 @@ static int read_disciplining_parameters_from_config_file(const char *path, struc
     return 0;
 }
 
-static int write_disciplining_parameters_to_config_file(const char *path, struct disciplining_parameters *dsc_parameters)
+static int write_disciplining_parameters_to_file(const char *path, struct disciplining_config *dsc_config)
 {
     struct config config;
     char buffer[2048];
@@ -201,38 +239,41 @@ static int write_disciplining_parameters_to_config_file(const char *path, struct
 
     memset(&config, 0, sizeof(config));
     memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%d", dsc_parameters->dsc_config.coarse_equilibrium);
+    sprintf(buffer, "%d", dsc_config->coarse_equilibrium);
     config_set(&config, "coarse_equilibrium", buffer);
 
 
-    sprintf(buffer, "%u", dsc_parameters->dsc_config.ctrl_nodes_length);
+    sprintf(buffer, "%u", dsc_config->ctrl_nodes_length);
     config_set(&config, "ctrl_nodes_length", buffer);
 
     memset(buffer, 0, sizeof(buffer));
-    for (int i = 0; i < dsc_parameters->dsc_config.ctrl_nodes_length; i++) {
-        sprintf(float_buffer, "%f", dsc_parameters->dsc_config.ctrl_load_nodes[i]);
+    for (int i = 0; i < dsc_config->ctrl_nodes_length; i++) {
+        sprintf(float_buffer, "%f", dsc_config->ctrl_load_nodes[i]);
         strncat(buffer, float_buffer, strlen(float_buffer));
-        if (i != dsc_parameters->dsc_config.ctrl_nodes_length - 1)
+        if (i != dsc_config->ctrl_nodes_length - 1)
             strcat(buffer, ",");
     }
     config_set(&config, "ctrl_load_nodes", buffer);
 
     memset(buffer, 0, sizeof(buffer));
-    for (int i = 0; i < dsc_parameters->dsc_config.ctrl_nodes_length; i++) {
-        sprintf(float_buffer, "%f", dsc_parameters->dsc_config.ctrl_drift_coeffs[i]);
+    for (int i = 0; i < dsc_config->ctrl_nodes_length; i++) {
+        sprintf(float_buffer, "%f", dsc_config->ctrl_drift_coeffs[i]);
         strncat(buffer, float_buffer, strlen(float_buffer));
-        if (i != dsc_parameters->dsc_config.ctrl_nodes_length - 1)
+        if (i != dsc_config->ctrl_nodes_length - 1)
             strcat(buffer, ",");
     }
     config_set(&config, "ctrl_drift_coeffs", buffer);
 
-    sprintf(buffer, "%s", dsc_parameters->dsc_config.calibration_valid ? "true" : "false");
+        sprintf(buffer, "%d", dsc_config->coarse_equilibrium_factory);
+    config_set(&config, "coarse_equilibrium_factory", buffer);
+
+    sprintf(buffer, "%s", dsc_config->calibration_valid ? "true" : "false");
     config_set(&config, "calibration_valid", buffer);
 
-    sprintf(buffer, "%ld", dsc_parameters->dsc_config.calibration_date);
+    sprintf(buffer, "%ld", dsc_config->calibration_date);
     config_set(&config, "calibration_date", buffer);
 
-    sprintf(buffer, "%d\n", dsc_parameters->dsc_config.estimated_equilibrium_ES);
+    sprintf(buffer, "%d\n", dsc_config->estimated_equilibrium_ES);
     config_set(&config, "estimated_equilibrium_ES", buffer);
 
     config_dump(&config, buffer, 2048);
@@ -246,66 +287,45 @@ static int write_disciplining_parameters_to_config_file(const char *path, struct
 int main(int argc, char *argv[])
 {
     enum Mode mode = ART_EEPROM_MANAGER_NONE;
-    char *input_calibration_path = NULL;
+    struct disciplining_config dsc_config;
+    char *input_dsc_config_path = NULL;
     char *output_file = NULL;
     char *path = NULL;
     int option;
     int ret = 0;
-    bool write_factory = false;
-    void (*read_eeprom)(const char *, struct disciplining_parameters *) = NULL;
-    int (*write_eeprom)(const char *, struct disciplining_parameters *) = NULL;
     log_set_level(LOG_INFO);
 
-    while ((option = getopt(argc, argv, ":m:p:w:fho:rt")) != -1) {
+    while ((option = getopt(argc, argv, ":m:p:w:fho:r")) != -1) {
         switch (option) {
         case 'r':
             mode = ART_EEPROM_MANAGER_READ;
             break;
         case 'w':
             mode = ART_EEPROM_MANAGER_WRITE;
-            input_calibration_path = optarg;
+            input_dsc_config_path = optarg;
             break;
         case 'o':
             output_file = optarg;
             break;
         case 'f':
-            write_factory = true;
+            mode = ART_EEPROM_MANAGER_INIT;
             break;
         case 'p':
             path = optarg;
-            if (read_eeprom) {
-                log_error("Cannot use mro50 and eeprom file at the same time");
-                return -1;
-            }
-            read_eeprom = read_disciplining_parameters_from_eeprom;
-            write_eeprom = write_disciplining_parameters_to_eeprom;
-            break;
-        case 'm':
-            path = optarg;
-            if (read_eeprom) {
-                log_error("Cannot use mro50 and eeprom file at the same time");
-                return -1;
-            }
-            read_eeprom = &read_disciplining_parameters_from_mro50;
-            write_eeprom = &write_disciplining_parameters_to_mro50;
-            break;
-        case 't':
-            mode = ART_EEPROM_MANAGER_TEMPERATURE_TABLE_RESET;
             break;
         case ':':
             log_error("Option needs a value ");
             break;
         case 'h':
         default:
-            log_info("art_disciplining_manager [-m mro50_path | -p eeprom_path]  [-w calibration.conf | -r -o output_file_path | -t] -f  -h]");
-            log_info("\t-p eeprom_path: Path to the eeprom file");
-            log_info("\t-m mro50_path: Path to the mRO50 device file");
-            log_info("\t-w calibration.conf: Path to the calibration paramters file to write in the eeprom");
-            log_info("\t-r: Read calibration parameters from the eeprom");
-            log_info("\t-f: force write operation to write factory parameters");
-            log_info("\t-t: Reset Temperature table");
-            log_info("\t-o: output_file_path: write calibration parameters read in file");
+            log_info("art_disciplining_manager -p disciplining_config_file_path [-w disciplining_config.txt | -r -o output_file_path | -f ] -h]");
+            log_info("\t-p disciplining_config_file_path: Path to the disciplining_config file exposed by the driver");
+            log_info("\t-w disciplining_config.txt: Path to the disciplining_config file to write in the eeprom");
+            log_info("\t-r: Read disciplining_config from the eeprom");
+            log_info("\t-f: Write factory parameters");
+            log_info("\t-o: output_file_path: write disciplining_config read in file");
             log_info("\t-h: print help");
+            return 0;
         }
     }
 
@@ -319,50 +339,39 @@ int main(int argc, char *argv[])
 
     switch (mode) {
     case ART_EEPROM_MANAGER_READ:
-        log_info("Reading data from %s", path);
-        struct disciplining_parameters dsc_parameters;
-        (*read_eeprom)(path, &dsc_parameters);
-        print_disciplining_parameters(&dsc_parameters, LOG_INFO);
+        log_info("Reading data from %s:", path);
+        ret = read_disciplining_parameters_from_disciplining_config_file(path, &dsc_config);
+        if (ret != 0) {
+            log_error("Could not read disciplining_config from %s", path);
+            return -1;
+        }
+        print_disciplining_config(&dsc_config, LOG_INFO);
         if (output_file) {
             log_info("Writing disciplining parameters read to %s", output_file);
-            ret = write_disciplining_parameters_to_config_file(output_file, &dsc_parameters);
+            ret = write_disciplining_parameters_to_file(output_file, &dsc_config);
             if (ret != 0) {
                 log_error("Error writing in config file");
             }
         }
         break;
     case ART_EEPROM_MANAGER_WRITE:
-        if (write_factory) {
-            log_info("Writing default calibration to %s", path);
-            (*write_eeprom)(path, (struct disciplining_parameters *) &factory_parameters);
-        } else {
-            log_info("Writing calibration from %s to %s",input_calibration_path, path);
-            struct disciplining_parameters input_calibration;
-            ret = read_disciplining_parameters_from_config_file(input_calibration_path, &input_calibration);
-            if (ret != 0) {
-                log_info("Error reading input calibration from %s", input_calibration_path);
-                return -1;
-            }
-            ret = (*write_eeprom)(path, &input_calibration);
-            if (ret != 0) {
-                log_error("Error writing calibration parameters to %s", path);
-            }
+        log_info("Writing calibration from %s to %s",input_dsc_config_path, path);
+        ret = read_disciplining_parameters_from_file(input_dsc_config_path, &dsc_config);
+        if (ret != 0) {
+            log_info("Error reading input calibration from %s", input_dsc_config_path);
+            return -1;
+        }
+        ret = write_disciplining_parameters_to_disciplining_config_file(path, &dsc_config);
+        if (ret != 0) {
+            log_error("Error writing calibration parameters to %s", path);
         }
         break;
-    case ART_EEPROM_MANAGER_TEMPERATURE_TABLE_RESET:
-        log_info("Resetting temperature table");
-        struct disciplining_parameters current_parameters;
-        (*read_eeprom)(path, &current_parameters);
-        for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
-            current_parameters.temp_table.mean_fine_over_temperature[i] = 0x0000;
-        }
-        ret = (*write_eeprom)(path, &current_parameters);
-        if (ret != 0) {
-            log_error("Error resetting temperature table to %s", path);
-        }
+    case ART_EEPROM_MANAGER_INIT:
+        log_info("Writing default calibration to %s", path);
+        write_disciplining_parameters_to_disciplining_config_file(path, (struct disciplining_config *) &factory_config);
         break;
     default:
-        log_error("No Mode (Read or Write) provided");
+        log_error("No Mode (Read, Write or Init) provided");
         return -1;
     }
 

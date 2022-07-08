@@ -4,6 +4,7 @@ if(BUILD_UTILS)
 	)
 	file(GLOB COMMON_SOURCES
 		${PROJECT_SOURCE_DIR}/common/config.[ch]
+		${PROJECT_SOURCE_DIR}/common/eeprom_config.[ch]
 		${PROJECT_SOURCE_DIR}/common/log.[ch]
 		${PROJECT_SOURCE_DIR}/common/mro50_ioctl.h
 		${PROJECT_SOURCE_DIR}/common/utils.[ch]

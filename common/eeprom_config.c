@@ -6,7 +6,8 @@
 #include "eeprom_config.h"
 #include "log.h"
 
-static int read_file(char path[PATH_MAX], char *data, size_t size) {
+int read_file(char path[PATH_MAX], char *data, size_t size)
+{
     FILE *fp = fopen(path,"rb");
     if (fp != NULL) {
         int ret = fread(data, size, 1, fp);
@@ -22,7 +23,8 @@ static int read_file(char path[PATH_MAX], char *data, size_t size) {
     return 0;
 }
 
-static int write_file(char path[PATH_MAX], char *data, size_t size) {
+int write_file(char path[PATH_MAX], char *data, size_t size)
+{
     FILE *fp = fopen(path,"wb");
     if(fp != NULL) {
         size_t written = fwrite(data, 1, size, fp);
@@ -38,10 +40,6 @@ static int write_file(char path[PATH_MAX], char *data, size_t size) {
     }
     return 0;
 
-}
-
-static bool check_header_valid(uint8_t header) {
-    return header == HEADER_MAGIC;
 }
 
 /**

@@ -1,3 +1,15 @@
+/**
+ * @file eeprom.h
+ * @author Charles Parent (charles.parent@orolia2s.com)
+ * @brief Header files for functions handling manufacturing data in ART card's EEPROM
+ * Manufacturing data are located on RO part of the card, a jumper must be used to be
+ * able to write this part
+ * @version 0.1
+ * @date 2022-07-08
+ *
+ * @copyright Copyright (c) 2022
+ *
+ */
 #ifndef EEPROM_H
 #define EEPROM_H
 
@@ -17,7 +29,7 @@ enum PRODUCT_PRODUCTION_STATE {
 /**
  * @brief ART card EEPROM format data
  */
-struct __attribute__((__packed__)) eeprom_data {
+struct __attribute__((__packed__)) eeprom_manufacturing_data {
     /** Magic word, fixed always "FBFB" */
     uint16_t magic; // 0x00
     /** Binary as unsigned integer, small endian */
@@ -59,12 +71,7 @@ struct __attribute__((__packed__)) eeprom_data {
     uint8_t crc8;// 0xC3
 };
 
-/**
- * @brief Default value for disciplining parameters
- */
-extern struct disciplining_parameters factory_parameters;
-
-static inline void print_eeprom_data(struct eeprom_data *data)
+static inline void print_eeprom_manufacturing_data(struct eeprom_manufacturing_data *data)
 {
     log_debug("EEPROM data is:");
     log_debug("Magic: 0x%x", data->magic);
@@ -82,7 +89,11 @@ static inline void print_eeprom_data(struct eeprom_data *data)
     log_debug("Product SN: %s", data->product_serial_number);
     log_debug("Product asset tag: %s", data->product_asset_tag);
     log_debug("System manufacturer: %s", data->system_manufacturer);
-    log_debug("System manufacturer date: %u-%u-%u", data->system_manufacturing_date_day, data->system_manufacturing_date_month, data->system_manufacturing_date_year);
+    log_debug("System manufacturer date: %u-%u-%u",
+        data->system_manufacturing_date_day,
+        data->system_manufacturing_date_month,
+        data->system_manufacturing_date_year
+    );
     log_debug("PCB Manufacturer: %s", data->pcb_manufacturer);
     log_debug("Assembled at: %s", data->assembled_at);
     log_debug("Local MAC address: %s", data->local_mac_address);
@@ -93,11 +104,8 @@ static inline void print_eeprom_data(struct eeprom_data *data)
     return;
 }
 
-int write_eeprom(const char *path, struct eeprom_data *data, struct disciplining_parameters *calibration);
-int read_eeprom_data(const char *path, struct eeprom_data *data);
-int read_disciplining_parameters(const char *path, struct disciplining_parameters *dsc_parameters);
-void init_eeprom_data(struct eeprom_data *data, char *serial_number);
-int write_disciplining_parameters_to_mro50(const char * path, struct disciplining_parameters *calibration);
-void read_disciplining_parameters_from_mro50(const char *path, struct disciplining_parameters *dsc_parameters);
-
+int write_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturing_data *data);
+int read_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturing_data *data);
+void init_manufacturing_eeprom_data(struct eeprom_manufacturing_data *data, char *serial_number);
+int read_disciplining_parameters(const char*path, struct disciplining_parameters *dsc_parameters);
 #endif /* EEPROM_H */

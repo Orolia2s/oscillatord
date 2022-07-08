@@ -17,12 +17,14 @@
 #include <oscillator-disciplining/oscillator-disciplining.h>
 
 #include "eeprom.h"
+#include "eeprom_config.h"
 #include "log.h"
 
 enum Mode {
     ART_TEMPERATURE_TABLE_NONE,
     ART_TEMPERATURE_TABLE_READ,
-    ART_TEMPERATURE_TABLE_WRITE
+    ART_TEMPERATURE_TABLE_WRITE,
+    ART_TEMPERATURE_TABLE_RESET
 };
 
 static int float_array_parser(const char* value, float **result) {
@@ -63,22 +65,146 @@ static int float_array_parser(const char* value, float **result) {
     return parsed;
 }
 
+static int read_temperature_table_from_file(char * path, struct temperature_table *temp_table) {
+    FILE *fp;
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read = 0;
+
+    fp = fopen(path, "r");
+    if (!fp) {
+        log_error("cannot open file at %s", path);
+        return -1;
+    }
+    while((read = getline(&line, &len, fp)) != -1) {
+        log_debug("%s", line);
+        char tmp[256];
+        float *temp_value_tuple = NULL;
+        strcpy(tmp, line);
+        int num_floats = float_array_parser(tmp, &temp_value_tuple);
+        if (num_floats == 2) {
+            int temperature_index;
+            if (temp_value_tuple[0] < MIN_TEMPERATURE || temp_value_tuple[0] >= MAX_TEMPERATURE) {
+                log_error("Temperature %.2f is out of range", temp_value_tuple[0]);
+                return -1;
+            }
+            temperature_index = (int) floor(STEPS_BY_DEGREE * (temp_value_tuple[0] - MIN_TEMPERATURE));
+            log_info("writing %.2f to range [%.2f, %.2f[",
+                (float) round(temp_value_tuple[1] * 10) / 10,
+                (temperature_index + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
+                (temperature_index + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE
+            );
+            temp_table->mean_fine_over_temperature[temperature_index] = round(temp_value_tuple[1] * 10);
+        }
+        free(temp_value_tuple);
+    }
+    free(line);
+    return 0;
+}
+
+static int write_temperature_table_to_file(char *path, struct temperature_table *temp_table)
+{
+    FILE *fp;
+    fp = fopen(path, "w");
+    if (!fp) {
+        log_error("cannot open %s", path);
+        return -1;
+    }
+    for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX  ; i++) {
+        char line[256];
+        sprintf(line, "%.2f,%.2f\n", 
+            MIN_TEMPERATURE + (float) i / STEPS_BY_DEGREE,
+            (float) temp_table->mean_fine_over_temperature[i] / 10.0
+        );
+        fputs(line, fp);
+    }
+    fclose(fp);
+    return 0;
+}
+
+/**
+ * @brief Read temperature table using file exposed by the driver
+ *
+ * @param path
+ * @param temp_table
+ * @return int
+ */
+static int read_temperature_table_from_temperature_table_file(char *path, struct temperature_table *temp_table)
+{
+    char buffer[TEMPERATURE_TABLE_FILE_SIZE];
+    uint8_t temp_table_version;
+    int ret;
+
+    if (temp_table == NULL) {
+        log_error("temp_table is NULL");
+        return -EINVAL;
+    }
+
+    ret = read_file(path, (char *) buffer, TEMPERATURE_TABLE_FILE_SIZE);
+    if (ret != 0) {
+        log_error("Could not read temperature table at %s", path);
+    }
+
+    /* Check presence of header in both file */
+    if (check_header_valid(buffer[0])) {
+        temp_table_version = buffer[1];
+        log_info("Version of temperature_table file: %d", temp_table_version);
+        if (temp_table_version == 1) {
+            /*
+             * Data in files is stored in format version 1
+             * fill struct disciplining_parameters
+             */
+            memcpy(temp_table, buffer, sizeof(struct temperature_table_V_1));
+            return 0;
+        } else {
+            log_error("Unknown version %d", temp_table_version);
+            return -1;
+        }
+    } else {
+        log_error("Header in %s is not valid !", path);
+        log_error("Please upgrade disciplining_config and temperature table using art_eeprom_data_updater !");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int write_temperature_table_to_temperature_table_file(char *path, struct temperature_table *temp_table) {
+    char buffer[TEMPERATURE_TABLE_FILE_SIZE];
+    int ret;
+
+    if (temp_table == NULL) {
+        log_error("dsc_params is NULL");
+        return -EINVAL;
+    }
+
+    memset(buffer, 0, TEMPERATURE_TABLE_FILE_SIZE * sizeof(char));
+
+    memcpy(buffer, temp_table, sizeof(struct temperature_table_V_1));
+
+    ret = write_file(path, buffer, TEMPERATURE_TABLE_FILE_SIZE);
+    if (ret != 0) {
+        log_error("Could not write data in %s", path);
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
-    struct disciplining_parameters dsc_parameters;
+    struct temperature_table temp_table;
     enum Mode mode = ART_TEMPERATURE_TABLE_NONE;
     char *input_file = NULL;
     char *output_file = NULL;
-    char *mro50_path;
-    int option;
-    FILE *fp;
+    char *path;
+    int option, ret;
     log_set_level(LOG_INFO);
 
-    while ((option = getopt(argc, argv, "m:w:ho:r")) != -1) {
+    while ((option = getopt(argc, argv, "p:w:ho:rf")) != -1) {
         switch (option)
         {
-        case 'm':
-            mro50_path = optarg;
+        case 'p':
+            path = optarg;
             break;
         case 'r':
             mode = ART_TEMPERATURE_TABLE_READ;
@@ -87,12 +213,15 @@ int main(int argc, char *argv[])
             mode = ART_TEMPERATURE_TABLE_WRITE;
             input_file = optarg;
             break;
+        case 'f':
+            mode = ART_TEMPERATURE_TABLE_RESET;
+            break;
         case 'o':
             output_file = optarg;
             break;
         case '?':
             if (optopt == 'm')
-                log_error("Option -%c requires path to eeprom.\n", optopt);
+                log_error("Option -%c requires path to temperature_table file exposed by the driver.\n", optopt);
             if (optopt == 'w')
                 log_error("Option -%c path to input temperature table file.\n", optopt);
             if (optopt == 'o')
@@ -101,78 +230,67 @@ int main(int argc, char *argv[])
             break;
         case 'h':
         default:
-            log_info("art_temperature_table_manager -m mro50_path [-w input_table.txt | -r -o output_table.txt] -h");
-            log_info("\t-m mro50_path: Path to the mRO50 device file");
-            log_info("\t-w input_table.txt: Path to input temperature table to write to EEPROM");
-            log_info("\t-r: Read temperature table from EEPROM");
-            log_info("\t-o: output_file_path: write calibration parameters read in file");
+            log_info("art_temperature_table_manager -p temperature_table_path [-w input_table.txt | -r -o output_table.txt | -f] -h");
+            log_info("\t-p temperature_table_path: Path to temperature_table file exposed by the driver");
+            log_info("\t-w input_table.txt: Path to input temperature table to write to temperature_table_path");
+            log_info("\t-r: Read temperature table from temperature_table_path");
+            log_info("\t-f: Reset temperature table in temperature_table_path");
+            log_info("\t-o: output_file_path: write temperature table read in output_file_path");
             log_info("\t-h: print help");
+            return 0;
             break;
         }
     }
 
-    if (mro50_path == NULL) {
+    if (path == NULL) {
         log_error("No mro50 path provided!");
         return -1;
     }
 
+    memset(&temp_table, 0, sizeof(struct temperature_table));
+
     switch (mode) {
         case ART_TEMPERATURE_TABLE_READ:
-            read_disciplining_parameters_from_mro50(mro50_path, &dsc_parameters);
-            print_temperature_table(dsc_parameters.temp_table.mean_fine_over_temperature, LOG_INFO);
+            ret = read_temperature_table_from_temperature_table_file(path, &temp_table);
+            if (ret != 0) {
+                log_error("read_temperature_table_from_temperature_table_file: %d");
+                return -1;
+            }
+            print_temperature_table(temp_table.mean_fine_over_temperature, LOG_INFO);
             if (output_file != NULL) {
                 log_info("writing value in %s", output_file);
-                fp = fopen(output_file, "w");
-                if (!fp) {
-                    log_error("cannot write to file at %s", output_file);
+                ret = write_temperature_table_to_file(output_file, &temp_table);
+                if (ret != 0) {
+                    log_error("write_temperature_table_to_file: %d");
                     return -1;
                 }
-                for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX  ; i++) {
-                    char line[256];
-                    sprintf(line, "%.2f,%.2f\n",  MIN_TEMPERATURE + (float) i / STEPS_BY_DEGREE, (float) dsc_parameters.temp_table.mean_fine_over_temperature[i] / 10.0);
-                    fputs(line, fp);
-                }
-                fclose(fp);
             }
             break;
         case ART_TEMPERATURE_TABLE_WRITE:
-            read_disciplining_parameters_from_mro50(mro50_path, &dsc_parameters);
-            fp = fopen(input_file, "r");
-            char *line = NULL;
-            size_t len = 0;
-            ssize_t read = 0;
-            if (!fp) {
-                log_error("cannot open file at %s", input_file);
+            ret = read_temperature_table_from_file(input_file, &temp_table);
+            if (ret != 0) {
+                log_error("read_temperature_table_from_file: %d");
                 return -1;
             }
-            while((read = getline(&line, &len, fp)) != -1) {
-                log_debug("%s", line);
-                char tmp[256];
-                float *temp_value_tuple = NULL;
-                strcpy(tmp, line);
-                int num_floats = float_array_parser(tmp, &temp_value_tuple);
-                if (num_floats == 2) {
-                    int temperature_index;
-                     if (temp_value_tuple[0] < MIN_TEMPERATURE || temp_value_tuple[0] >= MAX_TEMPERATURE) {
-                        log_error("Temperature %.2f is out of range", temp_value_tuple[0]);
-                        return -1;
-                    }
-                    temperature_index = (int) floor(STEPS_BY_DEGREE * (temp_value_tuple[0] - MIN_TEMPERATURE));
-                    log_info("writing %.2f to range [%.2f, %.2f[",
-                        (float) round(temp_value_tuple[1] * 10) / 10,
-                        (temperature_index + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
-                        (temperature_index + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE
-                    );
-                    dsc_parameters.temp_table.mean_fine_over_temperature[temperature_index] = round(temp_value_tuple[1] * 10);
-                }
-                free(temp_value_tuple);
-            }
-            free(line);
-            int ret = write_disciplining_parameters_to_mro50(mro50_path, &dsc_parameters);
-             if (ret != 0) {
-                log_error("Error writing temperature table to mRo50");
+            temp_table.header = HEADER_MAGIC;
+            temp_table.version = 1;
+            ret = write_temperature_table_to_temperature_table_file(path, &temp_table);
+            if (ret != 0) {
+                log_error("write_temperature_table_to_temperature_table_file: %d");
                 return -1;
             }
+            break;
+        case ART_TEMPERATURE_TABLE_RESET:
+            temp_table.header = HEADER_MAGIC;
+            temp_table.version = 1;
+            log_info("Resetting temperature table in %s", path);
+            ret = write_temperature_table_to_temperature_table_file(path, &temp_table);
+            if (ret != 0) {
+                log_error("write_temperature_table_to_temperature_table_file: %d");
+                return -1;
+            }
+            log_info("Temperature table reset");
+            break;
         default:
             break;
     }

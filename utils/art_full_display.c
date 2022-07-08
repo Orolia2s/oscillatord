@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     int c;
     int mro50;
 
-    struct eeprom_data data_read0;
+    struct eeprom_manufacturing_data data_read0;
     struct disciplining_parameters dsc_params0;
 
     while ((c = getopt(argc, argv, "p:m:h")) != -1) {
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 
         read_disciplining_parameters(path, &dsc_params0);
         printf("\n");
-        read_eeprom_data(path, &data_read0);
+        read_eeprom_manufacturing_data(path, &data_read0);
 
     if (!mro50_path) {
         printf("Please provide path to MRO\n");

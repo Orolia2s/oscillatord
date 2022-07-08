@@ -8,21 +8,6 @@
 
 #define min(a,b) a < b ? a : b
 
-struct disciplining_parameters factory_parameters = {
-    .dsc_config = {
-        .ctrl_nodes_length = 3,
-        .ctrl_load_nodes = {0.25,0.5,0.75},
-        .ctrl_drift_coeffs = {0.0,0.0,0.0},
-        .coarse_equilibrium = -1,
-        .ctrl_nodes_length_factory = 3,
-        .ctrl_load_nodes_factory = {0.25,0.5,0.75},
-        .ctrl_drift_coeffs_factory = {1.2,0.0,-1.2},
-        .coarse_equilibrium_factory = -1,
-        .calibration_valid = false,
-        .calibration_date = 0
-    }
-};
-
 static uint8_t gencrc(uint8_t *data, size_t len)
 {
     uint8_t crc = 0xff;
@@ -39,7 +24,7 @@ static uint8_t gencrc(uint8_t *data, size_t len)
     return crc;
 }
 
-int write_eeprom(const char *path, struct eeprom_data *data, struct disciplining_parameters *calibration)
+int write_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturing_data *data)
 {
     int err = 0;
 
@@ -48,19 +33,22 @@ int write_eeprom(const char *path, struct eeprom_data *data, struct disciplining
         log_error("ERROR Opening file");
         return -1;
     }
-    fwrite(calibration, 1, sizeof(*calibration), fp);
     int ret = fseek(fp, 2 * 256, SEEK_SET);
     if (ret != 0) {
         log_error("Error moving pointer accross file");
         err = -1;
+    } else {
+        size_t written = fwrite(data, 1, sizeof(*data), fp);
+        if (written != sizeof(*data)) {
+            log_error("Did not write all bytes in eeprom data");
+            ret = -1;
+        }
     }
-    else
-        fwrite(data, 1, sizeof(*data), fp);
     fclose(fp);
     return err;
 }
 
-int read_eeprom_data(const char *path, struct eeprom_data *data)
+int read_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturing_data *data)
 {
     FILE *fp;
     int ret;
@@ -78,40 +66,17 @@ int read_eeprom_data(const char *path, struct eeprom_data *data)
     if (ret != 0)
         log_error("Error moving pointer accross file");
     else {
-        ret = fread(data, sizeof(struct eeprom_data), 1, fp);
+        ret = fread(data, sizeof(struct eeprom_manufacturing_data), 1, fp);
         if(ret != 1)
             log_error("Could not read eeprom data");
         else
-            print_eeprom_data(data);
+            print_eeprom_manufacturing_data(data);
     }
     fclose(fp);
     return ret;
 }
 
-int read_disciplining_parameters(const char *path, struct disciplining_parameters *dsc_parameters)
-{
-    FILE *fp;
-    int ret;
-
-    if (!dsc_parameters) {
-        return -EFAULT;
-    }
-
-    fp = fopen(path,"rb");
-    if(!fp) {
-        log_error("Could not open file at %s", path);
-    }
-
-    ret = fread(dsc_parameters, sizeof(struct disciplining_parameters), 1, fp);
-    if(ret != 1)
-        log_error("Could no read calibration parameters from file %s", path);
-    else
-        print_disciplining_parameters(dsc_parameters, LOG_DEBUG);
-    fclose(fp);
-    return ret;
-}
-
-void init_eeprom_data(struct eeprom_data *data, char *serial_number)
+void init_manufacturing_eeprom_data(struct eeprom_manufacturing_data *data, char *serial_number)
 {
     time_t s;
     struct tm* current_time;
@@ -154,40 +119,27 @@ void init_eeprom_data(struct eeprom_data *data, char *serial_number)
     data->system_manufacturing_date_month = current_time->tm_mon + 1;
     data->system_manufacturing_date_year = current_time->tm_year + 1900;
 
-    data->crc8 = gencrc((uint8_t *) data, sizeof(struct eeprom_data) - 1);
+    data->crc8 = gencrc((uint8_t *) data, sizeof(struct eeprom_manufacturing_data) - 1);
 }
 
-int write_disciplining_parameters_to_mro50(const char * path, struct disciplining_parameters *calibration)
+int read_disciplining_parameters(const char*path, struct disciplining_parameters *dsc_parameters)
 {
-    int fp = open(path, O_RDWR);
-    unsigned char buf[512] = {0x0};
-    int ret = 0;
+    FILE *fp;
+    int ret;
 
-    if (fp < 0) {
-        log_error("Could not open file at %s", path);
-        return -1;
+    if (!dsc_parameters) {
+        return -EFAULT;
     }
-    memcpy(buf, calibration, sizeof(*calibration));
-    if (ioctl(fp, MRO50_WRITE_EXTENDED_EEPROM_BLOB, buf) != 0) {
-      log_error("Could not write EEPROM BLOB");
-      ret = -1;
+    fp = fopen(path, "rb");
+    if (!fp) {
+        log_error("could not open file at %s", path);
     }
-    close(fp);
+
+    ret = fread(dsc_parameters, sizeof(struct disciplining_parameters), 1, fp);
+    if ( ret != 1)
+        log_error("Could no read calibration parameters from file %s", path);
+    else
+        print_disciplining_parameters(dsc_parameters, LOG_DEBUG);
+    fclose(fp);
     return ret;
-}
-
-void read_disciplining_parameters_from_mro50(const char *path, struct disciplining_parameters *dsc_parameters)
-{
-    int fp = open(path, O_RDWR);
-    unsigned char buf[512] = {0};
-    if (fp < 0) {
-        log_error("Could not open file at %s", path);
-        return;
-    }
-    if (ioctl(fp, MRO50_READ_EXTENDED_EEPROM_BLOB, buf) != 0) {
-        log_error("Could not read EEPROM BLOB");
-    } else {
-        memcpy(dsc_parameters, buf, sizeof(*dsc_parameters));
-    }
-    return;
 }
