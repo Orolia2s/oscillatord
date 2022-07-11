@@ -28,5 +28,9 @@ int write_disciplining_parameters_in_eeprom(
 
 int read_file(char path[PATH_MAX], char *data, size_t size);
 int write_file(char path[PATH_MAX], char *data, size_t size);
+int write_disciplining_parameters_to_disciplining_config_file(const char *path, struct disciplining_config *config);
+int read_disciplining_parameters_from_disciplining_config_file(const char *path, struct disciplining_config *config);
+int write_temperature_table_to_temperature_table_file(char *path, struct temperature_table *temp_table);
+int read_temperature_table_from_temperature_table_file(char *path, struct temperature_table *temp_table);
 
 #endif /* EEPROM_CONFIG_H_ */

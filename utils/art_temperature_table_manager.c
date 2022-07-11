@@ -27,6 +27,17 @@ enum Mode {
     ART_TEMPERATURE_TABLE_RESET
 };
 
+static void print_help(void)
+{
+    log_info("art_temperature_table_manager -p temperature_table_path [-w input_table.txt | -r -o output_table.txt | -f] -h");
+    log_info("\t-p temperature_table_path: Path to temperature_table file exposed by the driver");
+    log_info("\t-w input_table.txt: Path to input temperature table to write to temperature_table_path");
+    log_info("\t-r: Read temperature table from temperature_table_path");
+    log_info("\t-f: Reset temperature table in temperature_table_path");
+    log_info("\t-o: output_file_path: write temperature table read in output_file_path");
+    log_info("\t-h: print help");
+}
+
 static int float_array_parser(const char* value, float **result) {
     char *endptr;
     char *ptr;
@@ -122,74 +133,6 @@ static int write_temperature_table_to_file(char *path, struct temperature_table 
     return 0;
 }
 
-/**
- * @brief Read temperature table using file exposed by the driver
- *
- * @param path
- * @param temp_table
- * @return int
- */
-static int read_temperature_table_from_temperature_table_file(char *path, struct temperature_table *temp_table)
-{
-    char buffer[TEMPERATURE_TABLE_FILE_SIZE];
-    uint8_t temp_table_version;
-    int ret;
-
-    if (temp_table == NULL) {
-        log_error("temp_table is NULL");
-        return -EINVAL;
-    }
-
-    ret = read_file(path, (char *) buffer, TEMPERATURE_TABLE_FILE_SIZE);
-    if (ret != 0) {
-        log_error("Could not read temperature table at %s", path);
-    }
-
-    /* Check presence of header in both file */
-    if (check_header_valid(buffer[0])) {
-        temp_table_version = buffer[1];
-        log_info("Version of temperature_table file: %d", temp_table_version);
-        if (temp_table_version == 1) {
-            /*
-             * Data in files is stored in format version 1
-             * fill struct disciplining_parameters
-             */
-            memcpy(temp_table, buffer, sizeof(struct temperature_table_V_1));
-            return 0;
-        } else {
-            log_error("Unknown version %d", temp_table_version);
-            return -1;
-        }
-    } else {
-        log_error("Header in %s is not valid !", path);
-        log_error("Please upgrade disciplining_config and temperature table using art_eeprom_data_updater !");
-        return -1;
-    }
-
-    return 0;
-}
-
-static int write_temperature_table_to_temperature_table_file(char *path, struct temperature_table *temp_table) {
-    char buffer[TEMPERATURE_TABLE_FILE_SIZE];
-    int ret;
-
-    if (temp_table == NULL) {
-        log_error("dsc_params is NULL");
-        return -EINVAL;
-    }
-
-    memset(buffer, 0, TEMPERATURE_TABLE_FILE_SIZE * sizeof(char));
-
-    memcpy(buffer, temp_table, sizeof(struct temperature_table_V_1));
-
-    ret = write_file(path, buffer, TEMPERATURE_TABLE_FILE_SIZE);
-    if (ret != 0) {
-        log_error("Could not write data in %s", path);
-    }
-
-    return 0;
-}
-
 int main(int argc, char *argv[])
 {
     struct temperature_table temp_table;
@@ -230,13 +173,7 @@ int main(int argc, char *argv[])
             break;
         case 'h':
         default:
-            log_info("art_temperature_table_manager -p temperature_table_path [-w input_table.txt | -r -o output_table.txt | -f] -h");
-            log_info("\t-p temperature_table_path: Path to temperature_table file exposed by the driver");
-            log_info("\t-w input_table.txt: Path to input temperature table to write to temperature_table_path");
-            log_info("\t-r: Read temperature table from temperature_table_path");
-            log_info("\t-f: Reset temperature table in temperature_table_path");
-            log_info("\t-o: output_file_path: write temperature table read in output_file_path");
-            log_info("\t-h: print help");
+            print_help();
             return 0;
             break;
         }
@@ -244,6 +181,7 @@ int main(int argc, char *argv[])
 
     if (path == NULL) {
         log_error("No mro50 path provided!");
+        print_help();
         return -1;
     }
 

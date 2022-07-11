@@ -46,58 +46,15 @@ struct disciplining_config factory_config = {
     .calibration_date = 0
 };
 
-static int write_disciplining_parameters_to_disciplining_config_file(const char * path, struct disciplining_config *config)
+static void print_help(void)
 {
-    char buffer[DISCIPLINING_CONFIG_FILE_SIZE];
-    int ret;
-
-    if (config == NULL) {
-        log_error("config is NULL");
-        return -EINVAL;
-    }
-
-    memset(buffer, 0, DISCIPLINING_CONFIG_FILE_SIZE * sizeof(char));
-    memcpy(buffer, config, sizeof(struct disciplining_config_V_1));
-
-    ret = write_file((char *) path, buffer, DISCIPLINING_CONFIG_FILE_SIZE);
-    if (ret != 0) {
-        log_error("Could not write data in %s", path);
-        return -1;
-    }
-
-    return 0;
-}
-
-static int read_disciplining_parameters_from_disciplining_config_file(const char *path, struct disciplining_config *config)
-{
-    char buffer[DISCIPLINING_CONFIG_FILE_SIZE];
-    int dsc_config_version = 0;
-    int ret;
-
-    ret = read_file((char *) path, (char *) buffer, DISCIPLINING_CONFIG_FILE_SIZE);
-    if (ret != 0) {
-        log_error("Could not read disciplining config at %s", path);
-        return -1;
-    }
-    if (check_header_valid(buffer[0])) {
-        dsc_config_version = buffer[1];
-        log_info("Version of disciplining_config file: %d", dsc_config_version);
-        if (dsc_config_version == 1) {
-            /*
-             * Data in files is stored in format version 1
-             * fill struct disciplining_parameters
-             */
-            memcpy(config, buffer, sizeof(struct disciplining_config_V_1));
-            return 0;
-        } else {
-            log_error("Unknown version %d", dsc_config_version);
-            return -1;
-        }
-    } else {
-        log_error("Header in %s is not valid !", path);
-        log_error("Please upgrade disciplining_config and temperature table using art_eeprom_data_updater !");
-        return -1;
-    }
+    log_info("art_disciplining_manager -p disciplining_config_file_path [-w disciplining_config.txt | -r -o output_file_path | -f ] -h]");
+    log_info("\t-p disciplining_config_file_path: Path to the disciplining_config file exposed by the driver");
+    log_info("\t-w disciplining_config.txt: Path to the disciplining_config file to write in the eeprom");
+    log_info("\t-r: Read disciplining_config from the eeprom");
+    log_info("\t-f: Write factory parameters");
+    log_info("\t-o: output_file_path: write disciplining_config read in file");
+    log_info("\t-h: print help");
 }
 
 static int double_array_parser(const char* value, double **result) {
@@ -295,7 +252,7 @@ int main(int argc, char *argv[])
     int ret = 0;
     log_set_level(LOG_INFO);
 
-    while ((option = getopt(argc, argv, ":m:p:w:fho:r")) != -1) {
+    while ((option = getopt(argc, argv, "m:p:w:fho:r")) != -1) {
         switch (option) {
         case 'r':
             mode = ART_EEPROM_MANAGER_READ;
@@ -313,24 +270,26 @@ int main(int argc, char *argv[])
         case 'p':
             path = optarg;
             break;
+        case '?':
+            if (optopt == 'w')
+                log_error("Option -%c path to input temperature table file.\n", optopt);
+            if (optopt == 'o')
+                log_error("Option -%c path to output temperature table file.\n", optopt);
+            return -1;
+            break;
         case ':':
             log_error("Option needs a value ");
             break;
         case 'h':
         default:
-            log_info("art_disciplining_manager -p disciplining_config_file_path [-w disciplining_config.txt | -r -o output_file_path | -f ] -h]");
-            log_info("\t-p disciplining_config_file_path: Path to the disciplining_config file exposed by the driver");
-            log_info("\t-w disciplining_config.txt: Path to the disciplining_config file to write in the eeprom");
-            log_info("\t-r: Read disciplining_config from the eeprom");
-            log_info("\t-f: Write factory parameters");
-            log_info("\t-o: output_file_path: write disciplining_config read in file");
-            log_info("\t-h: print help");
+            print_help();
             return 0;
         }
     }
 
     if (path == NULL) {
         log_error("No eeprom/mro50 path provided!");
+        print_help();
         return -1;
     }
 

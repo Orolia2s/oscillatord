@@ -42,6 +42,129 @@ int write_file(char path[PATH_MAX], char *data, size_t size)
 
 }
 
+int write_disciplining_parameters_to_disciplining_config_file(const char *path, struct disciplining_config *config)
+{
+    char buffer[DISCIPLINING_CONFIG_FILE_SIZE];
+    int ret;
+
+    if (config == NULL) {
+        log_error("config is NULL");
+        return -EINVAL;
+    }
+
+    memset(buffer, 0, DISCIPLINING_CONFIG_FILE_SIZE * sizeof(char));
+    memcpy(buffer, config, sizeof(struct disciplining_config_V_1));
+
+    ret = write_file((char *) path, buffer, DISCIPLINING_CONFIG_FILE_SIZE);
+    if (ret != 0) {
+        log_error("Could not write data in %s", path);
+        return -1;
+    }
+
+    return 0;
+}
+
+int read_disciplining_parameters_from_disciplining_config_file(const char *path, struct disciplining_config *config)
+{
+    char buffer[DISCIPLINING_CONFIG_FILE_SIZE];
+    int dsc_config_version = 0;
+    int ret;
+
+    ret = read_file((char *) path, (char *) buffer, DISCIPLINING_CONFIG_FILE_SIZE);
+    if (ret != 0) {
+        log_error("Could not read disciplining config at %s", path);
+        return -1;
+    }
+    if (check_header_valid(buffer[0])) {
+        dsc_config_version = buffer[1];
+        log_info("Version of disciplining_config file: %d", dsc_config_version);
+        if (dsc_config_version == 1) {
+            /*
+             * Data in files is stored in format version 1
+             * fill struct disciplining_parameters
+             */
+            memcpy(config, buffer, sizeof(struct disciplining_config_V_1));
+            return 0;
+        } else {
+            log_error("Unknown version %d", dsc_config_version);
+            return -1;
+        }
+    } else {
+        log_error("Header in %s is not valid !", path);
+        log_error("Please upgrade disciplining_config and temperature table using art_eeprom_data_updater !");
+        return -1;
+    }
+}
+
+/**
+ * @brief Read temperature table using file exposed by the driver
+ *
+ * @param path
+ * @param temp_table
+ * @return int
+ */
+int read_temperature_table_from_temperature_table_file(char *path, struct temperature_table *temp_table)
+{
+    char buffer[TEMPERATURE_TABLE_FILE_SIZE];
+    uint8_t temp_table_version;
+    int ret;
+
+    if (temp_table == NULL) {
+        log_error("temp_table is NULL");
+        return -EINVAL;
+    }
+
+    ret = read_file(path, (char *) buffer, TEMPERATURE_TABLE_FILE_SIZE);
+    if (ret != 0) {
+        log_error("Could not read temperature table at %s", path);
+    }
+
+    /* Check presence of header in both file */
+    if (check_header_valid(buffer[0])) {
+        temp_table_version = buffer[1];
+        log_info("Version of temperature_table file: %d", temp_table_version);
+        if (temp_table_version == 1) {
+            /*
+             * Data in files is stored in format version 1
+             * fill struct disciplining_parameters
+             */
+            memcpy(temp_table, buffer, sizeof(struct temperature_table_V_1));
+            return 0;
+        } else {
+            log_error("Unknown version %d", temp_table_version);
+            return -1;
+        }
+    } else {
+        log_error("Header in %s is not valid !", path);
+        log_error("Please upgrade disciplining_config and temperature table using art_eeprom_data_updater !");
+        return -1;
+    }
+
+    return 0;
+}
+
+int write_temperature_table_to_temperature_table_file(char *path, struct temperature_table *temp_table)
+{
+    char buffer[TEMPERATURE_TABLE_FILE_SIZE];
+    int ret;
+
+    if (temp_table == NULL) {
+        log_error("dsc_params is NULL");
+        return -EINVAL;
+    }
+
+    memset(buffer, 0, TEMPERATURE_TABLE_FILE_SIZE * sizeof(char));
+
+    memcpy(buffer, temp_table, sizeof(struct temperature_table_V_1));
+
+    ret = write_file(path, buffer, TEMPERATURE_TABLE_FILE_SIZE);
+    if (ret != 0) {
+        log_error("Could not write data in %s", path);
+    }
+
+    return 0;
+}
+
 /**
  * @brief Fill struct dsc_params_V1 with data from struct dsc_params_V0
  *
