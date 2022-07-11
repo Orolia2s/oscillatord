@@ -466,11 +466,6 @@ static void json_add_disciplining_data(struct json_object *resp, struct monitori
 			monitoring->disciplining.convergence_progress
 		)
 	);
-	json_object_object_add(disciplining, "tracking_only",
-		json_object_new_string(
-			monitoring->tracking_only ? "true" : "false"
-		)
-	);
 	json_object_object_add(disciplining, "ready_for_holdover",
 		json_object_new_string(
 			monitoring->disciplining.ready_for_holdover ? "true" : "false"

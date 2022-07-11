@@ -157,7 +157,6 @@ static void prepare_minipod_config(struct minipod_config* minipod_config, struct
 	minipod_config->reactivity_power = config_get_unsigned_number(config, "reactivity_power");
 	minipod_config->ref_fluctuations_ns = config_get_unsigned_number(config, "ref_fluctuations_ns");
 	minipod_config->oscillator_factory_settings = config_get_bool_default(config, "oscillator_factory_settings", true);
-	minipod_config->tracking_only = config_get_bool_default(config, "tracking_only", true);
 	minipod_config->learn_temperature_table = config_get_bool_default(config, "learn_temperature_table", false);
 	minipod_config->use_temperature_table = config_get_bool_default(config, "use_temperature_table", false);
 	minipod_config->fine_table_output_path = config_get_default(config, "fine_table_output_path", "/tmp/");
@@ -613,7 +612,6 @@ int main(int argc, char *argv[])
 					monitoring->disciplining.convergence_progress = 0.0;
 				}
 				monitoring->phase_error = sign * phase_error;
-				monitoring->tracking_only = minipod_config.tracking_only;
 			} else if (phase_error_supported) {
 				/* this actually means that oscillator has it's own hardware disciplining
 				 * algorithm and we are able to monitor it
