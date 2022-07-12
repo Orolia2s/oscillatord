@@ -2,6 +2,7 @@
 #include <string.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <linux/limits.h>
 #include <math.h>
 #include <stdbool.h>
 #include <sys/types.h>
@@ -50,6 +51,7 @@ typedef u_int32_t u32;
 
 struct mRo50_oscillator {
 	struct oscillator oscillator;
+	char serial_path[PATH_MAX];
 	int serial_fd;
 	int osc_fd;
 };
@@ -152,8 +154,11 @@ static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path
 		log_error("Could not activate mro50 serial");
 		goto error;
 	}
+	close(fd);
 
-	serial_fd = open(devices_path->mac_path, O_RDWR|O_NONBLOCK);
+	strcpy(mRo50->serial_path, devices_path->mac_path);
+
+	serial_fd = open(mRo50->serial_path, O_RDWR|O_NONBLOCK);
 	if (serial_fd < 0) {
 		log_error("Could not open mRo50 device\n");
 		goto error;
@@ -205,22 +210,44 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 		rbytes += err;
 	}
 	if (rbytes == 0) {
-		log_error("mRo50_oscillator_cmd didn't get answer, zero length");
+		log_warn("mRo50_oscillator_cmd didn't get answer, zero length");
 		return -1;
 	}
 	// Verify that first caracter of the answer is not equal to '?'
 	if (answer_str[0] == '?') {
 		// answer format doesn't fit protocol
-		log_error("mRo50_oscillator_cmd answer protocol error: %s", answer_str);
+		log_warn("mRo50_oscillator_cmd answer protocol error: %s", answer_str);
 		memset(answer_str, 0, rbytes);
 		return -1;
 	}
 	if (answer_str[rbytes -1] != '\n' || answer_str[rbytes - 2] != '\n') {
-		log_error("mRo50_oscillator_cmd answer does not contain LFLF: %s", answer_str);
+		log_warn("mRo50_oscillator_cmd answer does not contain LFLF: %s", answer_str);
 		memset(answer_str, 0, rbytes);
 		return -1;
 	}
 	return rbytes;
+}
+
+static int mRo50_reset_serial(struct mRo50_oscillator *mRo50)
+{
+	int serial_fd, err;
+
+	close(mRo50->serial_fd);
+
+	log_info("Resetting mRo50 serial");
+	serial_fd = open(mRo50->serial_path, O_RDWR|O_NONBLOCK);
+	if (serial_fd < 0) {
+		log_error("Could not reopen mRo50 device\n");
+		return -1;
+	}
+	mRo50->serial_fd = serial_fd;
+	if (set_serial_attributes(serial_fd) != 0)
+		return -1;
+	
+	mRo50_oscillator_cmd(mRo50, "\r\n", strlen("\r\n"));
+	memset(answer_str, 0, mro_answer_len);
+	log_info("mRo50 serial reset");
+	return 0;
 }
 
 static int mRo50_oscillatord_get_attributes(struct oscillator *oscillator, struct mRo50_attributes *a)
@@ -248,6 +275,10 @@ static int mRo50_oscillatord_get_attributes(struct oscillator *oscillator, struc
 		memset(answer_str, 0, STATUS_ANSWER_SIZE);
 	} else {
 		log_warn("Fail reading attributes, err %d, errno %d", err, errno);
+		err = mRo50_reset_serial(mRo50);
+		if (err != 0) {
+			log_error("Could not reset mRo50 serial");
+		}
 		return -1;
 	}
 
@@ -274,6 +305,10 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 		}
 	} else {
 		log_error("Fail reading Coarse Parameters, err %d, errno %d", ret, errno);
+		mRo50_reset_serial(mRo50);
+		if (ret != 0) {
+			log_error("Could not reset mRo50 serial");
+		}
 		return -1;
 	}
 
@@ -290,6 +325,10 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 		}
 	} else {
 		log_error("Fail reading Fine Parameters, err %d, errno %d", ret, errno);
+		mRo50_reset_serial(mRo50);
+		if (ret != 0) {
+			log_error("Could not reset mRo50 serial");
+		}
 		return -1;
 	}
 
