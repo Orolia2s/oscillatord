@@ -240,6 +240,7 @@ int main(int argc, char *argv[])
 	bool opposite_phase_error;
 	bool phase_error_supported = false;
 	bool ignore_next_irq = false;
+	bool fake_holdover_activated = false;
 	__attribute__((cleanup(fd_cleanup))) int fd_clock = -1;
 	volatile struct pps_thread_t * pps_thread = NULL;
 	time_t start_save_epprom_parameters, end_save_eeprom_parameters;
@@ -477,6 +478,11 @@ int main(int argc, char *argv[])
 				.tv_nsec = sign * phase_error % NS_IN_SECOND,
 			};
 
+			if (fake_holdover_activated) {
+				log_warn("Fake Holdover activated: make minipod think gnss is not valid");
+				input.valid = false;
+			}
+
 			log_info("input: phase_error = (%lds, %09ldns), "
 				"valid = %s, survey = %s, qErr = %d,lock = %s, fine = %d, "
 				"coarse = %d, temp = %.2f°C, calibration requested: %s",
@@ -642,6 +648,12 @@ int main(int argc, char *argv[])
 					save_disciplining_parameters_thread,
 					od
 				);
+				break;
+			case REQUEST_FAKE_HOLDOVER_START:
+				fake_holdover_activated = true;
+				break;
+			case REQUEST_FAKE_HOLDOVER_STOP:
+				fake_holdover_activated = false;
 				break;
 			case REQUEST_READ_EEPROM:
 			case REQUEST_NONE:

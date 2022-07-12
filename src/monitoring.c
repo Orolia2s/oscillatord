@@ -429,6 +429,16 @@ static void json_handle_request(struct monitoring *monitoring, int request_type,
 			json_object_new_string("Save EEPROM"));
 		*mon_request = REQUEST_SAVE_EEPROM;
 		break;
+	case REQUEST_FAKE_HOLDOVER_START:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("Start fake holdover"));
+		*mon_request = REQUEST_FAKE_HOLDOVER_START;
+		break;
+	case REQUEST_FAKE_HOLDOVER_STOP:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("Stop fake holdover"));
+		*mon_request = REQUEST_FAKE_HOLDOVER_STOP;
+		break;
 	case REQUEST_NONE:
 	default:
 		json_object_object_add(resp, "Action requested",

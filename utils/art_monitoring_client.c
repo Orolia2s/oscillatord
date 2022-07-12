@@ -34,6 +34,8 @@ static void print_help(void)
 	printf("\t- gnss_stop: stop gnss receiver.\n");
 	printf("\t- read_eeprom: read disciplining data from EEPROM.\n");
 	printf("\t- save_eeprom: save minipod's disciplining data in EEPROM.\n");
+	printf("\t- fake_holdover_start: start fake holdover\n");
+	printf("\t- fake_holdover_stop: stop fake holdover.\n");
 	printf("- -h: prints help\n");
 	return;
 }
@@ -95,6 +97,10 @@ int main(int argc, char *argv[]) {
 			request = REQUEST_READ_EEPROM;
 		else if (strcmp(optarg, "save_eeprom") == 0)
 			request = REQUEST_SAVE_EEPROM;
+		else if (strcmp(optarg, "fake_holdover_start") == 0)
+			request = REQUEST_FAKE_HOLDOVER_START;
+		else if (strcmp(optarg, "fake_holdover_stop") == 0)
+			request = REQUEST_FAKE_HOLDOVER_STOP;
 		else {
 			log_error("Unknown request %s", optarg);
 			return -1;
