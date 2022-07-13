@@ -4,22 +4,21 @@
  */
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include <getopt.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/fcntl.h>
-#include <sys/ioctl.h>
 #include <sys/types.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
-#include <oscillator-disciplining/oscillator-disciplining.h>
-
 #include "log.h"
-#include "mRO50_ioctl.h"
 #include "utils.h"
 
 /** Minimum possible value of coarse control */
@@ -27,9 +26,19 @@
 /** Maximum possible value of coarse control */
 #define COARSE_RANGE_MAX 4194303
 /** Minimum possible value of fine control */
-#define FINE_RANGE_MIN 1600
+#define FINE_RANGE_MIN 0
 /** Maximum possible value of fine control */
-#define FINE_RANGE_MAX 3200
+#define FINE_RANGE_MAX 4800
+
+#define CMD_READ_COARSE "FD\r"
+#define CMD_READ_FINE   "MON_tpcb PIL_cfield C\r"
+#define CMD_READ_STATUS "MONITOR1\r"
+
+#define STATUS_ANSWER_SIZE 62
+#define STATUS_EP_TEMPERATURE_INDEX 52
+#define STATUS_CLOCK_LOCKED_INDEX 56
+#define STATUS_CLOCK_LOCKED_BIT 2
+#define STATUS_ANSWER_FIELD_SIZE 4
 
 enum {
     COMMAND_READ,
@@ -40,18 +49,20 @@ enum {
     TYPE_FINE,
     TYPE_COARSE,
     TYPE_TEMP,
-    TYPE_PARAM,
-    TYPE_SERIAL_ACTIVATE,
-    TYPE_TEMP_FIELD_A,
-    TYPE_TEMP_FIELD_B
+    TYPE_LOCK,
+    TYPE_STATUS
 };
+
+// From datasheet we assume answers cannot be larger than 60+2+2+2 characters
+static char answer_str[66] = {0};
+const size_t mro_answer_len = 66;
 
 static void print_help(void)
 {
     printf("usage: mro50_ctrl [-h] -d DEVICE -c COMMAND -t TYPE [WRITE_VALUE]\n");
     printf("- DEVICE: mrO50 device's path\n");
     printf("- COMMAND: 'read' or 'write'\n");
-    printf("- TYPE: 'fine', 'coarse', 'temp', 'temp_field_a', 'temp_field_b', 'parameters' or 'serial_activate' (temp, temp_field_a and temp_field_b are read only)\n");
+    printf("- TYPE: 'fine', 'coarse', 'temp', 'lock_flag' or 'status' (temp, lock_flag and status are read only)\n");
     printf("- WRITE_VALUE: mandatory if command is write.\n");
     printf("- -h: prints help\n");
     return;
@@ -104,18 +115,97 @@ static int check_type(char * type)
         return TYPE_COARSE;
     else if (strcmp(type, "temp") == 0)
         return TYPE_TEMP;
-    else if (strcmp(type, "parameters") == 0)
-        return TYPE_PARAM;
-    else if (strcmp(type, "serial_activate") == 0)
-        return TYPE_SERIAL_ACTIVATE;
-    else if (strcmp(type, "temp_field_a") == 0)
-        return TYPE_TEMP_FIELD_A;
-    else if (strcmp(type, "temp_field_b") == 0)
-        return TYPE_TEMP_FIELD_B;
+    else if (strcmp(type, "lock_flag") == 0)
+        return TYPE_LOCK;
+    else if (strcmp(type, "status") == 0)
+        return TYPE_STATUS;
     else {
         log_error("Unknown type %s\n", type);
         return -1;
     }
+}
+
+static int set_serial_attributes(int fd)
+{
+	struct termios tty;
+	int err = tcgetattr(fd, &tty);
+	if (err != 0){
+		log_error("error from tcgetattr: %d\n", errno);
+		return -1;
+	}
+
+	cfsetospeed(&tty, B9600);
+	cfsetispeed(&tty, B9600);
+
+	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8; // 8-bit chars
+	// disable IGNBRK for mismatched speed tests; otherwise receive break
+	// as \000 chars
+	tty.c_iflag &= ~IGNBRK;			// disable break processing
+	tty.c_lflag = 0;			// no signaling chars, no echo,
+						// no canonical processing
+	tty.c_oflag = 0;			// no remapping, no delays
+
+	tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
+
+	tty.c_cflag |= (CLOCAL | CREAD);	// ignore modem controls,
+						// enable reading
+	tty.c_cflag &= ~(PARENB | PARODD);	// shut off parity
+	tty.c_cflag &= ~CSTOPB;
+	tty.c_cflag &= ~CRTSCTS;
+
+	if (tcsetattr(fd, TCSANOW, &tty) != 0){
+		log_error("error from tcsetattr\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int mRo50_oscillator_cmd(int fd, const char *cmd, int cmd_len)
+{
+	struct pollfd pfd = {};
+	int err, rbytes = 0;
+	if (write(fd, cmd, cmd_len) != cmd_len) {
+		log_error("mRo50_oscillator_cmd send command error: %d (%s)", errno, strerror(errno));
+		return -1;
+	}
+	pfd.fd = fd;
+	pfd.events = POLLIN;
+	while (1) {
+		err = poll(&pfd, 1, 50);
+		if (err == -1) {
+			log_warn("mRo50_oscillator_cmd poll error: %d (%s)", errno, strerror(errno));
+			memset(answer_str, 0, rbytes);
+			return -1;
+		}
+		// poll call timed out - check the answer
+		if (!err)
+			break;
+		err = read(fd, &answer_str[rbytes], mro_answer_len - rbytes);
+		if (err < 0) {
+			log_error("mRo50_oscillator_cmd rbyteserror: %d (%s)", errno, strerror(errno));
+			memset(answer_str, 0, rbytes);
+			return -1;
+		}
+		rbytes += err;
+	}
+	if (rbytes == 0) {
+		log_error("mRo50_oscillator_cmd didn't get answer, zero length");
+		return -1;
+	}
+	// Verify that first caracter of the answer is not equal to '?'
+	if (answer_str[0] == '?') {
+		// answer format doesn't fit protocol
+		log_error("mRo50_oscillator_cmd answer protocol error: %s", answer_str);
+		memset(answer_str, 0, rbytes);
+		return -1;
+	}
+	if (answer_str[rbytes -1] != '\n' || answer_str[rbytes - 2] != '\n') {
+		log_error("mRo50_oscillator_cmd answer does not contain LFLF: %s", answer_str);
+		memset(answer_str, 0, rbytes);
+		return -1;
+	}
+	return rbytes;
 }
 
 int main(int argc, char ** argv)
@@ -129,8 +219,7 @@ int main(int argc, char ** argv)
     uint32_t write_value;
     int index = 0;
     int c;
-    int err;
-    unsigned long ioctl_command = 1;
+    int err, res;
 
     log_set_level(LOG_INFO);
 
@@ -151,7 +240,7 @@ int main(int argc, char ** argv)
         return 0;
       case '?':
         if (optopt == 'd')
-          fprintf (stderr, "Option -%c requires mRO50 device's path.\n", optopt);
+          fprintf (stderr, "Option -%c requires mRO50 serial device's path.\n", optopt);
         if (optopt == 'c')
           fprintf (stderr, "Option -%c requires an command type: either read or write.\n", optopt);
         if (optopt == 't')
@@ -181,11 +270,16 @@ int main(int argc, char ** argv)
         return err;
     type_int = err;
 
-    int fd = open(device, O_RDWR);
+    int fd = open(device, O_RDWR|O_NONBLOCK);
     if (fd < 0) {
-       log_error("Could not open mRo50 serial");
-       return -1;
+        log_error("Could not open mRo50 device\n");
+        return -1;
     }
+    if (set_serial_attributes(fd) != 0) {
+        close(fd);
+        return -1;
+    }
+
 
     // Check for additional parameter if WRITE command is specified
     if (command_int == COMMAND_WRITE) {
@@ -211,103 +305,128 @@ int main(int argc, char ** argv)
         device, command, type);
 
     if (command_int == COMMAND_READ) {
-        uint32_t read_value = 0;
-        if (type_int == TYPE_FINE)
-            ioctl_command = MRO50_READ_FINE;
-        else if (type_int == TYPE_COARSE)
-            ioctl_command = MRO50_READ_COARSE;
-        else if (type_int == TYPE_TEMP)
-            ioctl_command = MRO50_READ_TEMP;
-        else if (type_int == TYPE_PARAM) {
-            ioctl_command = MRO50_READ_EEPROM_BLOB;
-            struct disciplining_parameters params = {0};
-            u8 buf[256] = {0};
-            err = ioctl(fd, ioctl_command, buf);
-            if (err != 0) {
-                log_error("Error executing IOCTL");
-                close(fd);
+        uint32_t value;
+        switch (type_int)
+        {
+        case TYPE_FINE:
+            err = mRo50_oscillator_cmd(fd, CMD_READ_FINE, sizeof(CMD_READ_FINE) - 1);
+            if (err > 0) {
+                res = sscanf(answer_str, "%x\r\n", &value);
+                memset(answer_str, 0, err);
+                if (res > 0) {
+                    log_info("Fine value: %u", value);
+                } else {
+                    log_error("Could not parse fine parameter");
+                    return -1;
+                }
+            } else {
+                log_error("Fail reading Fine Parameters, err %d, errno %d", err, errno);
                 return -1;
             }
-            memcpy(&params, buf, sizeof(struct disciplining_parameters));
-            print_disciplining_parameters(&params, LOG_INFO);
-            close(fd);
-            return 0;
-        } else if (type_int == TYPE_SERIAL_ACTIVATE) {
-            ioctl_command = MRO50_BOARD_CONFIG_READ;
-        } else if (type_int == TYPE_TEMP_FIELD_A) {
-            ioctl_command = MRO50_TEMP_FIELD_A_READ;
-        } else if (type_int == TYPE_TEMP_FIELD_B) {
-            ioctl_command = MRO50_TEMP_FIELD_B_READ;
-        } else
-            return -1;
-
-        err = ioctl(fd, ioctl_command, &read_value);
-        if (err != 0) {
-            log_error("Error reading %s value", type);
-            return -1;
+            break;
+        case TYPE_COARSE:
+            err = mRo50_oscillator_cmd(fd, CMD_READ_COARSE, sizeof(CMD_READ_COARSE) - 1);
+            if (err > 0) {
+                res = sscanf(answer_str, "%x\r\n", &value);
+                memset(answer_str, 0, err);
+                if (res > 0) {
+                    log_info("Coarse value: %u", value);
+                } else {
+                    log_error("Could not parse coarse parameter");
+                    return -1;
+                }
+            } else {
+                log_error("Fail reading Coarse Parameters, err %d, errno %d", err, errno);
+                return -1;
+            }
+            break;
+        case TYPE_TEMP:
+            err = mRo50_oscillator_cmd(fd, CMD_READ_STATUS, sizeof(CMD_READ_STATUS) - 1);
+            if (err == STATUS_ANSWER_SIZE) {
+                char EP_temperature[4];
+                log_debug("MONITOR1 from mro50 gives %s", answer_str);
+                /* Parse mRo50 EP temperature */
+                strncpy(EP_temperature, &answer_str[STATUS_EP_TEMPERATURE_INDEX], STATUS_ANSWER_FIELD_SIZE);
+                value = strtoul(EP_temperature, NULL, 16);
+                double temperature = compute_temp(value);
+                if (temperature == DUMMY_TEMPERATURE_VALUE)
+                    return -1;
+                log_info("Temperature read: %.2f", temperature);
+            } else {
+                log_warn("Fail reading attributes, err %d, errno %d", err, errno);
+                return -1;
+            }
+            break;
+        case TYPE_LOCK:
+            err = mRo50_oscillator_cmd(fd, CMD_READ_STATUS, sizeof(CMD_READ_STATUS) - 1);
+            if (err == STATUS_ANSWER_SIZE) {
+                /* Parse mRO50 clock lock flag */
+                uint8_t lock = answer_str[STATUS_CLOCK_LOCKED_INDEX] & (1 << STATUS_CLOCK_LOCKED_BIT);
+                log_info("Lock flag: %s", lock >> STATUS_CLOCK_LOCKED_BIT ? "true" : "false");
+                memset(answer_str, 0, STATUS_ANSWER_SIZE);
+            } else {
+                log_warn("Fail reading attributes, err %d, errno %d", err, errno);
+                return -1;
+            }
+            break;
+        case TYPE_STATUS:
+            err = mRo50_oscillator_cmd(fd, CMD_READ_STATUS, sizeof(CMD_READ_STATUS) - 1);
+            if (err == STATUS_ANSWER_SIZE) {
+                log_info("Status: %s", answer_str);
+            } else {
+                log_warn("Fail reading attributes, err %d, errno %d", err, errno);
+                return -1;
+            }
+            break;
+        default:
+            log_error("Unhandled type %d", type);
+            break;
         }
-        if (type_int == TYPE_TEMP) {
-            double temperature = compute_temp(read_value);
-            log_info("Temperature is %f °C", temperature);
-        } else
-            log_info("%s value read is %d", type, read_value);
+        return 0;
+
     } else if (command_int == COMMAND_WRITE) {
-        if (type_int == TYPE_FINE) {
-            ioctl_command = MRO50_ADJUST_FINE;
+        char command[128];
+        memset(command, '\0', 128);
+        switch (type_int) {
+        case TYPE_FINE:
             if (write_value < FINE_RANGE_MIN
                 || write_value > FINE_RANGE_MAX) {
-                    log_error("value is out of range for fine control !");
-                    return -1;
-                }
-        } else if (type_int == TYPE_COARSE) {
-            ioctl_command = MRO50_ADJUST_COARSE;
-            if (write_value > COARSE_RANGE_MAX) {
-                    log_error("value is out of range for coarse control !");
-                    return -1;
-            }
-        } else if (type_int == TYPE_TEMP) {
-            log_warn("Cannot write temperature ");
-            return 0;
-        } else if (type_int == TYPE_PARAM) {
-            ioctl_command = MRO50_WRITE_EEPROM_BLOB;
-            struct disciplining_parameters params = {
-                .dsc_config = {
-                    .ctrl_nodes_length = 3,
-                    .ctrl_load_nodes = {0.25,0.5,0.75},
-                    .ctrl_drift_coeffs = {1.2,0.0,-1.2},
-                    .coarse_equilibrium = 4186417,
-                    .ctrl_nodes_length_factory = 3,
-                    .ctrl_load_nodes_factory = {0.25,0.5,0.75},
-                    .ctrl_drift_coeffs_factory = {1.2,0.0,-1.2},
-                    .coarse_equilibrium_factory = -1,
-                    .calibration_valid = false,
-                    .calibration_date = 0
-                }
-            };
-            log_info("Disciplining parameters written:");
-            print_disciplining_parameters(&params, LOG_INFO);
-            u8 buf[256] = {0};
-            memcpy(buf, &params, 256);
-            err = ioctl(fd, ioctl_command, buf);
-            close(fd);
-            if (err != 0) {
-                log_error("Error occured writing disciplining parameters: %d", err);
+                log_error("value is out of range for fine control !");
                 return -1;
             }
-            return 0;
-        } else if (type_int == TYPE_SERIAL_ACTIVATE){
-            ioctl_command = MRO50_BOARD_CONFIG_WRITE;
-            assert(write_value == 0 || write_value == 1);
-        } else
-            return -1;
-
-        err = ioctl(fd, ioctl_command, &write_value);
-        if (err != 0) {
-            log_error("Error Writing %s value", type);
-            return -1;
+            sprintf(command, "MON_tpcb PIL_cfield C %04X\r", write_value);
+            err = mRo50_oscillator_cmd(fd, command, strlen(command));
+            if (err != 2) {
+                log_error("Could not prepare command request to adjust fine frequency, error %d, errno %d", err, errno);
+                return -1;
+            }
+            memset(answer_str, 0, mro_answer_len);
+            log_info("Wrote %d to fine value", write_value);
+            break;
+        case TYPE_COARSE:
+            if (write_value > COARSE_RANGE_MAX) {
+                log_error("value is out of range for coarse control !");
+                return -1;
+            }
+            sprintf(command, "FD %08X\r", write_value);
+            err = mRo50_oscillator_cmd(fd, command, strlen(command));
+            if (err != 2) {
+                log_error("Could not prepare command request to adjust coarse value, error %d, errno %d", err, errno);
+                return -1;
+            }
+            memset(answer_str, 0, mro_answer_len);
+            log_info("Wrote %d to coarse value", write_value);
+            break;
+        case TYPE_TEMP:
+        case TYPE_LOCK:
+        case TYPE_STATUS:
+            log_warn("Cannot write %d", type_int);
+            break;
+        default:
+            log_error("Unhandled type %d", type);
+            break;
         }
-
-        log_info("Wrote %s value", type);
+        return 0;
     }
 
     close(fd);
