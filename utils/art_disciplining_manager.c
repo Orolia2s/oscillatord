@@ -48,11 +48,12 @@ struct disciplining_config factory_config = {
 
 static void print_help(void)
 {
-    log_info("art_disciplining_manager -p disciplining_config_file_path [-w disciplining_config.txt | -r -o output_file_path | -f ] -h]");
+    log_info("art_disciplining_manager -p disciplining_config_file_path [-w disciplining_config.txt | -r -o output_file_path | -f [-c coarse_value]] -h]");
     log_info("\t-p disciplining_config_file_path: Path to the disciplining_config file exposed by the driver");
     log_info("\t-w disciplining_config.txt: Path to the disciplining_config file to write in the eeprom");
     log_info("\t-r: Read disciplining_config from the eeprom");
     log_info("\t-f: Write factory parameters");
+    log_info("\t-c coarse_value: Write coarse value as coarse_equilibrium_factory in factory parameters");
     log_info("\t-o: output_file_path: write disciplining_config read in file");
     log_info("\t-h: print help");
 }
@@ -250,10 +251,14 @@ int main(int argc, char *argv[])
     char *path = NULL;
     int option;
     int ret = 0;
+    uint32_t coarse_value = 0;
     log_set_level(LOG_INFO);
 
-    while ((option = getopt(argc, argv, "m:p:w:fho:r")) != -1) {
+    while ((option = getopt(argc, argv, "c:m:p:w:fho:r")) != -1) {
         switch (option) {
+        case 'c':
+            coarse_value = strtoul(optarg, NULL, 10);
+            break;
         case 'r':
             mode = ART_EEPROM_MANAGER_READ;
             break;
@@ -327,7 +332,19 @@ int main(int argc, char *argv[])
         break;
     case ART_EEPROM_MANAGER_INIT:
         log_info("Writing default calibration to %s", path);
-        write_disciplining_parameters_to_disciplining_config_file(path, (struct disciplining_config *) &factory_config);
+        memcpy(
+            &dsc_config,
+            (struct disciplining_config *) &factory_config,
+            sizeof(struct disciplining_config)
+        );
+        if (coarse_value != 0) {
+            log_info("Writing coarse equilibrium factory to %u", coarse_value);
+            dsc_config.coarse_equilibrium_factory = coarse_value;
+        }
+        write_disciplining_parameters_to_disciplining_config_file(
+            path,
+            (struct disciplining_config *) &dsc_config
+        );
         break;
     default:
         log_error("No Mode (Read, Write or Init) provided");

@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include "eeprom.h"
-#include "mRO50_ioctl.h"
 
 #define min(a,b) a < b ? a : b
 

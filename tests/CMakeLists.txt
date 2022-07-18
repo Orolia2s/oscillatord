@@ -14,15 +14,22 @@ if(BUILD_TESTS)
 		${PROJECT_SOURCE_DIR}/common/f9_defvalsets.[ch]
 		${PROJECT_SOURCE_DIR}/common/gnss-config.[ch]
 	)
-	file(GLOB MRO50_CTRL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/mro50_ctrl.c)
-	file(GLOB ART_INTEGRATION_TEST_SUITE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/*.[ch])
+	file(GLOB MRO50_CTRL_SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/mro50_ctrl.c
+	${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
+	)
+	file(GLOB ART_INTEGRATION_TEST_SUITE_SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/*.[ch]
+	${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
+	)
 	file(GLOB ART_INTEGRATION_IN_SERVER_TEST_SOURCES
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_in_server_test.c
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/gnss_serial_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/mro_device_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/phase_error_tracking_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/ptp_device_test.[ch]
-	)
+		${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
+		)
 	file(GLOB EXTTS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts_test.c)
 	file(GLOB EXTTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts.[ch])
 	

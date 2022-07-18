@@ -1,94 +1,231 @@
 #include <errno.h>
+#include <string.h>
 #include <sys/ioctl.h>
 
 #include "log.h"
 #include "mro_device_test.h"
-#include "mRO50_ioctl.h"
+#include "../mRo50.h"
 #include "utils.h"
 
-/** Minimum possible value of coarse control */
-#define COARSE_RANGE_MIN 0
-/** Maximum possible value of coarse control */
-#define COARSE_RANGE_MAX 4194303
-/** Minimum possible value of fine control */
-#define FINE_RANGE_MIN 1600
-/** Maximum possible value of fine control */
-#define FINE_RANGE_MAX 3200
-
 /*
- * Performs read / write operation on mro50 using ioctl to check wether
- * coarse and fine adjustments is working
+ * Performs read / write on mro50 using ioctl to check wether
+ * coarse is working
  */
-static bool mro50_check_ioctl_read_write(
-    int mro50,
-    unsigned long read_cmd,
-    unsigned long write_cmd,
-    uint32_t value_min,
-    uint32_t value_max)
+static bool mro50_check_coarse_read_write(int mro50_fd)
 {
-    int err;
     uint32_t original_value;
-    /* Read current coarse/fine value of mro50 */
-    err = ioctl(mro50, read_cmd, &original_value);
-    if (err != 0) {
-        log_debug("\t\t- Error %d", err);
-        log_error("\t\t- Error reading value of mro50");
-        return false;
-    }
-    if (original_value >= value_min &&
-        original_value <= value_max) {
-        log_info("\t\t- value is in acceptable range");
+    char command[128];
+    int err, res;
+    /* Read current coarse value of mro50 */
+
+    err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_COARSE, sizeof(CMD_READ_COARSE) - 1);
+    if (err > 0) {
+        res = sscanf(answer_str, "%x\r\n", &original_value);
+        memset(answer_str, 0, err);
+        if (res > 0) {
+            log_info("Coarse value read on mRO50 is %u", original_value);
+        } else {
+            log_debug("\t\t- Error %d", res);
+            log_error("\t\t- Error reading value of mro50");
+            return false;
+        }
     } else {
+        log_error("Fail reading Coarse Parameters, err %d, errno %d", err, errno);
         return false;
     }
-    if (read_cmd == MRO50_READ_COARSE) {
-        log_info("Coarse value read on mRO50 is %u", original_value);
-    }
+
     /* try writing value + 1 or value - 1 to check
      * write operation works
      */
     uint32_t new_value;
-    if (original_value + 1 <= value_max) {
+    if (original_value + 1 <= COARSE_RANGE_MAX) {
         new_value = original_value + 1;
     } else {
         new_value = original_value - 1;
     }
-    err = ioctl(mro50, write_cmd, &new_value);
-    if (err != 0) {
+    sprintf(command, "FD %08X\r", new_value);
+    err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
+    if (err != 2) {
+        log_error("Could not prepare command request to adjust coarse value, error %d, errno %d", err, errno);
         return false;
     }
+    memset(answer_str, 0, mro_answer_len);
+    log_info("Wrote %d to coarse value", new_value);
 
     /* Check value has been well written */
     uint32_t written_value;
-    err = ioctl(mro50, read_cmd, &written_value);
-    if (written_value != new_value) {
+    err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_COARSE, sizeof(CMD_READ_COARSE) - 1);
+    if (err > 0) {
+        res = sscanf(answer_str, "%x\r\n", &written_value);
+        memset(answer_str, 0, err);
+        if (res > 0) {
+            log_info("Coarse value: %u", written_value);
+            if (written_value != new_value) {
+                return false;
+            }
+        } else {
+            log_debug("\t\t- Error %d", res);
+            log_error("\t\t- Error reading value of mro50");
+            return false;
+        }
+    } else {
+        log_error("Fail reading Coarse Parameters, err %d, errno %d", err, errno);
         return false;
     }
 
     /* Write back previous value to preserve configuration */
-    err = ioctl(mro50, write_cmd, &original_value);
-    if (err != 0) {
+    memset(command, 0, 128);
+    sprintf(command, "FD %08X\r", original_value);
+    err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
+    if (err != 2) {
+        log_error("Could not prepare command request to adjust coarse value, error %d, errno %d", err, errno);
+        return false;
+    }
+    memset(answer_str, 0, mro_answer_len);
+
+    return true;
+}
+
+/*
+ * Performs read / write on mro50 using ioctl to check wether
+ * fine is working
+ */
+static bool mro50_check_fine_read_write(int mro50_fd)
+{
+    uint32_t original_value;
+    char command[128];
+    int err, res;
+    /* Read current fine value of mro50 */
+
+    err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_FINE, sizeof(CMD_READ_FINE) - 1);
+    if (err > 0) {
+        res = sscanf(answer_str, "%x\r\n", &original_value);
+        memset(answer_str, 0, err);
+        if (res > 0) {
+            log_info("Fine value: %u", original_value);
+            log_info("Fine value read on mRO50 is %u", original_value);
+        } else {
+            log_debug("\t\t- Error %d", res);
+            log_error("\t\t- Error reading value of mro50");
+            return false;
+        }
+    } else {
+        log_error("Fail reading Fine Parameters, err %d, errno %d", err, errno);
+        return false;
+    }
+
+    /* try writing value + 1 or value - 1 to check
+     * write operation works
+     */
+    uint32_t new_value;
+    if (original_value + 1 <= FINE_RANGE_MAX) {
+        new_value = original_value + 1;
+    } else {
+        new_value = original_value - 1;
+    }
+    sprintf(command, "MON_tpcb PIL_cfield C %04X\r", new_value);
+    err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
+    if (err != 2) {
+        log_error("Could not prepare command request to adjust fine value, error %d, errno %d", err, errno);
+        return false;
+    }
+    memset(answer_str, 0, mro_answer_len);
+    log_info("Wrote %d to fine value", new_value);
+
+    /* Check value has been well written */
+    uint32_t written_value;
+    err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_FINE, sizeof(CMD_READ_FINE) - 1);
+    if (err > 0) {
+        res = sscanf(answer_str, "%x\r\n", &written_value);
+        memset(answer_str, 0, err);
+        if (res > 0) {
+            log_info("Fine value: %u", written_value);
+            if (written_value != new_value) {
+                return false;
+            }
+        } else {
+            log_debug("\t\t- Error %d", res);
+            log_error("\t\t- Error reading value of mro50");
+            return false;
+        }
+    } else {
+        log_error("Fail reading Fine Parameters, err %d, errno %d", err, errno);
+        return false;
+    }
+
+    /* Write back previous value to preserve configuration */
+    memset(command, 0, 128);
+    sprintf(command, "MON_tpcb PIL_cfield C %04X\r", original_value);
+    err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
+    if (err != 2) {
+        log_error("Could not prepare command request to adjust Fine value, error %d, errno %d", err, errno);
+        return false;
+    }
+    memset(answer_str, 0, mro_answer_len);
+
+    return true;
+}
+
+static bool mro50_read_temperature(int mro50_fd)
+{
+    uint32_t value;
+    int err;
+
+    err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_STATUS, sizeof(CMD_READ_STATUS) - 1);
+    if (err == STATUS_ANSWER_SIZE) {
+        char EP_temperature[4];
+        /* Parse mRo50 EP temperature */
+        strncpy(EP_temperature, &answer_str[STATUS_EP_TEMPERATURE_INDEX], STATUS_ANSWER_FIELD_SIZE);
+        value = strtoul(EP_temperature, NULL, 16);
+        double temperature = compute_temp(value);
+        if (temperature == DUMMY_TEMPERATURE_VALUE) {
+            log_error("Could not compute temperature of mRo50");
+            return false;
+        }
+        log_info("\t\t- Temperature read is %f °C", temperature);
+    } else {
+        log_warn("Fail reading attributes, err %d, errno %d", err, errno);
         return false;
     }
     return true;
 }
 
-int mro50_read_coarse(int mro50, uint32_t *coarse)
+int mro50_read_coarse(int mro50_fd, uint32_t *coarse)
 {
+    int err, res;
     if (coarse == NULL)
         return -EFAULT;
-    return ioctl(mro50, MRO50_READ_COARSE, coarse);
+
+    /* Read current coarse value of mro50 */
+    err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_COARSE, sizeof(CMD_READ_COARSE) - 1);
+    if (err > 0) {
+        res = sscanf(answer_str, "%x\r\n", coarse);
+        memset(answer_str, 0, err);
+        if (res > 0) {
+            log_info("Coarse value read on mRO50 is %u", *coarse);
+        } else {
+            log_debug("\t\t- Error %d", err);
+            log_error("\t\t- Error reading value of mro50");
+            return -1;
+        }
+    } else {
+        log_error("Fail reading Coarse Parameters, err %d, errno %d", err, errno);
+        return -1;
+    }
+    return 0;
 }
 
-bool test_mro50_device(int mro50)
+bool test_mro50_device(int mro50_fd)
 {
     log_info("\t- Testing mro50 device...");
 
+        if (set_serial_attributes(mro50_fd) != 0) {
+            log_error("Could not set serial attributes");
+            return -1;
+        }
+
     log_info("\t- Testing read / write operations on coarse value:");
-    if (mro50_check_ioctl_read_write(
-        mro50, MRO50_READ_COARSE, MRO50_ADJUST_COARSE,
-        COARSE_RANGE_MIN, COARSE_RANGE_MAX)
-    ) {
+    if (mro50_check_coarse_read_write(mro50_fd)) {
         log_info("\t\t- Coarse operations working !");
     } else {
         log_error("\t\t- Error reading / writing coarse value");
@@ -97,10 +234,7 @@ bool test_mro50_device(int mro50)
     log_info("\t\t- Passed\n");
 
     log_info("\t- Testing read / write operations on fine value:");
-    if (mro50_check_ioctl_read_write(
-        mro50,MRO50_READ_FINE,MRO50_ADJUST_FINE,
-        FINE_RANGE_MIN, FINE_RANGE_MAX)
-    ) {
+    if (mro50_check_fine_read_write(mro50_fd)) {
         log_info("\t\t- Fine operations working !");
     } else {
         log_error("\t\t- Error reading / writing fine value");
@@ -109,14 +243,13 @@ bool test_mro50_device(int mro50)
     log_info("\t\t- Passed\n");
     log_info("\t- Testing temperature read...");
 
-    uint32_t temp_reg;
-    int err = ioctl(mro50, MRO50_READ_TEMP, &temp_reg);
-    if (err != 0) {
-        log_error("\t\t- Error reading temperature");
+    if (mro50_read_temperature(mro50_fd)) {
+        log_info("Temperature read");
+    } else {
+        log_error("Could not read temperature");
         return false;
     }
-    double temperature = compute_temp(temp_reg);
-    log_info("\t\t- Temperature read is %f °C", temperature);
+
     log_info("\t\t- Passed\n");
 
     return true;

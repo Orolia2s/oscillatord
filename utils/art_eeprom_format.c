@@ -22,7 +22,6 @@
 
 #include "eeprom.h"
 #include "log.h"
-#include "mRO50_ioctl.h"
 
 static void removeChar(char * str, char charToRemmove){
     int i, j;

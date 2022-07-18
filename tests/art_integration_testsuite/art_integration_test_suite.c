@@ -10,6 +10,8 @@
  */
 #include <dirent.h>
 #include <getopt.h>
+#include <linux/limits.h>
+#include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +20,7 @@
 #include <unistd.h>
 
 #include "config.h"
+#include "../../common/mRO50_ioctl.h"
 #include "configurable_io_test.h"
 #include "gnss_serial_test.h"
 #include "log.h"
@@ -44,8 +47,10 @@ static void print_help(void)
 
 static bool test_ocp_directory(char * ocp_path, char * serial_number, struct devices_path *devices_path) {
     DIR * ocp_dir = opendir(ocp_path);
-    bool gnss_receiver_passed = false;
     uint32_t mro50_coarse_value;
+    bool disciplining_config_found = false;
+    bool temperature_table_found = false;
+    bool gnss_receiver_passed = false;
     bool config_io_passed = false;
     bool mro50_passed = false;
     bool found_eeprom = false;
@@ -63,7 +68,7 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
          */
         if (strncmp(entry->d_name, "i2c", 4) == 0) {
             log_info("I2C device detected");
-            char pathname[1280];   /* should alwys be big enough */
+            char pathname[PATH_MAX];   /* should alwys be big enough */
             sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
             found_eeprom = find_file(realpath(pathname, NULL), "eeprom", devices_path->eeprom_path);
             if (found_eeprom) {
@@ -75,10 +80,21 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
         /* MRO50 TEST: Perform R/W operations using ioctls
          * Also read factory coarse which needs to be written in EEPROM
          */
-        } else if (strncmp(entry->d_name, "mro50", 6) == 0) {
+        } else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
             log_info("mro50 device detected");
+            int fd = open("/dev/mro50.0", O_RDWR);
+            if (fd < 0) {
+                log_error("Could not open mRo50 device\n");
+            }
+
+            /* Activate serial in order to use mro50-serial device */
+            uint32_t serial_activate = 1;
+            int ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
+            if (ret != 0) {
+                log_error("Could not activate mro50 serial");
+            }
             find_dev_path(ocp_path, entry, devices_path->mro_path);
-            int mro50 = open(devices_path->mro_path, O_RDWR);
+            int mro50 = open(devices_path->mro_path, O_RDWR|O_NONBLOCK);
             if (mro50 > 0) {
                 mro50_passed = test_mro50_device(mro50);
                 if (mro50_passed) {
@@ -114,7 +130,16 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
             log_info("ttyGPS detected");
             find_dev_path(ocp_path, entry, devices_path->gnss_path);
             gnss_receiver_passed = test_gnss_serial(devices_path->gnss_path);
+        } else if (strncmp(entry->d_name, "disciplining_config", 19) == 0) {
+            log_info("disciplining_config file found");
+            sprintf(devices_path->disciplining_config_path, "%s/%s", ocp_path, entry->d_name);
+            disciplining_config_found = true;
+        } else if (strncmp(entry->d_name, "temperature_table", 17) == 0) {
+            log_info("temperature_table file found");
+            sprintf(devices_path->temperature_table_path, "%s/%s", ocp_path, entry->d_name);
+            temperature_table_found = true;
         }
+
 
         entry = readdir(ocp_dir);
     }
@@ -127,18 +152,56 @@ static bool test_ocp_directory(char * ocp_path, char * serial_number, struct dev
         return false;
     } else {
         log_info("All tests passed\n");
-        log_info("Writing EEPROM manufacturing data and factory disciplining parameters");
-        char command[4126];
-        sprintf(command, "art_eeprom_format -p %s -s %s -c %d", devices_path->eeprom_path, serial_number, mro50_coarse_value);
+        log_info("Writing EEPROM manufacturing data");
+        char command[4141];
+        sprintf(command, "art_eeprom_format -p %s -s %s", devices_path->eeprom_path, serial_number);
         if (system(command) != 0) {
-            log_error("Could not write EEPROM data");
+            log_error("Could not write EEPROM data in %s", devices_path->eeprom_path);
+            return false;
+        }
+        memset(command, 0, 4141);
+
+        if (disciplining_config_found) {
+            log_info("Writing Disciplining config in EEPROM");
+            sprintf(
+                command,
+                "art_disciplining_manager -p %s -f -c %u",
+                devices_path->disciplining_config_path,
+                mro50_coarse_value
+            );
+            if (system(command) != 0) {
+                log_error(
+                    "Could not write factory disciplining parameters in %s",
+                    devices_path->disciplining_config_path
+                );
+                return false;
+            }
+            memset(command, 0, 4141);
+        } else {
+            log_error("Disciplining config file not found!");
+            return false;
+        }
+
+        if (temperature_table_found) {
+            log_info("Writing temperature table in EEPROM");
+            sprintf(command, "art_temperature_table_manager -p %s -f", devices_path->temperature_table_path);
+            if (system(command) != 0) {
+                log_error(
+                    "Could not write factory temperature table in %s",
+                    devices_path->temperature_table_path
+                );
+                return false;
+            }
+            memset(command, 0, 4141);
+        } else {
+            log_error("Temperature table file not found!");
             return false;
         }
     }
     return true;
 }
 
-static void prepare_config_file_for_oscillatord(struct devices_path *devices_path, char * ocp_name, int socket_port_offset,struct config *config)
+static void prepare_config_file_for_oscillatord(char *sysfs_path, int socket_port_offset, struct config *config)
 {
     char socket_port_number[10];
     /* Define socket port offset */
@@ -151,9 +214,7 @@ static void prepare_config_file_for_oscillatord(struct devices_path *devices_pat
     config_set(config, "socket-address", "0.0.0.0");
     config_set(config, "socket-port", socket_port_number);
     config_set(config, "oscillator", "mRO50");
-    config_set(config, "ptp-clock", devices_path->ptp_path);
-    config_set(config, "mro50-device", devices_path->mro_path);
-    config_set(config, "gnss-device-tty", devices_path->gnss_path);
+    config_set(config, "sysfs-path", sysfs_path);
     config_set(config, "gnss-receiver-reconfigure", "false");
     config_set(config, "opposite-phase-error", "false");
     config_set(config, "debug", "1");
@@ -223,7 +284,7 @@ int main(int argc, char *argv[])
         if (1 == sscanf(ocp_name, "%*[^0123456789]%d", &ocp_number)) {
             log_debug("ocp number is %d", ocp_number);
             /* Prepare config file to be used by oscillatord for tests */
-            prepare_config_file_for_oscillatord(&devices_path, ocp_name, ocp_number, &config);
+            prepare_config_file_for_oscillatord(sysfs_path, ocp_number, &config);
 
             /* Test card by checking phase error stays in limits defined in phase error tracking test */
             switch(test_phase_error_tracking(ocp_name, &config)) {
