@@ -159,6 +159,7 @@ static void prepare_minipod_config(struct minipod_config* minipod_config, struct
 	minipod_config->oscillator_factory_settings = config_get_bool_default(config, "oscillator_factory_settings", true);
 	minipod_config->tracking_only = config_get_bool_default(config, "tracking_only", true);
 	minipod_config->learn_temperature_table = config_get_bool_default(config, "learn_temperature_table", false);
+	minipod_config->use_temperature_table = config_get_bool_default(config, "use_temperature_table", false);
 	minipod_config->fine_table_output_path = config_get_default(config, "fine_table_output_path", "/tmp/");
 }
 
