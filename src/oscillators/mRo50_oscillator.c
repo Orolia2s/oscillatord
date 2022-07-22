@@ -35,6 +35,8 @@
 #define CMD_READ_COARSE "FD\r"
 #define CMD_READ_FINE   "MON_tpcb PIL_cfield C\r"
 #define CMD_READ_STATUS "MONITOR1\r"
+#define CMD_READ_TEMP_PARAM_A "MON_tpcb PIL_cfield A\r"
+#define CMD_READ_TEMP_PARAM_B "MON_tpcb PIL_cfield B\r"
 
 #define STATUS_ANSWER_SIZE 62
 #define STATUS_EP_TEMPERATURE_INDEX 52
@@ -127,59 +129,6 @@ static int set_serial_attributes(int fd)
 	return 0;
 }
 
-static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path)
-{
-	struct mRo50_oscillator *mRo50;
-	int fd, ret;
-	int serial_fd;
-	struct oscillator *oscillator;
-
-	mRo50 = calloc(1, sizeof(*mRo50));
-	if (mRo50 == NULL)
-		return NULL;
-	oscillator = &mRo50->oscillator;
-	mRo50->osc_fd = 0;
-
-	fd = open(devices_path->mro_path, O_RDWR);
-	if (fd < 0) {
-		log_error("Could not open mRo50 device\n");
-		goto error;
-	}
-	mRo50->osc_fd = fd;
-
-	/* Activate serial in order to use mro50-serial device */
-	uint32_t serial_activate = 1;
-	ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
-	if (ret != 0) {
-		log_error("Could not activate mro50 serial");
-		goto error;
-	}
-
-	strcpy(mRo50->serial_path, devices_path->mac_path);
-
-	serial_fd = open(mRo50->serial_path, O_RDWR|O_NONBLOCK);
-	if (serial_fd < 0) {
-		log_error("Could not open mRo50 device\n");
-		goto error;
-	}
-	mRo50->serial_fd = serial_fd;
-	if (set_serial_attributes(serial_fd) != 0)
-		goto error;
-
-	oscillator_factory_init(FACTORY_NAME, oscillator, FACTORY_NAME "-%d",
-			mRo50_oscillator_index);
-	mRo50_oscillator_index++;
-
-	log_debug("instantiated " FACTORY_NAME " oscillator");
-
-	return oscillator;
-error:
-	close(fd);
-	close(serial_fd);
-	mRo50_oscillator_destroy(&oscillator);
-	return NULL;
-}
-
 static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd, int cmd_len)
 {
 	struct pollfd pfd = {};
@@ -247,6 +196,107 @@ static int mRo50_reset_serial(struct mRo50_oscillator *mRo50)
 	memset(answer_str, 0, mro_answer_len);
 	log_info("mRo50 serial reset");
 	return 0;
+}
+
+static void read_temperature_compensation_parameters(struct mRo50_oscillator *mRo50)
+{
+	int ret, res;
+	uint32_t a,b;
+
+	ret = mRo50_oscillator_cmd(mRo50, CMD_READ_TEMP_PARAM_A, sizeof(CMD_READ_TEMP_PARAM_A) - 1);
+	if (ret > 0) {
+		res = sscanf(answer_str, "%x\r\n", &a);
+		memset(answer_str, 0, ret);
+		if (res > 0) {
+
+		} else {
+			log_error("Could not read temperature compensation parameter A");
+			return;
+		}
+	} else {
+		log_error("Fail reading temperature compensation parameter A, err %d, errno %d", ret, errno);
+		mRo50_reset_serial(mRo50);
+		if (ret != 0) {
+			log_error("Could not reset mRo50 serial");
+		}
+		return;
+	}
+
+	ret = mRo50_oscillator_cmd(mRo50, CMD_READ_TEMP_PARAM_B, sizeof(CMD_READ_TEMP_PARAM_B) - 1);
+	if (ret > 0) {
+		res = sscanf(answer_str, "%x\r\n", &b);
+		memset(answer_str, 0, ret);
+		if (res > 0) {
+
+		} else {
+			log_error("Could not read temperature compensation parameter B");
+			return;
+		}
+	} else {
+		log_error("Fail reading temperature compensation parameter B, err %d, errno %d", ret, errno);
+		mRo50_reset_serial(mRo50);
+		if (ret != 0) {
+			log_error("Could not reset mRo50 serial");
+		}
+		return;
+	}
+	log_info("Internal temperature compensation: A = %f, B = %f", *((float*)&a), *((float*)&b));
+}
+
+static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path)
+{
+	struct mRo50_oscillator *mRo50;
+	int fd, ret;
+	int serial_fd;
+	struct oscillator *oscillator;
+
+	mRo50 = calloc(1, sizeof(*mRo50));
+	if (mRo50 == NULL)
+		return NULL;
+	oscillator = &mRo50->oscillator;
+	mRo50->osc_fd = 0;
+
+	fd = open(devices_path->mro_path, O_RDWR);
+	if (fd < 0) {
+		log_error("Could not open mRo50 device\n");
+		goto error;
+	}
+	mRo50->osc_fd = fd;
+
+	/* Activate serial in order to use mro50-serial device */
+	uint32_t serial_activate = 1;
+	ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
+	if (ret != 0) {
+		log_error("Could not activate mro50 serial");
+		goto error;
+	}
+
+	strcpy(mRo50->serial_path, devices_path->mac_path);
+
+	serial_fd = open(mRo50->serial_path, O_RDWR|O_NONBLOCK);
+	if (serial_fd < 0) {
+		log_error("Could not open mRo50 device\n");
+		goto error;
+	}
+	mRo50->serial_fd = serial_fd;
+	if (set_serial_attributes(serial_fd) != 0)
+		goto error;
+
+	oscillator_factory_init(FACTORY_NAME, oscillator, FACTORY_NAME "-%d",
+			mRo50_oscillator_index);
+	mRo50_oscillator_index++;
+
+	log_debug("instantiated " FACTORY_NAME " oscillator");
+
+	log_info("Reading A & B parameters");
+	read_temperature_compensation_parameters(mRo50);
+
+	return oscillator;
+error:
+	close(fd);
+	close(serial_fd);
+	mRo50_oscillator_destroy(&oscillator);
+	return NULL;
 }
 
 static int mRo50_oscillatord_get_attributes(struct oscillator *oscillator, struct mRo50_attributes *a)
