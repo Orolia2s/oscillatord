@@ -37,12 +37,15 @@
 #define CMD_READ_STATUS "MONITOR1\r"
 #define CMD_READ_TEMP_PARAM_A "MON_tpcb PIL_cfield A\r"
 #define CMD_READ_TEMP_PARAM_B "MON_tpcb PIL_cfield B\r"
+#define CMD_RESET "reset\r"
 
 #define STATUS_ANSWER_SIZE 62
 #define STATUS_EP_TEMPERATURE_INDEX 52
 #define STATUS_CLOCK_LOCKED_INDEX 56
 #define STATUS_CLOCK_LOCKED_BIT 2
 #define STATUS_ANSWER_FIELD_SIZE 4
+
+#define RESET_TIMEOUT 180
 
 #ifndef __packed
 #define __packed __attribute__((__packed__))
@@ -63,9 +66,9 @@ struct mRo50_attributes {
 	uint8_t locked:1;		//Locked
 };
 
-// From datasheet we assume answers cannot be larger than 60+2+2+2 characters
-static char answer_str[66] = {0};
-const size_t mro_answer_len = 66;
+// From datasheet we assume answers cannot be larger than 128 characters
+static char answer_str[128] = {0};
+const size_t mro_answer_len = 128;
 
 static unsigned int mRo50_oscillator_index;
 
@@ -176,7 +179,7 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 	return rbytes;
 }
 
-static int mRo50_reset_serial(struct mRo50_oscillator *mRo50)
+static int mRo50_clean_serial(struct mRo50_oscillator *mRo50)
 {
 	int serial_fd;
 
@@ -198,11 +201,78 @@ static int mRo50_reset_serial(struct mRo50_oscillator *mRo50)
 	return 0;
 }
 
+static bool mRo50_reset(struct mRo50_oscillator *mRo50)
+{
+	time_t start_reset, current_time;
+	struct pollfd pfd = {};
+	size_t rbytes = 0;
+	bool mRo_reset = false;
+	int err;
+
+	log_info("Resetting mRO50...");
+
+	time(&start_reset);
+	if (write(mRo50->serial_fd, CMD_RESET, strlen(CMD_RESET)) != strlen(CMD_RESET)) {
+		log_error("mRo50_oscillator_cmd send command error: %d (%s)", errno, strerror(errno));
+	}
+	pfd.fd = mRo50->serial_fd;
+	pfd.events = POLLIN;
+
+	while (1) {
+		err = poll(&pfd, 1, 50);
+		if (err == -1) {
+			log_warn("mRo50_oscillator_cmd poll error: %d (%s)", errno, strerror(errno));
+			memset(answer_str, 0, rbytes);
+			continue;
+		}
+		// poll call timed out - check the answer
+		if (!err)
+			continue;
+		err = read(mRo50->serial_fd, &answer_str[rbytes], mro_answer_len - rbytes);
+		if (err < 0) {
+			log_error("mRo50_oscillator_cmd rbyteserror: %d (%s)", errno, strerror(errno));
+			memset(answer_str, 0, rbytes);
+			continue;
+		}
+		rbytes += err;
+		if (strstr(answer_str, "Start done>") != NULL) {
+			answer_str[rbytes - 1] = '\0';
+			log_debug("%s", answer_str);
+			log_info("mRO succesfully reset !");
+			mRo_reset = true;
+			break;
+		}
+		if (answer_str[rbytes -1] == '\n' || answer_str[rbytes - 2] == '\n') {
+			if (strlen(answer_str) > 1) {
+				answer_str[rbytes - 1] = '\0';
+				log_debug("%s", answer_str);
+			}
+			memset(answer_str, 0, rbytes);
+			rbytes = 0;
+		}
+		if (rbytes == mro_answer_len) {
+			log_error("Buffer full !");
+			memset(answer_str, 0, rbytes);
+			rbytes = 0;
+		}
+
+		/* Exit if reset takes longer than */
+		time(&current_time);
+		if (difftime(current_time, start_reset) >= (double) RESET_TIMEOUT) {
+			log_error("Reset Timeout !");
+			break;
+		}
+
+	}
+	return mRo_reset;
+}
+
 static void read_temperature_compensation_parameters(struct mRo50_oscillator *mRo50)
 {
 	int ret, res;
 	uint32_t a,b;
 
+	log_info("Reading A & B parameters");
 	ret = mRo50_oscillator_cmd(mRo50, CMD_READ_TEMP_PARAM_A, sizeof(CMD_READ_TEMP_PARAM_A) - 1);
 	if (ret > 0) {
 		res = sscanf(answer_str, "%x\r\n", &a);
@@ -215,7 +285,7 @@ static void read_temperature_compensation_parameters(struct mRo50_oscillator *mR
 		}
 	} else {
 		log_error("Fail reading temperature compensation parameter A, err %d, errno %d", ret, errno);
-		mRo50_reset_serial(mRo50);
+		mRo50_clean_serial(mRo50);
 		if (ret != 0) {
 			log_error("Could not reset mRo50 serial");
 		}
@@ -234,7 +304,7 @@ static void read_temperature_compensation_parameters(struct mRo50_oscillator *mR
 		}
 	} else {
 		log_error("Fail reading temperature compensation parameter B, err %d, errno %d", ret, errno);
-		mRo50_reset_serial(mRo50);
+		mRo50_clean_serial(mRo50);
 		if (ret != 0) {
 			log_error("Could not reset mRo50 serial");
 		}
@@ -286,9 +356,11 @@ static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path
 			mRo50_oscillator_index);
 	mRo50_oscillator_index++;
 
+	/* Reset mRo50 */
+	if (!mRo50_reset(mRo50))
+		goto error;
 	log_debug("instantiated " FACTORY_NAME " oscillator");
 
-	log_info("Reading A & B parameters");
 	read_temperature_compensation_parameters(mRo50);
 
 	return oscillator;
@@ -324,7 +396,7 @@ static int mRo50_oscillatord_get_attributes(struct oscillator *oscillator, struc
 		memset(answer_str, 0, STATUS_ANSWER_SIZE);
 	} else {
 		log_warn("Fail reading attributes, err %d, errno %d", err, errno);
-		err = mRo50_reset_serial(mRo50);
+		err = mRo50_clean_serial(mRo50);
 		if (err != 0) {
 			log_error("Could not reset mRo50 serial");
 		}
@@ -354,7 +426,7 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 		}
 	} else {
 		log_error("Fail reading Coarse Parameters, err %d, errno %d", ret, errno);
-		mRo50_reset_serial(mRo50);
+		mRo50_clean_serial(mRo50);
 		if (ret != 0) {
 			log_error("Could not reset mRo50 serial");
 		}
@@ -374,7 +446,7 @@ static int mRo50_oscillator_get_ctrl(struct oscillator *oscillator, struct oscil
 		}
 	} else {
 		log_error("Fail reading Fine Parameters, err %d, errno %d", ret, errno);
-		mRo50_reset_serial(mRo50);
+		mRo50_clean_serial(mRo50);
 		if (ret != 0) {
 			log_error("Could not reset mRo50 serial");
 		}
