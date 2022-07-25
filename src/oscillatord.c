@@ -38,11 +38,11 @@
 #include "gnss.h"
 #include "log.h"
 #include "monitoring.h"
-#include "ntpshm.h"
+#include "ntpshm/ntpshm.h"
+#include "ntpshm/ppsthread.h"
 #include "oscillator.h"
 #include "oscillator_factory.h"
 #include "phasemeter.h"
-#include "ppsthread.h"
 #include "utils.h"
 
 #define UPDATE_DISCIPLINING_PARAMETERS_SEC 3600

@@ -15,7 +15,6 @@
 #include <ubloxcfg/ff_ubx.h>
 #include <ubloxcfg/ubloxcfg.h>
 
-#include "config.h"
 #include "gnss.h"
 #include "gnss-config.h"
 #include "log.h"

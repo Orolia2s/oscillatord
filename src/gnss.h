@@ -22,7 +22,7 @@
 #include <termios.h>
 
 #include "config.h"
-#include "ppsthread.h"
+#include "ntpshm/ppsthread.h"
 
 #define MAX_DEVICES 4
 #define NTPSHMSEGS      (MAX_DEVICES * 2)       /* number of NTP SHM segments */

@@ -47,10 +47,6 @@
 
 #define RESET_TIMEOUT 180
 
-#ifndef __packed
-#define __packed __attribute__((__packed__))
-#endif
-
 typedef u_int32_t uint32_t;
 typedef u_int32_t u32;
 

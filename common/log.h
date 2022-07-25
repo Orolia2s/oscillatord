@@ -15,7 +15,7 @@
 
 #include <oscillator-disciplining/oscillator-disciplining.h>
 
-#include "ppsthread.h"
+#include "ntpshm/ppsthread.h"
 
 #define LOG_VERSION "0.1.0"
 
