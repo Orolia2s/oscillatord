@@ -536,7 +536,7 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	ret = config_get_int16_t(config, "gnss-cable-delay", &cable_delay);
 
 	if (!ret) {
-		if (cable_delay && !gnss_set_cable_delay(gnss->rx, cable_delay)) {
+		if (!gnss_set_cable_delay(gnss->rx, cable_delay)) {
 			log_warn("Cannot set cable delay compensation");
 		}
 	} else {
