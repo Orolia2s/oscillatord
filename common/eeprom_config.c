@@ -265,7 +265,7 @@ int read_disciplining_parameters_from_eeprom(
         log_info("Assuming data stored in files is of version 0 of struct disciplining_parameters");
         struct disciplining_parameters_V_0 dsc_params_V0;
         memcpy(&dsc_params_V0, dsc_config_data, DISCIPLINING_CONFIG_FILE_SIZE);
-        memcpy(((uint8_t *) &dsc_params_V0) + DISCIPLINING_CONFIG_FILE_SIZE * sizeof(char), temp_table, 318);
+        memcpy(((uint8_t *) &dsc_params_V0) + DISCIPLINING_CONFIG_FILE_SIZE * sizeof(char), temp_table, sizeof(struct disciplining_parameters_V_0) - DISCIPLINING_CONFIG_FILE_SIZE);
         convert_disciplining_parameters_V0_to_V1(&dsc_params_V0, dsc_params);
         return 0;
     } else {

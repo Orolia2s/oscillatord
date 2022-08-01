@@ -40,6 +40,7 @@ add_definitions("
     -Wold-style-definition
     -Wstrict-prototypes
     -Wno-unused-parameter
+    -Wno-address-of-packed-member
     -Wmissing-declarations
     -Wmissing-prototypes
     -Wpointer-arith
