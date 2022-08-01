@@ -31,8 +31,8 @@ static void print_help(void)
 
 int main(int argc, char *argv[])
 {
-    char *disciplining_config_path;
-    char *temperature_table_path;
+    char *disciplining_config_path = NULL;
+    char *temperature_table_path = NULL;
     int option;
     int ret = 0;
     log_set_level(LOG_INFO);

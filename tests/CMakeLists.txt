@@ -14,6 +14,9 @@ if(BUILD_TESTS)
 		${PROJECT_SOURCE_DIR}/common/f9_defvalsets.[ch]
 		${PROJECT_SOURCE_DIR}/common/gnss-config.[ch]
 	)
+	file(GLOB COMMON_EEPROM_SOURCES
+		${PROJECT_SOURCE_DIR}/common/eeprom_config.[ch]
+	)
 	file(GLOB MRO50_CTRL_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/mro50_ctrl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
@@ -32,6 +35,7 @@ if(BUILD_TESTS)
 		)
 	file(GLOB EXTTS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts_test.c)
 	file(GLOB EXTTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts.[ch])
+	file(GLOB TEST_MINIPOD_STRUCTURES ${CMAKE_CURRENT_SOURCE_DIR}/test_minipod_structures.c)
 	
 
 	pkg_check_modules(SYSTEMD REQUIRED libsystemd)
@@ -52,6 +56,11 @@ if(BUILD_TESTS)
 		${COMMON_GNSS_SOURCES}
 	)
 	add_executable(extts_test ${EXTTS_TEST_SOURCES} ${COMMON_SOURCES} ${EXTTS_SOURCES})
+	add_executable(test-minipod-structures
+		${TEST_MINIPOD_STRUCTURES}
+		${COMMON_SOURCES}
+		${COMMON_EEPROM_SOURCES}
+	)
 
 	target_link_libraries(oscillator_sim PRIVATE
 		m)
@@ -69,6 +78,11 @@ if(BUILD_TESTS)
 		${SYSTEMD_LIBRARIES})
 	target_link_libraries(extts_test PRIVATE
 		m)
+	target_link_libraries(test-minipod-structures PRIVATE
+		${oscillator-disciplining_LIBRARIES}
+		m
+	)
+
 
 	install(TARGETS oscillator_sim RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS mro50_ctrl RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
