@@ -59,7 +59,7 @@ static inline void print_temperature_table(uint16_t mean_fine_over_temperature[M
     for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX; i++) {
         if (mean_fine_over_temperature[i] > 0 && mean_fine_over_temperature[i] <= 48000) {
             table_empty = false;
-            log_log(level, __FILE__, __LINE__, "Read mean value of %.2f in temperature range [%.2f, %.2f[",
+            log_log(level, __FILE__, __LINE__, "Mean value of %.2f in temperature range [%.2f, %.2f[",
                 (float) mean_fine_over_temperature[i] / 10.0,
                 (i + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE,
                 (i + 1 + STEPS_BY_DEGREE * MIN_TEMPERATURE) / STEPS_BY_DEGREE);
