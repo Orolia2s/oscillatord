@@ -210,6 +210,7 @@ static bool mRo50_reset(struct mRo50_oscillator *mRo50)
 	time(&start_reset);
 	if (write(mRo50->serial_fd, CMD_RESET, strlen(CMD_RESET)) != strlen(CMD_RESET)) {
 		log_error("mRo50_oscillator_cmd send command error: %d (%s)", errno, strerror(errno));
+		return false;
 	}
 	pfd.fd = mRo50->serial_fd;
 	pfd.events = POLLIN;
@@ -242,6 +243,13 @@ static bool mRo50_reset(struct mRo50_oscillator *mRo50)
 			if (strlen(answer_str) > 1) {
 				answer_str[rbytes - 1] = '\0';
 				log_debug("%s", answer_str);
+				if (answer_str[0] == '?') {
+					log_warn("Reset command not understood by mRO50, retrying...");
+					if (write(mRo50->serial_fd, CMD_RESET, strlen(CMD_RESET)) != strlen(CMD_RESET)) {
+						log_error("mRo50_oscillator_cmd send command error: %d (%s)", errno, strerror(errno));
+						return false;
+					}
+				}
 			}
 			memset(answer_str, 0, rbytes);
 			rbytes = 0;
