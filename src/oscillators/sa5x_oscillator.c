@@ -18,10 +18,11 @@
 #define MAX_VER_LENGTH 20
 #define MAX_SERIALNUM_LENGTH 11
 
-#define ATTR_FW_SERIAL  1
-#define ATTR_CTRL       2
-#define ATTR_STATUS     4
-#define ATTR_PHASE		8
+#define ATTR_FW_SERIAL    0x01
+#define ATTR_CTRL         0x02
+#define ATTR_STATUS       0x04
+#define ATTR_PHASE		  0x08
+#define ATTR_STATUS_PPS   0x10
 
 #define CMD_SWVER                     "\\{swrev?}"
 #define CMD_SERIAL                    "{serial?}"
@@ -57,10 +58,6 @@ enum SA5x_Disciplining_State {
 	SA5X_HOLDOVER,
 	/** Calibration state, when drift coefficients are computed */
 	SA5X_CALIBRATION,
-	/** Low resolution lock mode */
-	SA5X_LOCK_LOW_RESOLUTION,
-	/** High resolution lock mode */
-	SA5X_LOCK_HIGH_RESOLUTION,
 	SA5X_NUM_STATES
 };
 
@@ -226,7 +223,7 @@ static int sa5x_oscillator_read_intval(int *val, int size)
 {
 	int res = size;
 	if (size > 0) {
-		res = sscanf(answer_str, "[=%d]\r\n", val);
+		res = sscanf(answer_str, "[=%d]\n\n", val);
 		// we have to clean buffer if it has something
 		memset(answer_str, 0, size);
 	}
@@ -238,7 +235,7 @@ static int sa5x_oscillator_read_phase(int32_t *val, int size)
 	int res = size;
 	double phase;
 	if (size > 0) {
-		res = sscanf(answer_str, "[=%lf]\r\n", &phase);
+		res = sscanf(answer_str, "[=%lf]\n\n", &phase);
 		// we have to clean buffer if it has something
 		memset(answer_str, 0, size);
 	}
@@ -254,7 +251,7 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
 	int err, val;
 
-	if (attributes_mask & (ATTR_CTRL|ATTR_STATUS|ATTR_PHASE) && !a) {
+	if (attributes_mask & (ATTR_CTRL|ATTR_STATUS|ATTR_STATUS_PPS|ATTR_PHASE) && !a) {
 		log_error("scillator_get_attributes no structure provided");
 		return -1;
 	}
@@ -274,15 +271,18 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		return 0;
 	}
 
-	if (attributes_mask & ATTR_CTRL) {
+	if (attributes_mask & ATTR_STATUS_PPS) {
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_GNSS_PPS, sizeof(CMD_GET_GNSS_PPS)));
 		if (err > 0) {
 			a->ppsindetected = val;
 		} else {
 			// this is the only parameter that we depend on
-			log_debug("SA5x doesn't return status of PPS signal");
+			log_warn("SA5x doesn't return status of PPS signal");
 			return err;
 		}
+	}
+
+	if (attributes_mask & ATTR_CTRL) {
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_LOCKED, sizeof(CMD_GET_LOCKED)));
 		if (err > 0) {
 			a->locked = val;
@@ -381,7 +381,7 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 	struct timespec ts;
 	bool adjust_tau = false;
 	int cmd_len;
-	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_CTRL);
+	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_CTRL|ATTR_STATUS_PPS);
 
 	// coarse_ctrl wil contain TAU value
 	if (!err) {
@@ -428,9 +428,9 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 			sa5x->status.status = SA5X_TRACKING;
 		} else {
 			sa5x->status.clock_class = SA5X_CLOCK_CLASS_LOCK;
-			sa5x->status.status = SA5X_CALIBRATION + sa5x->disciplining_phase;
+			sa5x->status.status = SA5X_CALIBRATION;
 		}
-		sa5x->status.holdover_ready = sa5x->status.status == SA5X_LOCK_HIGH_RESOLUTION;
+		sa5x->status.holdover_ready = sa5x->disciplining_phase == (DISCIPLINING_PHASES - 1);
 	}
 
 	return 0;
@@ -439,7 +439,7 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 static int sa5x_oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes)
 {
 	struct sa5x_attributes a;
-	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_STATUS);
+	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_STATUS|ATTR_STATUS_PPS);
 	if (!err) {
 		// mDegC to DegC
 		attributes->temperature = a.temperature / 1000.0;
