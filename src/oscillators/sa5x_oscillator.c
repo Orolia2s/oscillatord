@@ -18,24 +18,33 @@
 #define MAX_VER_LENGTH 20
 #define MAX_SERIALNUM_LENGTH 11
 
-#define ATTR_FW_SERIAL    0x01
-#define ATTR_CTRL         0x02
-#define ATTR_STATUS       0x04
-#define ATTR_PHASE		  0x08
-#define ATTR_STATUS_PPS   0x10
+#define BIT(nr)			(1UL << (nr))
+
+#define ATTR_FW_SERIAL    		BIT(0)
+#define ATTR_CTRL         		BIT(1)
+#define ATTR_STATUS       		BIT(2)
+#define ATTR_PHASE		  		BIT(3)
+#define ATTR_STATUS_PPS         BIT(4)
+#define ATTR_STATUS_TEMPERATURE BIT(5)
 
 #define CMD_SWVER                     "\\{swrev?}"
 #define CMD_SERIAL                    "{serial?}"
+#define CMD_LATCH					  "{latch}"
+#define CMD_GET_ALARMS                "{get,Alarms}"
 #define CMD_GET_LOCKED                "{get,Locked}"
+#define CMD_GET_DISCIPLINE_LOCKED     "{get,DisciplineLocked}"
 #define CMD_GET_GNSS_PPS              "{get,PpsInDetected}"
 #define CMD_GET_PHASE                 "{get,Phase}"
 #define CMD_GET_LASTCORRECTION        "{get,LastCorrection}"
 #define CMD_GET_TEMPERATURE           "{get,Temperature}"
 #define CMD_GET_ANALOG_TUNING         "{get,AnalogTuning}"
 #define CMD_GET_DIGITAL_TUNING        "{get,DigitalTuning}"
+#define CMD_SET_DIGITAL_TUNING        "{set,DigitalTuning,%d}"
 #define CMD_GET_ANALOG_TUNING_ENABLED "{get,AnalogTuningEnabled}"
 #define CMD_GET_TAU                   "{get,TauPps0}"
 #define CMD_SET_TAU                   "{set,TauPps0,%d}"
+#define CMD_GET_DISCIPLINING          "{get,Disciplining}"
+#define CMD_SET_DISCIPLINING          "{set,Disciplining,%d}"
 #define DISCIPLINING_PHASES 3
 
 static const unsigned int tau_values[DISCIPLINING_PHASES] = {50, 500, 10000};
@@ -99,6 +108,7 @@ struct sa5x_attributes {
 	uint8_t  disciplinelocked:1;	//DisciplineLocked
 	uint8_t  analogtuningon:1;	// Analog Tuning On/Off
 	uint8_t  hwinforead:1;		// Initial info rbytesflag
+	uint8_t  disciplining:1;    // Is disciplining enabled
 	uint8_t  lockprogress;		//Percent of progress to Locked state
 };
 
@@ -251,7 +261,7 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
 	int err, val;
 
-	if (attributes_mask & (ATTR_CTRL|ATTR_STATUS|ATTR_STATUS_PPS|ATTR_PHASE) && !a) {
+	if (attributes_mask & (ATTR_CTRL|ATTR_STATUS|ATTR_STATUS_PPS|ATTR_PHASE|ATTR_STATUS_TEMPERATURE) && !a) {
 		log_error("scillator_get_attributes no structure provided");
 		return -1;
 	}
@@ -271,7 +281,12 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		return 0;
 	}
 
-	if (attributes_mask & ATTR_STATUS_PPS) {
+	if (attributes_mask & (ATTR_STATUS_PPS | ATTR_STATUS)) {
+		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_DISCIPLINE_LOCKED, sizeof(CMD_GET_DISCIPLINE_LOCKED)));
+		if (err > 0) {
+			a->disciplinelocked = val;
+		}
+
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_GNSS_PPS, sizeof(CMD_GET_GNSS_PPS)));
 		if (err > 0) {
 			a->ppsindetected = val;
@@ -280,6 +295,7 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 			log_warn("SA5x doesn't return status of PPS signal");
 			return err;
 		}
+
 	}
 
 	if (attributes_mask & ATTR_CTRL) {
@@ -294,28 +310,32 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		sa5x_oscillator_read_intval(&a->lastcorrection, sa5x_oscillator_cmd(sa5x, CMD_GET_LASTCORRECTION, sizeof(CMD_GET_LASTCORRECTION)));
 	}
 
+	if (attributes_mask & ATTR_STATUS) {
+		sa5x_oscillator_read_intval(&a->digitaltuning, sa5x_oscillator_cmd(sa5x, CMD_GET_DIGITAL_TUNING, sizeof(CMD_GET_DIGITAL_TUNING)));
+
+		if(sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_ALARMS, sizeof(CMD_GET_ALARMS)))) {
+			a->alarms = (uint32_t)val;
+		}
+
+		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_DISCIPLINING, sizeof(CMD_GET_DISCIPLINING)));
+		if (err > 0) {
+			a->disciplining = val;
+		}
+	}
+
 	if (attributes_mask & ATTR_PHASE) {
 
 		sa5x_oscillator_read_phase(&a->phaseoffset, sa5x_oscillator_cmd(sa5x, CMD_GET_PHASE, sizeof(CMD_GET_PHASE)));
 
 	}
 
-	if (attributes_mask & ATTR_STATUS) {
+	if (attributes_mask & ATTR_STATUS_TEMPERATURE) {
 		err = sa5x_oscillator_read_intval(&a->temperature,sa5x_oscillator_cmd(sa5x, CMD_GET_TEMPERATURE, sizeof(CMD_GET_TEMPERATURE)));
 		if (err <= 0) {
 			// this is the only parameter that we depend on
 			return err;
 		}
 
-
-		sa5x_oscillator_read_intval(&a->analogtuning, sa5x_oscillator_cmd(sa5x, CMD_GET_ANALOG_TUNING, sizeof(CMD_GET_ANALOG_TUNING)));
-
-		sa5x_oscillator_read_intval(&a->digitaltuning, sa5x_oscillator_cmd(sa5x, CMD_GET_DIGITAL_TUNING, sizeof(CMD_GET_DIGITAL_TUNING)));
-
-		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_ANALOG_TUNING_ENABLED, sizeof(CMD_GET_ANALOG_TUNING_ENABLED)));
-		if (err > 0) {
-			a->analogtuningon = val;
-		}
 	}
 	return 0;
 }
@@ -374,14 +394,42 @@ error:
 	return NULL;
 }
 
+// Issue latch sequence to restore from out-of-range tuning values
+static int sa5x_oscillator_latch(struct sa5x_oscillator *sa5x, struct sa5x_attributes *a)
+{
+	int cmd_len;
+
+	if (a->disciplining) {
+		cmd_len = snprintf(answer_str, answer_len, CMD_SET_DISCIPLINING, 0);
+		if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
+			log_warn("SA5x: couldn't disable disciplining for latch command");
+			return 1;
+		}
+	}
+
+	if (sa5x_oscillator_cmd(sa5x, CMD_LATCH, sizeof(CMD_LATCH)) == -1)
+		log_warn("SA5x: error with latch command");
+
+	cmd_len = snprintf(answer_str, answer_len, CMD_SET_DIGITAL_TUNING, 0);
+	if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
+		log_warn("SA5x: couldn't clear digital tuning value");
+	}
+	cmd_len = snprintf(answer_str, answer_len, CMD_SET_DISCIPLINING, 1);
+	if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
+		log_warn("SA5x: couldn't enable disciplining after latch command");
+	}
+	a->disciplining = 1;
+	return 0;
+}
+
 static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl)
 {
-	struct sa5x_attributes a;
-	struct sa5x_oscillator *sa5x;
+	struct sa5x_oscillator *sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
+	bool adjust_tau = false, latch = false;
+	struct sa5x_attributes a = {};
 	struct timespec ts;
-	bool adjust_tau = false;
 	int cmd_len;
-	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_CTRL|ATTR_STATUS_PPS);
+	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_CTRL|ATTR_STATUS);
 
 	// coarse_ctrl wil contain TAU value
 	if (!err) {
@@ -393,12 +441,26 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 		return 0;
 	}
 
+	// check if we stuck with disciplining error
+	if (a.alarms) {
+		if ((a.alarms & BIT(18)) && !a.lastcorrection) {
+			// digital correction is out of range, needs latch command
+			log_warn("SA5x: Digital tuning is out of range, adjust base frequency initiated");
+			if (sa5x_oscillator_latch(sa5x, &a)) {
+				log_error("SA5x: Couldn't make latch command");
+			}
+			latch = true;
+			adjust_tau = true;
+		} else {
+			log_warn("SA5x: Alarms are raised, 0x%8X", a.alarms);
+		}
+	}
+
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
 	if (a.ppsindetected == 0 && sa5x->gnss_fix_status) {
 		log_debug("SA5x reports loss of PPS while GNSS fix is OK");
 	}
-	if (!sa5x->gnss_fix_status) {
+	if (!sa5x->gnss_fix_status || latch) {
 		// we are out of GNSS sync, have to restart disciplining
 		// or change state to UNCALIBRATED if we are in HOLDOVER more than 24h
 		adjust_tau = (sa5x->disciplining_phase != 0) ||
@@ -438,12 +500,12 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 
 static int sa5x_oscillator_parse_attributes(struct oscillator *oscillator, struct oscillator_attributes *attributes)
 {
-	struct sa5x_attributes a;
-	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_STATUS|ATTR_STATUS_PPS);
+	struct sa5x_attributes a = {};
+	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_STATUS_TEMPERATURE|ATTR_STATUS_PPS);
 	if (!err) {
 		// mDegC to DegC
 		attributes->temperature = a.temperature / 1000.0;
-		attributes->locked = a.ppsindetected;
+		attributes->locked = a.ppsindetected && a.disciplinelocked;
 	} else {
 		attributes->temperature = -400.0;
 		attributes->locked = 0;
