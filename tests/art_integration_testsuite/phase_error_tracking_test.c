@@ -73,32 +73,34 @@ static void oscillatord_stop_service(char * template_name)
 
 static struct json_object *json_send_and_receive(int sockfd, int request)
 {
-    int ret;
+	int ret;
 
-    struct json_object *json_req = json_object_new_object();
-    json_object_object_add(json_req, "request", json_object_new_int(request));
+	struct json_object *json_req = json_object_new_object();
+	json_object_object_add(json_req, "request", json_object_new_int(request));
 
-    const char *req = json_object_to_json_string(json_req);
+	const char *req = json_object_to_json_string(json_req);
+	char buf[1024];
+	strcpy(buf, req);
+	ret = send(sockfd, req, strlen(buf), 0);
+	if (ret == -1)
+	{
+		log_error("Error sending request: %d", ret);
+		log_error("FAIL");
+		return NULL;
+	}
 
-    ret = send(sockfd, req, strlen(req), 0);
-    if (ret == -1)
-    {
-        log_error("Error sending request: %d", ret);
-        log_error("FAIL");
-        return NULL;
-    }
+	char *resp = (char *)malloc(sizeof(char) * 2048);
+	ret = recv(sockfd, resp, 2048, 0);
+	if (-1 == ret)
+	{
+		log_error("Error receiving response: %d", ret);
+		log_error("FAIL");
+		return NULL;
+	}
 
-    char *resp = (char *)malloc(sizeof(char) * 1024);
-    ret = recv(sockfd, resp, 1024, 0);
-    if (-1 == ret)
-    {
-        log_error("Error receiving response: %d", ret);
-        log_error("FAIL");
-        return NULL;
-    }
-
-    return json_tokener_parse(resp);
+	return json_tokener_parse(resp);
 }
+
 
 static struct json_object *send_monitoring_request(int socket_port, enum monitoring_request request) {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -254,7 +256,7 @@ int test_phase_error_tracking(char * ocp_name, struct config *config)
         return TEST_PHASE_ERROR_TRACKING_KO;
 
     oscillatord_start_service(ocp_name);
-    sleep(5);
+    sleep(180);
     passed = oscillatord_track_phase_error_under_limit(
         socket_port,
         PHASE_ERROR_ABS_MAX,

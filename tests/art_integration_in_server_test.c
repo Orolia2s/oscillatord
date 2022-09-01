@@ -15,8 +15,9 @@
 #include <string.h>
 #include <sys/fcntl.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
-
+#include "../common/mRO50_ioctl.h"
 #include "art_integration_testsuite/gnss_serial_test.h"
 #include "art_integration_testsuite/mro_device_test.h"
 #include "art_integration_testsuite/phase_error_tracking_test.h"
@@ -28,7 +29,7 @@
 #define READ 0
 #define WRITE 1
 
-#define SOCKET_PORT 2970
+#define SOCKET_PORT 2958
 
 static void print_help(void)
 {
@@ -71,11 +72,21 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
         /* MRO50 TEST: Perform R/W operations using ioctls
          * Also read factory coarse which needs to be written in EEPROM
          */
-        } else if (strncmp(entry->d_name, "mro50", 6) == 0) {
+        } else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
             log_info("mro50 device detected");
-            find_dev_path(ocp_path, entry, devices_path->mro_path);
-            int mro50 = open(devices_path->mro_path, O_RDWR);
-            if (mro50 > 0) {
+            
+            int fd = open("/dev/mro50.0", O_RDWR);
+            if (fd < 0) {
+                log_error("Could not open mRo50 device\n");
+            }	    
+	    uint32_t serial_activate = 1;
+	    int ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
+	    if (ret != 0) {
+		log_error("Could not activate mro50 serial");
+	    }
+	    find_dev_path(ocp_path, entry, devices_path->mro_path);
+	    int mro50 = open(devices_path->mro_path, O_RDWR|O_NONBLOCK);
+	    if (mro50 > 0) {
                 mro50_passed = test_mro50_device(mro50);
                 if (mro50_passed) {
                     /* Read factory coarse of the mRO50 which needs to be stored in EEPROM */
@@ -123,7 +134,7 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
     return true;
 }
 
-static void prepare_config_file_for_oscillatord(struct devices_path *devices_path, char * ocp_name, int socket_port_offset,struct config *config)
+static void prepare_config_file_for_oscillatord(struct devices_path *devices_path, char * ocp_name, int socket_port_offset,struct config *config, char * sysfspath)
 {
     char socket_port_number[10];
     /* Define socket port offset */
@@ -136,6 +147,7 @@ static void prepare_config_file_for_oscillatord(struct devices_path *devices_pat
     config_set(config, "socket-address", "0.0.0.0");
     config_set(config, "socket-port", socket_port_number);
     config_set(config, "oscillator", "mRO50");
+    config_set(config, "sysfs-path", sysfspath);
     config_set(config, "ptp-clock", devices_path->ptp_path);
     config_set(config, "mro50-device", devices_path->mro_path);
     config_set(config, "gnss-device-tty", devices_path->gnss_path);
@@ -153,6 +165,9 @@ static void prepare_config_file_for_oscillatord(struct devices_path *devices_pat
     config_set(config, "max_allowed_coarse", "30");
     config_set(config, "nb_calibration", "10");
     config_set(config, "oscillator_factory_settings", "true");
+    config_set(config, "learn_temperature_table","false");
+    config_set(config, "use_temperature_table", "false");
+    config_set(config, "oscillator_factory_settings","true");
     return;
 }
 
@@ -190,7 +205,6 @@ int main(int argc, char *argv[])
         printf("Please provide path to ART card sysfs\n");
         return -1;
     }
-
     log_info("Testing ART card which sysfs is %s", sysfs_path);
     if(test_ocp_directory(sysfs_path, &devices_path)) {
         /* Extract ocpX from sysfs */
@@ -204,7 +218,7 @@ int main(int argc, char *argv[])
         if (1 == sscanf(ocp_name, "%*[^0123456789]%d", &ocp_number)) {
             log_debug("ocp number is %d", ocp_number);
             /* Prepare config file to be used by oscillatord for tests */
-            prepare_config_file_for_oscillatord(&devices_path, ocp_name, ocp_number, &config);
+            prepare_config_file_for_oscillatord(&devices_path, ocp_name, ocp_number, &config, sysfs_path);
 
             /* Test card by checking phase error stays in limits defined in phase error tracking test */
             switch(test_phase_error_tracking(ocp_name, &config)) {
