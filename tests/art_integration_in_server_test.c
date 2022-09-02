@@ -72,20 +72,30 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
         /* MRO50 TEST: Perform R/W operations using ioctls
          * Also read factory coarse which needs to be written in EEPROM
          */
-        } else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
-            log_info("mro50 device detected");
-            
-            int fd = open("/dev/mro50.0", O_RDWR);
+        } 
+	else if (strncmp(entry->d_name, "mro50", 6) == 0) {
+	   log_info("mro50 device detected");
+            find_dev_path(ocp_path, entry, devices_path->mro_path);
+            log_info("mro50 device path: %s", devices_path->mro_path);
+	    int fd = open(devices_path->mro_path, O_RDWR);
             if (fd < 0) {
                 log_error("Could not open mRo50 device\n");
-            }	    
-	    uint32_t serial_activate = 1;
-	    int ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
-	    if (ret != 0) {
-		log_error("Could not activate mro50 serial");
+            }
+            uint32_t serial_activate = 1;
+            int ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
+            if (ret != 0) {
+                log_error("Could not activate mro50 serial");
+            }
+	    else {
+	    	log_info("mro50 serial sucessfully activated");
 	    }
-	    find_dev_path(ocp_path, entry, devices_path->mro_path);
-	    int mro50 = open(devices_path->mro_path, O_RDWR|O_NONBLOCK);
+	}
+	else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
+            log_info("mro50 Serial detected");
+            find_dev_path(ocp_path, entry, devices_path->mac_path);
+	    log_info("mro50 Serial path: %s", devices_path->mac_path);
+            
+	    int mro50 = open(devices_path->mac_path, O_RDWR|O_NONBLOCK);
 	    if (mro50 > 0) {
                 mro50_passed = test_mro50_device(mro50);
                 if (mro50_passed) {
