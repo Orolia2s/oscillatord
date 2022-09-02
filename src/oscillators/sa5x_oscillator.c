@@ -467,8 +467,14 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 					ts.tv_sec - sa5x->gnss_last_fix.tv_sec > 24 * 3600;
 		sa5x->disciplining_phase = 0;
 		sa5x->disciplining_start = ts;
+	} else {
+		if (sa5x->status.clock_class == SA5X_CLOCK_CLASS_HOLDOVER ||
+			sa5x->status.clock_class == SA5X_CLOCK_CLASS_UNCALIBRATED) {
+			// indicate that we are not in holdover anymore
+			sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
+			sa5x->status.status = SA5X_TRACKING;
+		}
 	}
-
 	if (sa5x->disciplining_phase < (DISCIPLINING_PHASES - 1) &&
 	    ts.tv_sec - sa5x->disciplining_start.tv_sec > tau_interval[sa5x->disciplining_phase]) {
 		adjust_tau = true;
