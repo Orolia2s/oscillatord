@@ -567,6 +567,19 @@ int main(int argc, char *argv[])
 					log_error("Could not apply output on oscillator !");
 				}
 			}
+			/* Check if time elapsed is superior to periodic time to save EEPROM data */
+			time(&end_save_eeprom_parameters);
+			if (difftime(end_save_eeprom_parameters, start_save_epprom_parameters) >= (double) UPDATE_DISCIPLINING_PARAMETERS_SEC) {
+				log_info("Periodically saving EEPROM data");
+				pthread_create(
+					&save_dsc_params_thread,
+					NULL,
+					save_disciplining_parameters_thread,
+					od
+				);
+				/* Reset time to save eeprom data*/
+				time(&start_save_epprom_parameters);
+			}
 		} else {
 			/* Used for monitoring only */
 			/* Oscillator control values and temperature are needed for
@@ -667,23 +680,8 @@ int main(int argc, char *argv[])
 
 			pthread_mutex_unlock(&monitoring->mutex);
 		}
-
-		/* Check if time elapsed is superior to periodic time to save EEPROM data */
-		time(&end_save_eeprom_parameters);
-		if (difftime(end_save_eeprom_parameters, start_save_epprom_parameters) >= (double) UPDATE_DISCIPLINING_PARAMETERS_SEC) {
-			log_info("Periodically saving EEPROM data");
-			pthread_create(
-				&save_dsc_params_thread,
-				NULL,
-				save_disciplining_parameters_thread,
-				od
-			);
-			/* Reset time to save eeprom data*/
-			time(&start_save_epprom_parameters);
-		}
 	}
 
-	pthread_join(save_dsc_params_thread, NULL);
 	enable_pps(fd_clock, false);
 	if (pps_thread != NULL && pps_thread->devicename != NULL)
 		ntpshm_link_deactivate(&session);
@@ -691,6 +689,7 @@ int main(int argc, char *argv[])
 	gnss_stop(gnss);
 
 	if (disciplining_mode) {
+		pthread_join(save_dsc_params_thread, NULL);
 		phasemeter_stop(phasemeter);
 		ret = od_get_disciplining_parameters(od, &dsc_params);
 		if (ret != 0) {
