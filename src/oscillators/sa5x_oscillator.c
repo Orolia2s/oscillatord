@@ -290,6 +290,8 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_GNSS_PPS, sizeof(CMD_GET_GNSS_PPS)));
 		if (err > 0) {
 			a->ppsindetected = val;
+			if (!val)
+				log_debug("SA5x reports no PPS-in");
 		} else {
 			// this is the only parameter that we depend on
 			log_warn("SA5x doesn't return status of PPS signal");
@@ -320,6 +322,8 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_DISCIPLINING, sizeof(CMD_GET_DISCIPLINING)));
 		if (err > 0) {
 			a->disciplining = val;
+			if (!val)
+				log_debug("SA5x reports no internal disciplining");
 		}
 	}
 
