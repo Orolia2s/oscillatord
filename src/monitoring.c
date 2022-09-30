@@ -378,7 +378,7 @@ static void json_add_disciplining_disciplining_parameters(struct json_object *re
 		}
 	}
 	json_object_object_add(disc_parameters_json, "temperature_table", temp_table);
-	json_object_object_add(resp, "disciplining_parameters", disc_parameters_json);	
+	json_object_object_add(resp, "disciplining_parameters", disc_parameters_json);
 	return;
 }
 
@@ -613,7 +613,7 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
  * @param config
  * @return struct monitoring*
  */
-struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path)
+struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path, const char *oscillator_model)
 {
 	int port;
 	int ret;
@@ -657,6 +657,7 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 	monitoring->disciplining.valid_phase_convergence_threshold = -1;
 	monitoring->disciplining.convergence_progress = 0.00;
 	monitoring->disciplining.ready_for_holdover = false;
+	monitoring->oscillator_model = oscillator_model;
 	monitoring->ctrl_values.fine_ctrl = -1;
 	monitoring->ctrl_values.coarse_ctrl = -1;
 	monitoring->osc_attributes.locked = false;

@@ -291,19 +291,18 @@ int main(int argc, char *argv[])
 
 	/* Start Monitoring Thread */
 	if (monitoring_mode) {
-		monitoring = monitoring_init(&config, &devices_path);
+		phase_error_supported = (oscillator_get_phase_error(oscillator, &phase_error) != -ENOSYS);
+		if (phase_error_supported)
+				sign = 1;
+		monitoring = monitoring_init(&config, &devices_path, oscillator->class->name);
 		if (monitoring == NULL) {
 			log_error("Error creating monitoring socket thread");
 			return -EINVAL;
 		}
-		phase_error_supported = (oscillator_get_phase_error(oscillator, &phase_error) != -ENOSYS);
-		if (phase_error_supported)
-			sign = 1;
-		log_info("Starting monitoring socket");
 		pthread_mutex_lock(&monitoring->mutex);
-		monitoring->oscillator_model = oscillator->class->name;
 		monitoring->phase_error_supported = phase_error_supported;
 		pthread_mutex_unlock(&monitoring->mutex);
+		log_info("Starting monitoring socket");
 	}
 
 
@@ -411,7 +410,7 @@ int main(int argc, char *argv[])
 
 		/* Start PPS Thread that triggers writes in NTP SHM */
 		if (strlen(devices_path.pps_path) != 0) {
-			pps_thread->devicename = &devices_path.pps_path;
+			pps_thread->devicename = (char *)&devices_path.pps_path;
 			pps_thread->log_hook = ppsthread_log;
 			log_info("Init NTP SHM session");
 			ntpshm_session_init(&session);

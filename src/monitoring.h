@@ -55,6 +55,6 @@ struct monitoring {
 	bool phase_error_supported;
 };
 
-struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path);
+struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path, const char *oscillator_model);
 void monitoring_stop(struct monitoring *monitoring);
 #endif // MONITORING_H
