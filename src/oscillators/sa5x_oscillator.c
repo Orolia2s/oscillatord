@@ -17,6 +17,7 @@
 #define FACTORY_NAME "sa5x"
 #define MAX_VER_LENGTH 20
 #define MAX_SERIALNUM_LENGTH 11
+#define DIGITAL_TUNING_MAX 20000000LL
 
 #define BIT(nr)			(1UL << (nr))
 
@@ -37,14 +38,13 @@
 #define CMD_GET_PHASE                 "{get,Phase}"
 #define CMD_GET_LASTCORRECTION        "{get,LastCorrection}"
 #define CMD_GET_TEMPERATURE           "{get,Temperature}"
-#define CMD_GET_ANALOG_TUNING         "{get,AnalogTuning}"
 #define CMD_GET_DIGITAL_TUNING        "{get,DigitalTuning}"
 #define CMD_SET_DIGITAL_TUNING        "{set,DigitalTuning,%d}"
-#define CMD_GET_ANALOG_TUNING_ENABLED "{get,AnalogTuningEnabled}"
 #define CMD_GET_TAU                   "{get,TauPps0}"
 #define CMD_SET_TAU                   "{set,TauPps0,%d}"
 #define CMD_GET_DISCIPLINING          "{get,Disciplining}"
 #define CMD_SET_DISCIPLINING          "{set,Disciplining,%d}"
+
 #define DISCIPLINING_PHASES 3
 
 static const unsigned int tau_values[DISCIPLINING_PHASES] = {50, 500, 10000};
@@ -86,6 +86,7 @@ struct sa5x_oscillator {
 	struct sa5x_disciplining_status status;
 	struct timespec disciplining_start;
 	struct timespec gnss_last_fix;
+	struct timespec mac_last_latch;
 	bool gnss_fix_status;
 	char   version[20];      // SW Rev
 	char   serial[12];       // SerialNumber
@@ -99,14 +100,12 @@ struct sa5x_attributes {
 	int32_t  lastcorrection;	// Most recent freq correction
 					// due to disciplining
 	int32_t  temperature;		// Temperature (mDegC)
-	int32_t  digitaltuning;		// Digital Tuning (0.01Hz)
-	int32_t  analogtuning;		// Analog Tuning (mv)
+	int64_t  digitaltuning;		// Digital Tuning (0.01Hz)
 	uint32_t tau;               // Current TAU value
 	// General Status bits
 	uint8_t  ppsindetected:1;	// PpsInDetected
 	uint8_t  locked:1;		//Locked
 	uint8_t  disciplinelocked:1;	//DisciplineLocked
-	uint8_t  analogtuningon:1;	// Analog Tuning On/Off
 	uint8_t  hwinforead:1;		// Initial info rbytesflag
 	uint8_t  disciplining:1;    // Is disciplining enabled
 	uint8_t  lockprogress;		//Percent of progress to Locked state
@@ -176,17 +175,17 @@ static int set_serial_attributes(int fd)
 static int sa5x_oscillator_cmd(struct sa5x_oscillator *sa5x, const char *cmd, int cmd_len)
 {
 	struct pollfd pfd = {};
-	int err, rbytes = 0;
+	int err, rbytes = 0, to = 3000;
 	if (write(sa5x->osc_fd, cmd, cmd_len) != cmd_len) {
 		log_error("oscillator_get_attributes send command error: %d (%s)", errno, strerror(errno));
 		return -1;
 	}
 
 	pfd.fd = sa5x->osc_fd;
-	pfd.events = POLLIN;
+	pfd.events = POLLIN|POLLPRI;
 	// give MAC 10ms to respond with telemetry
 	while (1) {
-		err = poll(&pfd, 1, 10);
+		err = poll(&pfd, 1, to);
 		if (err == -1) {
 			log_error("oscillator_get_attributes poll error: %d (%s)", errno, strerror(errno));
 			return -1;
@@ -200,6 +199,8 @@ static int sa5x_oscillator_cmd(struct sa5x_oscillator *sa5x, const char *cmd, in
 			return -1;
 		}
 		rbytes += err;
+		// second timeout will be 10s of milliseconds just to be sure we have read everything
+		to = 10;
 	}
 	if (rbytes == 0) {
 		log_error("oscillator_get_attributes didn't get answer, zero length");
@@ -240,6 +241,17 @@ static int sa5x_oscillator_read_intval(int *val, int size)
 	return res;
 }
 
+static int sa5x_oscillator_read_int64val(int64_t *val, int size)
+{
+	int res = size;
+	if (size > 0) {
+		res = sscanf(answer_str, "[=%ld]\n\n", val);
+		// we have to clean buffer if it has something
+		memset(answer_str, 0, size);
+	}
+	return res;
+}
+
 static int sa5x_oscillator_read_phase(int32_t *val, int size)
 {
 	int res = size;
@@ -262,7 +274,7 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	int err, val;
 
 	if (attributes_mask & (ATTR_CTRL|ATTR_STATUS|ATTR_STATUS_PPS|ATTR_PHASE|ATTR_STATUS_TEMPERATURE) && !a) {
-		log_error("scillator_get_attributes no structure provided");
+		log_error("oscillator_get_attributes no structure provided");
 		return -1;
 	}
 
@@ -297,10 +309,11 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 			log_warn("SA5x doesn't return status of PPS signal");
 			return err;
 		}
-
 	}
 
 	if (attributes_mask & ATTR_CTRL) {
+		sa5x_oscillator_read_int64val(&a->digitaltuning, sa5x_oscillator_cmd(sa5x, CMD_GET_DIGITAL_TUNING, sizeof(CMD_GET_DIGITAL_TUNING)));
+
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_LOCKED, sizeof(CMD_GET_LOCKED)));
 		if (err > 0) {
 			a->locked = val;
@@ -313,7 +326,6 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	}
 
 	if (attributes_mask & ATTR_STATUS) {
-		sa5x_oscillator_read_intval(&a->digitaltuning, sa5x_oscillator_cmd(sa5x, CMD_GET_DIGITAL_TUNING, sizeof(CMD_GET_DIGITAL_TUNING)));
 
 		if(sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_ALARMS, sizeof(CMD_GET_ALARMS)))) {
 			a->alarms = (uint32_t)val;
@@ -322,8 +334,12 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_DISCIPLINING, sizeof(CMD_GET_DISCIPLINING)));
 		if (err > 0) {
 			a->disciplining = val;
-			if (!val)
-				log_debug("SA5x reports no internal disciplining");
+			if (!val) {
+				log_warn("SA5x reports no internal disciplining, trying to switch it on");
+				if (sa5x_oscillator_cmd(sa5x, answer_str, snprintf(answer_str, answer_len, CMD_SET_DISCIPLINING, 1)) == -1) {
+					log_warn("SA5x: couldn't enable disciplining after latch command");
+				}
+			}
 		}
 	}
 
@@ -423,6 +439,7 @@ static int sa5x_oscillator_latch(struct sa5x_oscillator *sa5x, struct sa5x_attri
 		log_warn("SA5x: couldn't enable disciplining after latch command");
 	}
 	a->disciplining = 1;
+	clock_gettime(CLOCK_MONOTONIC, &sa5x->mac_last_latch);
 	return 0;
 }
 
@@ -433,7 +450,7 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 	struct sa5x_attributes a = {};
 	struct timespec ts;
 	int cmd_len;
-	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_CTRL|ATTR_STATUS);
+	int err = sa5x_oscillator_get_attributes(oscillator, &a, ATTR_CTRL|ATTR_STATUS|ATTR_PHASE);
 
 	// coarse_ctrl wil contain TAU value
 	if (!err) {
@@ -445,26 +462,35 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 		return 0;
 	}
 
+	log_debug("SA53 stats: Alarms 0x%08x, LastCorrection=%d, DigitalTuning=%ld, DisciplingLocked=%d, Phase=%d, Tau=%d",
+				a.alarms, a.lastcorrection, a.digitaltuning, a.disciplinelocked, a.phaseoffset, a.tau);
 	// check if we stuck with disciplining error
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 	if (a.alarms) {
 		if ((a.alarms & BIT(18)) && !a.lastcorrection) {
 			// digital correction is out of range, needs latch command
 			log_warn("SA5x: Digital tuning is out of range, adjust base frequency initiated");
-			if (sa5x_oscillator_latch(sa5x, &a)) {
-				log_error("SA5x: Couldn't make latch command");
-			}
 			latch = true;
 			adjust_tau = true;
 		} else {
 			log_warn("SA5x: Alarms are raised, 0x%8X", a.alarms);
 		}
+	} else if (!a.lastcorrection && !a.disciplinelocked &&
+			   (a.digitaltuning == DIGITAL_TUNING_MAX || a.digitaltuning == -DIGITAL_TUNING_MAX) &&
+			   (ts.tv_sec - sa5x->mac_last_latch.tv_sec > tau_interval[0])) {
+		latch = true;
+		adjust_tau = true;
+		log_warn("SA5x: no Alarms, but latch is needed, digital tuning is %ld", a.digitaltuning);
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	if (latch && sa5x_oscillator_latch(sa5x, &a)) {
+		log_error("SA5x: Couldn't make latch command");
+	}
+
 	if (a.ppsindetected == 0 && sa5x->gnss_fix_status) {
 		log_debug("SA5x reports loss of PPS while GNSS fix is OK");
 	}
-	if (!sa5x->gnss_fix_status || latch) {
+	if (!sa5x->gnss_fix_status || latch || !a.disciplinelocked) {
 		// we are out of GNSS sync, have to restart disciplining
 		// or change state to UNCALIBRATED if we are in HOLDOVER more than 24h
 		adjust_tau = (sa5x->disciplining_phase != 0) ||
@@ -494,6 +520,9 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 			sa5x->status.clock_class = ((sa5x->status.clock_class == SA5X_CLOCK_CLASS_CALIBRATING) ||
 										(ts.tv_sec - sa5x->gnss_last_fix.tv_sec > 24 * 3600)) ?
 										SA5X_CLOCK_CLASS_UNCALIBRATED : SA5X_CLOCK_CLASS_HOLDOVER;
+			sa5x->status.status = SA5X_HOLDOVER;
+		} else if (!a.disciplinelocked) {
+			sa5x->status.clock_class = SA5X_CLOCK_CLASS_UNCALIBRATED;
 			sa5x->status.status = SA5X_HOLDOVER;
 		} else if (sa5x->disciplining_phase == 0) {
 			sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
