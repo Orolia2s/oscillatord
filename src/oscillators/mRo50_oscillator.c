@@ -32,6 +32,8 @@
 #define MRO50_SETPOINT_MAX 1000000
 #define READ_MAX_TRY 400
 
+#define CMD_WRITE_COARSE "FD %08X\r"
+#define CMD_WRITE_FINE   "MON_tpcb PIL_cfield C %04X\r"
 #define CMD_READ_COARSE "FD\r"
 #define CMD_READ_FINE   "MON_tpcb PIL_cfield C\r"
 #define CMD_READ_STATUS "MONITOR1\r"
@@ -54,7 +56,6 @@ struct mRo50_oscillator {
 	struct oscillator oscillator;
 	char serial_path[PATH_MAX];
 	int serial_fd;
-	int osc_fd;
 };
 
 struct mRo50_attributes {
@@ -79,10 +80,6 @@ static void mRo50_oscillator_destroy(struct oscillator **oscillator)
 
 	o = *oscillator;
 	r = container_of(o, struct mRo50_oscillator, oscillator);
-	if (r->osc_fd != 0) {
-		close(r->osc_fd);
-		log_info("Closed oscillator's device");
-	}
 	if (r->serial_fd != 0) {
 		close(r->serial_fd);
 		log_info("Closed oscillator's serial port");
@@ -190,7 +187,7 @@ static int mRo50_clean_serial(struct mRo50_oscillator *mRo50)
 	mRo50->serial_fd = serial_fd;
 	if (set_serial_attributes(serial_fd) != 0)
 		return -1;
-	
+
 	mRo50_oscillator_cmd(mRo50, "\r\n", strlen("\r\n"));
 	memset(answer_str, 0, mro_answer_len);
 	log_info("mRo50 serial reset");
@@ -328,28 +325,23 @@ static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path
 	if (mRo50 == NULL)
 		return NULL;
 	oscillator = &mRo50->oscillator;
-	mRo50->osc_fd = 0;
 
-	fd = open(devices_path->mro_path, O_RDWR);
-	if (fd < 0) {
-		log_error("Could not open mRo50 device\n");
-		goto error;
+	if (strlen(devices_path->mro_path) && (fd = open(devices_path->mro_path, O_RDWR)) >= 0) {
+		log_info("mRO50 device exists, trying to activate serial port");
+		/* Activate serial in order to use mro50-serial device */
+		uint32_t serial_activate = 1;
+		ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
+		if (ret != 0) {
+			log_error("Could not activate mro50 serial");
+			goto error;
+		}
+		close(fd);
 	}
-	mRo50->osc_fd = fd;
-
-	/* Activate serial in order to use mro50-serial device */
-	uint32_t serial_activate = 1;
-	ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
-	if (ret != 0) {
-		log_error("Could not activate mro50 serial");
-		goto error;
-	}
-
 	strcpy(mRo50->serial_path, devices_path->mac_path);
 
 	serial_fd = open(mRo50->serial_path, O_RDWR|O_NONBLOCK);
 	if (serial_fd < 0) {
-		log_error("Could not open mRo50 device\n");
+		log_error("Could not open mRo50 device: %s\n", mRo50->serial_path);
 		goto error;
 	}
 	mRo50->serial_fd = serial_fd;
@@ -369,7 +361,6 @@ static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path
 
 	return oscillator;
 error:
-	close(fd);
 	close(serial_fd);
 	mRo50_oscillator_destroy(&oscillator);
 	return NULL;
@@ -483,13 +474,13 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 
 	memset(command, '\0', 128);
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
-	
+
 	if (output->action == ADJUST_FINE) {
 		log_trace("mRo50_oscillator_apply_output: Fine adjustement to value %lu requested", output->setpoint);
-		sprintf(command, "MON_tpcb PIL_cfield C %04X\r", output->setpoint);
+		sprintf(command, CMD_WRITE_FINE, output->setpoint);
 	} else if (output->action == ADJUST_COARSE) {
 		log_trace("mRo50_oscillator_apply_output: Coarse adjustment to value %lu requested", output->setpoint);
-		sprintf(command, "FD %08X\r", output->setpoint);
+		sprintf(command, CMD_WRITE_COARSE, output->setpoint);
 	} else {
 		log_error("Calling mRo50_oscillator_apply_output with action different from ADJUST_COARSE or ADJUST_FINE");
 		log_error("Action is %d", output->action);
@@ -508,11 +499,9 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 		struct phasemeter *phasemeter, struct gnss *gnss, struct calibration_parameters *calib_params,
 		int phase_sign)
 {
-	struct mRo50_oscillator *mRo50;
+	struct od_output adj_fine = { .action = ADJUST_FINE, .setpoint = 0, };
 	int ret;
 	int64_t phase_error;
-
-	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 
 	struct calibration_results *results = malloc(sizeof(struct calibration_results));
 	if (results == NULL) {
@@ -533,10 +522,10 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 	for (int i = 0; i < results->length; i ++) {
 		if (!loop)
 			goto clean_calibration;
-		uint32_t ctrl_point = (uint32_t) calib_params->ctrl_points[i];
-		log_info("Applying fine adjustment of %d", ctrl_point);
-		ret = ioctl(mRo50->osc_fd, MRO50_ADJUST_FINE, &ctrl_point);
-		if ((ret =! sizeof(ctrl_point))) {
+		adj_fine.setpoint = (uint32_t) calib_params->ctrl_points[i];
+		log_info("Applying fine adjustment of %d", adj_fine.setpoint);
+		ret = mRo50_oscillator_apply_output(oscillator, &adj_fine);
+		if (ret < 0) {
 			free(results->measures);
 			log_error("Could not write to mRO50");
 			results->measures = NULL;
@@ -548,8 +537,8 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 
 		struct oscillator_ctrl ctrl;
 		ret = mRo50_oscillator_get_ctrl(oscillator, &ctrl);
-		if (ctrl.fine_ctrl != ctrl_point) {
-			log_info("ctrl measured is %d and ctrl point is %d", ctrl.fine_ctrl, ctrl_point);
+		if (ctrl.fine_ctrl != adj_fine.setpoint) {
+			log_info("ctrl measured is %d and ctrl point is %d", ctrl.fine_ctrl, adj_fine.setpoint);
 			log_error("CTRL POINTS HAS NOT BEEN SET !");
 		}
 
@@ -576,10 +565,10 @@ static struct calibration_results * mRo50_oscillator_calibrate(struct oscillator
 				results = NULL;
 				return NULL;
 			}
-			
+
 			*(results->measures + i * results->nb_calibration + j) = phase_error + (float) qErr / 1000;
 			log_debug("ctrl_point %d measure[%d]: phase error = %lld, qErr = %d, result = %f",
-				ctrl_point, j, phase_error, qErr, phase_error + (float) qErr / 1000);
+				adj_fine.setpoint, j, phase_error, qErr, phase_error + (float) qErr / 1000);
 			sleep(1);
 		}
 	}
