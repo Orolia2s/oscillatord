@@ -152,6 +152,7 @@ static int set_serial_attributes(int fd)
 	// disable IGNBRK for mismatched speed tests; otherwise receive break
 	// as \000 chars
 	tty.c_iflag &= ~IGNBRK;			// disable break processing
+	tty.c_iflag &= ~(ICRNL|INLCR|IGNCR); // disable carrier return replacement
 	tty.c_lflag = 0;			// no signaling chars, no echo,
 						// no canonical processing
 	tty.c_oflag = 0;			// no remapping, no delays
@@ -234,7 +235,7 @@ static int sa5x_oscillator_read_intval(int *val, int size)
 {
 	int res = size;
 	if (size > 0) {
-		res = sscanf(answer_str, "[=%d]\n\n", val);
+		res = sscanf(answer_str, "[=%d]\r\n", val);
 		// we have to clean buffer if it has something
 		memset(answer_str, 0, size);
 	}
@@ -245,7 +246,7 @@ static int sa5x_oscillator_read_int64val(int64_t *val, int size)
 {
 	int res = size;
 	if (size > 0) {
-		res = sscanf(answer_str, "[=%ld]\n\n", val);
+		res = sscanf(answer_str, "[=%ld]\r\n", val);
 		// we have to clean buffer if it has something
 		memset(answer_str, 0, size);
 	}
@@ -257,7 +258,7 @@ static int sa5x_oscillator_read_phase(int32_t *val, int size)
 	int res = size;
 	double phase;
 	if (size > 0) {
-		res = sscanf(answer_str, "[=%lf]\n\n", &phase);
+		res = sscanf(answer_str, "[=%lf]\r\n", &phase);
 		// we have to clean buffer if it has something
 		memset(answer_str, 0, size);
 	}
