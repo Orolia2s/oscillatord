@@ -335,18 +335,25 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_DISCIPLINING, sizeof(CMD_GET_DISCIPLINING)));
 		if (err > 0) {
 			a->disciplining = val;
-			if (!val) {
-				log_warn("SA5x reports no internal disciplining, trying to switch it on");
-				if (sa5x_oscillator_cmd(sa5x, answer_str, snprintf(answer_str, answer_len, CMD_SET_DISCIPLINING, 1)) == -1) {
-					log_warn("SA5x: couldn't enable disciplining after latch command");
-				}
-			}
+			// if disciplining is off check Phase to enable it
+			if (!val)
+				attributes_mask |= ATTR_PHASE;
 		}
 	}
 
 	if (attributes_mask & ATTR_PHASE) {
 
 		sa5x_oscillator_read_phase(&a->phaseoffset, sa5x_oscillator_cmd(sa5x, CMD_GET_PHASE, sizeof(CMD_GET_PHASE)));
+
+		if (attributes_mask & ATTR_STATUS && !a->disciplining) {
+			log_warn("SA5x reports disciplining off, phase offset = %d, %s", a->phaseoffset,
+					  a->phaseoffset ? "skip switching while Phase is not 0" : "trying to switch it on");
+			if (!a->phaseoffset) {
+				if (sa5x_oscillator_cmd(sa5x, answer_str, snprintf(answer_str, answer_len, CMD_SET_DISCIPLINING, 1)) == -1) {
+					log_warn("SA5x: couldn't enable disciplining after latch command");
+				}
+			}
+		}
 
 	}
 
@@ -418,29 +425,43 @@ error:
 // Issue latch sequence to restore from out-of-range tuning values
 static int sa5x_oscillator_latch(struct sa5x_oscillator *sa5x, struct sa5x_attributes *a)
 {
-	int cmd_len;
+	int cmd_len, err, val, retry = 3;
 
-	if (a->disciplining) {
+	while (retry && a->disciplining) {
 		cmd_len = snprintf(answer_str, answer_len, CMD_SET_DISCIPLINING, 0);
 		if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
 			log_warn("SA5x: couldn't disable disciplining for latch command");
 			return 1;
 		}
+		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_DISCIPLINING, sizeof(CMD_GET_DISCIPLINING)));
+		if (err == -1) {
+			log_warn("SA5x: couldn't read disciplining status while in latch procedure");
+			return 1;
+		}
+		a->disciplining = val;
+		retry--;
 	}
 
-	if (sa5x_oscillator_cmd(sa5x, CMD_LATCH, sizeof(CMD_LATCH)) == -1)
+	if (!retry) {
+		log_warn("SA5x: couldn't disable disciplining for latch command 3 times");
+		return 1;
+	}
+
+	if ((err = sa5x_oscillator_cmd(sa5x, CMD_LATCH, sizeof(CMD_LATCH))) == -1) {
 		log_warn("SA5x: error with latch command");
+		return 1;
+	}
 
-	cmd_len = snprintf(answer_str, answer_len, CMD_SET_DIGITAL_TUNING, 0);
-	if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
-		log_warn("SA5x: couldn't clear digital tuning value");
+	if (sa5x_oscillator_read_intval(&val, err) <= 0 || !val) {
+		log_warn("SA5x: latch command returned 0, aborting latch procedure");
+		return 1;
 	}
-	cmd_len = snprintf(answer_str, answer_len, CMD_SET_DISCIPLINING, 1);
-	if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
-		log_warn("SA5x: couldn't enable disciplining after latch command");
-	}
-	a->disciplining = 1;
+
 	clock_gettime(CLOCK_MONOTONIC, &sa5x->mac_last_latch);
+
+	/* we have to wait for the new second to enable disciplining after latch command
+	 * and the Phase should be 0 according to the information provided by MicroChip
+	 */
 	return 0;
 }
 
