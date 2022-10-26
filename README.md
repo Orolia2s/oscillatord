@@ -2,7 +2,7 @@
 
 Oscillatord aims at disciplining an oscillator to an external reference. It is responsible for fetching oscillator and reference data and pass them to a disciplining algorithm, and apply the decision of the algorithm regarding the oscillator.
 
-It can be used to discipline the [Atomic Reference Card](https://www.orolia.com/about-the-atomic-reference-time-card-art-card/) from Orolia
+It can be used to discipline the [Atomic Reference Time Card](https://www.orolia.com/about-the-atomic-reference-time-card-art-card/) from Orolia
 
 Oscillatord can either be used to discipline and/or monitor a oscillatord a GNSS external reference.
 
