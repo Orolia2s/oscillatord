@@ -210,12 +210,12 @@ art_temperature_table_manager -m eeprom_path  [-w input_file | -r -o output_file
 
 ### Monitoring Client
 
-monitoring_client program offers a simple interface to test and interact with monitoring socket inside oscillatord
+art_monitoring_client program offers a simple interface to test and interact with monitoring socket inside oscillatord
 
 Program allows to fetch data sent by the monitoring socket as well as perform the different actions oscillatord can respond to coming from a socket client:
 
 ```
-monitoring_client -a address -p port [-r request]
+art_monitoring_client -a address -p port [-r request]
 ```
 * **-a address**: address of the socket server (set in oscillatord.conf)
 * **-p port**: socket port to bind to (set in oscillatord.conf)
