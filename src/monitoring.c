@@ -143,7 +143,7 @@ static void make_socket_non_blocking(int sockfd) {
 /**
  * @brief Indicate a peer is connected
  *
- * @param sa socket address and and port
+ * @param sa socket address and port
  * @param salen socket name length
  */
 static void report_peer_connected(const struct sockaddr_in* sa, socklen_t salen) {
