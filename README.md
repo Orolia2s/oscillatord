@@ -100,7 +100,7 @@ considered as part of, respectively, the **key** or the **value**.
 
 #### Devices paths and configuration
 * **ptp-clock**: path to the PHC used to get the phase error and set time **Required**.
-* **mro50-device**: Path the the mro50 device used to control the oscillator **Required**
+* **mro50-device**: Path the mro50 device used to control the oscillator **Required**
 * **pps-device**: path to the 1PPS phase error device. will trigger write to Chrony SHM. **Optional**.
 * **gnss-device-tty**: path to the device tty (e.g /dev/ttyS2) **Required**.
   * **gnss-receiver-reconfigure**: if set to **true**, Oscillatord will check if gnss receiver is configured as specified in the [default configuration file](common/f9_defvalsets.c)
