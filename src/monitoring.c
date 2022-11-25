@@ -704,7 +704,7 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 }
 
 /**
- * @brief Stop moniroting thread
+ * @brief Stop monitoring thread
  *
  * @param monitoring
  */
