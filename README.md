@@ -144,7 +144,7 @@ Integration tests can be run to test the behaviour an ART Card. they are located
 Integration test do the following:
 - Analyze filesystem to scan for */sys/class/timecard/\** directories
 - Test GNSS Receiver
-- Test PTP Hardware clock primary and auxillary fnctions
+- Test PTP Hardware clock primary and auxillary functions
 - Test mRO50 oscillator
 - Check for EEPROM presence
 - Start oscillatord service and check that phase error is not upon a threshold during 10 minutes.
