@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    log_info("Writing back disciplining parmateters to version %d", dsc_params.dsc_config.version);
+    log_info("Writing back disciplining parameters to version %d", dsc_params.dsc_config.version);
     ret = write_disciplining_parameters_in_eeprom(
         disciplining_config_path,
         temperature_table_path,

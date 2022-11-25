@@ -188,7 +188,7 @@ art_disciplining_manager [-p eeprom_path | -m mro50_path]  [-w calibration.conf 
 ```
 * **-p eeprom_path**: Path to the eeprom file
 * **-m mro50_path**: Path to mro50 device
-* **-w calibration.conf**: Path to the calibration paramters file to write in the eeprom
+* **-w calibration.conf**: Path to the calibration parameters file to write in the eeprom
 * **-r**: Read calibration parameters from the eeprom
 * **-f**: force write operation to write factory parameters
 * **-o output_file_path**: write calibration parameters read in file
