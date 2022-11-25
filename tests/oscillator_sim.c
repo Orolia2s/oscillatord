@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 	fd_set readfds;
 	uint64_t expired;
 	ssize_t sret;
-	/* read from the 1PPS device by oscillatord containint the error */
+	/* read from the 1PPS device by oscillatord containing the error */
 	int32_t phase_error;
 	/* data written by oscillatord to the 1PPS device */
 	int32_t phase_offset;
