@@ -641,7 +641,7 @@ int main(int argc, char *argv[])
 			monitoring->ctrl_values = ctrl_values;
 			switch(monitoring->request) {
 			case REQUEST_CALIBRATION:
-				log_info("Monitoring: Calibration resquested");
+				log_info("Monitoring: Calibration requested");
 				input.calibration_requested = true;
 				break;
 			case REQUEST_GNSS_START:
