@@ -82,7 +82,7 @@ void init_manufacturing_eeprom_data(struct eeprom_manufacturing_data *data, char
 
     data->magic = 0xFBFB;
     data->format_version = 3;
-    data->product_prodution_state = MP;
+    data->product_production_state = MP;
     data->product_version = 5;
     data->product_sub_version = 0;
 
