@@ -232,7 +232,7 @@ static bool mRo50_reset(struct mRo50_oscillator *mRo50)
 		if (strstr(answer_str, "Start done>") != NULL) {
 			answer_str[rbytes - 1] = '\0';
 			log_debug("%s", answer_str);
-			log_info("mRO succesfully reset !");
+			log_info("mRO successfully reset !");
 			mRo_reset = true;
 			break;
 		}

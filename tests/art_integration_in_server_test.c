@@ -87,7 +87,7 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
                 log_error("Could not activate mro50 serial");
             }
 	    else {
-	    	log_info("mro50 serial sucessfully activated");
+	    	log_info("mro50 serial successfully activated");
 	    }
 	}
 	else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
