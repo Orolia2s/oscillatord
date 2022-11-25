@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
         &dsc_params
     );
     if (ret != 0) {
-        log_error("An error occured when reading disciplining parameters of the card");
+        log_error("An error occurred when reading disciplining parameters of the card");
         return -1;
     }
 
@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
         &dsc_params
     );
     if (ret != 0) {
-        log_error("An error occured when writing disciplining parameters on the card");
+        log_error("An error occurred when writing disciplining parameters on the card");
         return -1;
     }
     log_info("Disciplining parameters updated !");
