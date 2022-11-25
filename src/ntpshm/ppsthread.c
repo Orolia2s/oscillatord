@@ -246,7 +246,7 @@ static int init_kernel_pps(struct inner_context_t *inner_context)
     inner_context->pps_canwait = false;
 
     /*
-     * This next code block abuses "ret" by storing the filedescriptor
+     * This next code block abuses "ret" by storing the file descriptor
      * to use for RFC2783 calls.
      */
 #ifdef __linux__
