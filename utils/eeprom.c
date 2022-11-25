@@ -34,7 +34,7 @@ int write_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturin
     }
     int ret = fseek(fp, 2 * 256, SEEK_SET);
     if (ret != 0) {
-        log_error("Error moving pointer accross file");
+        log_error("Error moving pointer across file");
         err = -1;
     } else {
         size_t written = fwrite(data, 1, sizeof(*data), fp);
@@ -63,7 +63,7 @@ int read_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturing
 
     ret = fseek(fp, 2 * 256, SEEK_SET);
     if (ret != 0)
-        log_error("Error moving pointer accross file");
+        log_error("Error moving pointer across file");
     else {
         ret = fread(data, sizeof(struct eeprom_manufacturing_data), 1, fp);
         if(ret != 1)
