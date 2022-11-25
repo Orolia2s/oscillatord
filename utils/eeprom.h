@@ -38,7 +38,7 @@ struct __attribute__((__packed__)) eeprom_manufacturing_data {
     char product_name[20];//0x03
     /** XX-XXXXXX, dash not in the field */
     char product_part_number[8]; //0x17
-    /** Will report to top lvel and consists of full system assembly */
+    /** Will report to top level and consists of full system assembly */
     char system_assembly_part_number[12]; //0x1F
     char fb_pcba_part_number[12];// 0x2B
     char fb_pcb_part_number[12];// 0x37
