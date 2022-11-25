@@ -26,7 +26,7 @@
  * the returned buffer will look like, shortest case:
  *    sign character ' ' or '-'
  *    one digit of seconds
- *    decmal point '.'
+ *    decimal point '.'
  *    9 digits of nanoSec
  *
  * So 12 chars, like this: "-0.123456789"
