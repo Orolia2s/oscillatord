@@ -162,7 +162,7 @@ static bool oscillatord_track_phase_error_under_limit(int socket_port, int phase
             switch (state) {
                 case WAITING_DISCIPLINING:
                     /* Phase 1: Detect that oscillatord is disciplining and phase error is
-                     * below accetable limits to start test
+                     * below acceptable limits to start test
                      */
                     if (strncmp(status, "TRACKING", sizeof("TRACKING")) == 0
                         && abs(phase_error) <= phase_error_abs_limit) {

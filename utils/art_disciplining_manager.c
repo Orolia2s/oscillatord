@@ -1,6 +1,6 @@
 /**
  * @file art_disciplining_manager.c
- * @brief Read and Write dsiciplining config to ART card's EEPROM use disciplining_config_file
+ * @brief Read and Write disciplining config to ART card's EEPROM use disciplining_config_file
  * @version 0.1
  * @date 2022-01-24
  *

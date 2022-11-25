@@ -431,7 +431,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 			/* Wait for phase error before getting oscillator control values */
-			/* This prevents control values to be read right after writting them */
+			/* This prevents control values to be read right after writing them */
 
 			/* Oscillator control values and temperature are needed for
 			* the disciplining algorithm and monitoring, get both of them
@@ -641,7 +641,7 @@ int main(int argc, char *argv[])
 			monitoring->ctrl_values = ctrl_values;
 			switch(monitoring->request) {
 			case REQUEST_CALIBRATION:
-				log_info("Monitoring: Calibration resquested");
+				log_info("Monitoring: Calibration requested");
 				input.calibration_requested = true;
 				break;
 			case REQUEST_GNSS_START:

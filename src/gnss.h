@@ -8,7 +8,7 @@
  *
  * Ublox F9 is handled by a thread that will configure it if requested and
  * parse incoming messages.
- * When enough data is collected to get a precise mesure of the time, a signal is generated
+ * When enough data is collected to get a precise measure of the time, a signal is generated
  * to tell the rest program that PHC time can be set.
  * Thread uses ubloxcfg library to manage and decode data from the receiver.
  */

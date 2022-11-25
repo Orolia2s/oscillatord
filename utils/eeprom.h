@@ -38,14 +38,14 @@ struct __attribute__((__packed__)) eeprom_manufacturing_data {
     char product_name[20];//0x03
     /** XX-XXXXXX, dash not in the field */
     char product_part_number[8]; //0x17
-    /** Will report to top lvel and consists of full system assembly */
+    /** Will report to top level and consists of full system assembly */
     char system_assembly_part_number[12]; //0x1F
     char fb_pcba_part_number[12];// 0x2B
     char fb_pcb_part_number[12];// 0x37
     char od_pcba_part_number[13];// 0x43
     char od_pcba_serial_number[13];// 0x50
     /** 1=EVT, 2=DVT, 3=PVT, 4=MP */
-    uint8_t product_prodution_state;// 0x5D
+    uint8_t product_production_state;// 0x5D
     /** Revision of the ART Card board */
     uint8_t product_version;// 0x5E
     /** Sub version of the revision */
@@ -83,7 +83,7 @@ static inline void print_eeprom_manufacturing_data(struct eeprom_manufacturing_d
     log_debug("FB PCB PN: %s", data->fb_pcb_part_number);
     log_debug("OD PCBA PN: %s", data->od_pcba_part_number);
     log_debug("OD PCVA SN: %s", data->od_pcba_serial_number);
-    log_debug("Product Production state: %d", data->product_prodution_state);
+    log_debug("Product Production state: %d", data->product_production_state);
     log_debug("Product version: %d", data->product_version);
     log_debug("Product subversion: %d", data->product_sub_version);
     log_debug("Product SN: %s", data->product_serial_number);

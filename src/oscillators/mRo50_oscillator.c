@@ -232,7 +232,7 @@ static bool mRo50_reset(struct mRo50_oscillator *mRo50)
 		if (strstr(answer_str, "Start done>") != NULL) {
 			answer_str[rbytes - 1] = '\0';
 			log_debug("%s", answer_str);
-			log_info("mRO succesfully reset !");
+			log_info("mRO successfully reset !");
 			mRo_reset = true;
 			break;
 		}
@@ -476,7 +476,7 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 
 	if (output->action == ADJUST_FINE) {
-		log_trace("mRo50_oscillator_apply_output: Fine adjustement to value %lu requested", output->setpoint);
+		log_trace("mRo50_oscillator_apply_output: Fine adjustment to value %lu requested", output->setpoint);
 		sprintf(command, CMD_WRITE_FINE, output->setpoint);
 	} else if (output->action == ADJUST_COARSE) {
 		log_trace("mRo50_oscillator_apply_output: Coarse adjustment to value %lu requested", output->setpoint);

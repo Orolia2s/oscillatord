@@ -100,7 +100,7 @@ considered as part of, respectively, the **key** or the **value**.
 
 #### Devices paths and configuration
 * **ptp-clock**: path to the PHC used to get the phase error and set time **Required**.
-* **mro50-device**: Path the the mro50 device used to control the oscillator **Required**
+* **mro50-device**: Path the mro50 device used to control the oscillator **Required**
 * **pps-device**: path to the 1PPS phase error device. will trigger write to Chrony SHM. **Optional**.
 * **gnss-device-tty**: path to the device tty (e.g /dev/ttyS2) **Required**.
   * **gnss-receiver-reconfigure**: if set to **true**, Oscillatord will check if gnss receiver is configured as specified in the [default configuration file](common/f9_defvalsets.c)
@@ -144,7 +144,7 @@ Integration tests can be run to test the behaviour an ART Card. they are located
 Integration test do the following:
 - Analyze filesystem to scan for */sys/class/timecard/\** directories
 - Test GNSS Receiver
-- Test PTP Hardware clock primary and auxillary fnctions
+- Test PTP Hardware clock primary and auxillary functions
 - Test mRO50 oscillator
 - Check for EEPROM presence
 - Start oscillatord service and check that phase error is not upon a threshold during 10 minutes.
@@ -174,7 +174,7 @@ This program write default factory data into ART card's eeprom:
 art-eeprom-format -p PATH -s SERIAL_NUMBER
 ```
 * **-p PATH**: path of the file/EEPROM data should be written to
-* **-s SERIAL_NUMBER**: Serial number that should be written within data. Serial must start with an F followed by 8 numerical caracters
+* **-s SERIAL_NUMBER**: Serial number that should be written within data. Serial must start with an F followed by 8 numerical characters
 
 ### ART Disciplining manager
 
@@ -188,7 +188,7 @@ art_disciplining_manager [-p eeprom_path | -m mro50_path]  [-w calibration.conf 
 ```
 * **-p eeprom_path**: Path to the eeprom file
 * **-m mro50_path**: Path to mro50 device
-* **-w calibration.conf**: Path to the calibration paramters file to write in the eeprom
+* **-w calibration.conf**: Path to the calibration parameters file to write in the eeprom
 * **-r**: Read calibration parameters from the eeprom
 * **-f**: force write operation to write factory parameters
 * **-o output_file_path**: write calibration parameters read in file

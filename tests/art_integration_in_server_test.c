@@ -60,7 +60,7 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
          */
         if (strncmp(entry->d_name, "i2c", 4) == 0) {
             log_info("I2C device detected");
-            char pathname[1280];   /* should alwys be big enough */
+            char pathname[1280];   /* should always be big enough */
             sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
             found_eeprom = find_file(realpath(pathname, NULL), "eeprom", devices_path->eeprom_path);
             if (found_eeprom) {
@@ -87,7 +87,7 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
                 log_error("Could not activate mro50 serial");
             }
 	    else {
-	    	log_info("mro50 serial sucessfully activated");
+	    	log_info("mro50 serial successfully activated");
 	    }
 	}
 	else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {

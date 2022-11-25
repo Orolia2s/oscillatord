@@ -94,7 +94,7 @@ struct sa5x_oscillator {
 
 struct sa5x_attributes {
 
-	uint32_t alarms;		// Alarams bits
+	uint32_t alarms;		// Alarms bits
 
 	int32_t  phaseoffset;		// Most recent phase offset
 	int32_t  lastcorrection;	// Most recent freq correction

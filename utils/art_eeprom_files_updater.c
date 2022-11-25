@@ -70,18 +70,18 @@ int main(int argc, char *argv[])
         &dsc_params
     );
     if (ret != 0) {
-        log_error("An error occured when reading disciplining parameters of the card");
+        log_error("An error occurred when reading disciplining parameters of the card");
         return -1;
     }
 
-    log_info("Writing back disciplining parmateters to version %d", dsc_params.dsc_config.version);
+    log_info("Writing back disciplining parameters to version %d", dsc_params.dsc_config.version);
     ret = write_disciplining_parameters_in_eeprom(
         disciplining_config_path,
         temperature_table_path,
         &dsc_params
     );
     if (ret != 0) {
-        log_error("An error occured when writing disciplining parameters on the card");
+        log_error("An error occurred when writing disciplining parameters on the card");
         return -1;
     }
     log_info("Disciplining parameters updated !");

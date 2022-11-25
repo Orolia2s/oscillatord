@@ -110,7 +110,7 @@ static int test_extts(int fd, uint8_t expected_timestamps)
             break;
 
         }
-        /* Check if we read everytimestamps we expected */
+        /* Check if we read every timestamp we expected */
         if (read_timestamps == expected_timestamps)
             break;
     }

@@ -45,7 +45,7 @@ struct shmTime
     int clockTimeStampUSec;
     time_t receiveTimeStampSec;
     int receiveTimeStampUSec;
-    int leap;                   /* not leapsecond offset, a notification code */
+    int leap;                   /* not leap second offset, a notification code */
     int precision;              /* log(2) of source jitter */
     int nsamples;               /* not used */
     volatile int valid;

@@ -497,7 +497,7 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	if (!gnss_connect(gnss->rx))
 		goto err_gnss_connect;
 
-	/* Check if GNSS receiver should reset to default configuraiton */
+	/* Check if GNSS receiver should reset to default configuration */
 	do_reconfiguration = config_get_bool_default(
 		config,
 		"gnss-receiver-reconfigure",

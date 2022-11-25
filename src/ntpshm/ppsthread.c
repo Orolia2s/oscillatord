@@ -246,7 +246,7 @@ static int init_kernel_pps(struct inner_context_t *inner_context)
     inner_context->pps_canwait = false;
 
     /*
-     * This next code block abuses "ret" by storing the filedescriptor
+     * This next code block abuses "ret" by storing the file descriptor
      * to use for RFC2783 calls.
      */
 #ifdef __linux__
@@ -335,7 +335,7 @@ static int init_kernel_pps(struct inner_context_t *inner_context)
     if (0 > ret) {
         char errbuf[BUFSIZ] = "unknown error";
         pps_strerror_r(errno, errbuf, sizeof(errbuf));
-        // sometimes geteuid)( and geteiud() are long
+        // sometimes getuid() and geteuid() are long
         pps_thread->log_hook(pps_thread, THREAD_INF,
                     "KPPS:%s running as %ld/%ld, cannot open %s: %s",
                     pps_thread->devicename,
@@ -688,7 +688,7 @@ static void *gpsd_ppsmonitor(void *arg)
     char ts_str1[TIMESPEC_LEN], ts_str2[TIMESPEC_LEN];
     struct inner_context_t inner_context = *((struct inner_context_t *)arg);
     volatile struct pps_thread_t *thread_context = inner_context.pps_thread;
-    /* the GPS time and system clock timme, to the nSec,
+    /* the GPS time and system clock time, to the nSec,
      * when the last fix received
      * using a double would cause loss of precision */
     volatile struct timedelta_t last_fixtime = {{0, 0}, {0, 0}};
@@ -726,7 +726,7 @@ static void *gpsd_ppsmonitor(void *arg)
     ((volatile struct inner_context_t *)arg)->pps_thread = NULL;
 
     /* before the loop, figure out how we can detect edges:
-     * TIOMCIWAIT, which is linux specifix
+     * TIOMCIWAIT, which is linux specific
      * RFC2783, a.k.a kernel PPS (KPPS)
      * or if KPPS is deficient a combination of the two */
     if (0 > thread_context->devicefd ||
@@ -873,7 +873,7 @@ static void *gpsd_ppsmonitor(void *arg)
             int prev_edge = 0;
 
             /* get last and previous edges, in order
-             * optionally wait for goood data
+             * optionally wait for good data
              */
             ret = get_edge_rfc2783(&inner_context,
                          &prev_clock_ts,
@@ -969,7 +969,7 @@ static void *gpsd_ppsmonitor(void *arg)
                         "PPS:%s %.10s pps-detect invisible pulse",
                         thread_context->devicename, edge_str);
         }
-        /* else, unchannged state, and weird cycle time */
+        /* else, unchanged state, and weird cycle time */
 
         state_last = state;
         // (long long) for 32-bit compat.  PRId64 segfaults
@@ -1141,7 +1141,7 @@ static void *gpsd_ppsmonitor(void *arg)
             continue;
         }
 
-        /* we have validated a goood cycle, mark it */
+        /* we have validated a good cycle, mark it */
         unchanged = 0;
         /* offset is the skew from expected to observed pulse time */
         struct timespec offset;

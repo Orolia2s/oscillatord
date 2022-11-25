@@ -143,7 +143,7 @@ static void make_socket_non_blocking(int sockfd) {
 /**
  * @brief Indicate a peer is connected
  *
- * @param sa socket address and and port
+ * @param sa socket address and port
  * @param salen socket name length
  */
 static void report_peer_connected(const struct sockaddr_in* sa, socklen_t salen) {
@@ -153,7 +153,7 @@ static void report_peer_connected(const struct sockaddr_in* sa, socklen_t salen)
 					NI_MAXSERV, 0) == 0) {
 		log_debug("peer (%s, %s) connected", hostbuf, portbuf);
 	} else {
-		log_debug("peer (unknonwn) connected");
+		log_debug("peer (unknown) connected");
 	}
 }
 
@@ -384,7 +384,7 @@ static void json_add_disciplining_disciplining_parameters(struct json_object *re
 
 /**
  * @brief Handle request received by setting monitoring request
- * and add action rquest in json response
+ * and add action request in json response
  *
  * @param request_type
  * @param mon_request
@@ -704,7 +704,7 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 }
 
 /**
- * @brief Stop moniroting thread
+ * @brief Stop monitoring thread
  *
  * @param monitoring
  */

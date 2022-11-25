@@ -183,7 +183,7 @@ static void* phasemeter_thread(void *p_data)
 			memcpy(&ts1, &ts2, sizeof(struct external_timestamp));
 
 		/*
-		 * One timestamp comes from GNSS receiver and the one come froms ART Internal PPS
+		 * One timestamp comes from GNSS receiver and the one comes from ART Internal PPS
 		 */
 		} else {
 			int64_t timestamp_diff = ts2.timestamp - ts1.timestamp;

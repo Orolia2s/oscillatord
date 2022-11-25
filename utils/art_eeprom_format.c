@@ -23,11 +23,11 @@
 #include "eeprom.h"
 #include "log.h"
 
-static void removeChar(char * str, char charToRemmove){
+static void removeChar(char * str, char charToRemove){
     int i, j;
     int len = strlen(str);
     for(i=0; i<len; i++)
-        if(str[i] == charToRemmove) {
+        if(str[i] == charToRemove) {
             for(j=i; j<len; j++)
                 str[j] = str[j+1];
             len--;
@@ -61,7 +61,7 @@ static void print_help(void) {
     printf("Parameters:\n");
     printf("- -p PATH: path of the file/EEPROM data should be written from\n");
     printf("- -s SERIAL_NUMBER: Serial number that should be written within data." \
-        "Serial must start with an F followed by 8 numerical caracters\n");
+        "Serial must start with an F followed by 8 numerical characters\n");
 }
 
 int main(int argc, char *argv[])
