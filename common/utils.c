@@ -55,7 +55,7 @@ double compute_temp(uint32_t reg)
 /* find device path in /dev from symlink in sysfs */
 void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
 {
-    char dev_repository[1024];   /* should alwys be big enough */
+    char dev_repository[1024];   /* should always be big enough */
     sprintf(dev_repository, "%s/%s", dirname, dir->d_name );
     char dev_name[100];
     char * token = strtok(realpath(dev_repository, NULL), "/");
