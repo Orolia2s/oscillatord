@@ -873,7 +873,7 @@ static void *gpsd_ppsmonitor(void *arg)
             int prev_edge = 0;
 
             /* get last and previous edges, in order
-             * optionally wait for goood data
+             * optionally wait for good data
              */
             ret = get_edge_rfc2783(&inner_context,
                          &prev_clock_ts,
@@ -1141,7 +1141,7 @@ static void *gpsd_ppsmonitor(void *arg)
             continue;
         }
 
-        /* we have validated a goood cycle, mark it */
+        /* we have validated a good cycle, mark it */
         unchanged = 0;
         /* offset is the skew from expected to observed pulse time */
         struct timespec offset;
