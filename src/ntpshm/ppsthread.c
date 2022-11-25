@@ -688,7 +688,7 @@ static void *gpsd_ppsmonitor(void *arg)
     char ts_str1[TIMESPEC_LEN], ts_str2[TIMESPEC_LEN];
     struct inner_context_t inner_context = *((struct inner_context_t *)arg);
     volatile struct pps_thread_t *thread_context = inner_context.pps_thread;
-    /* the GPS time and system clock timme, to the nSec,
+    /* the GPS time and system clock time, to the nSec,
      * when the last fix received
      * using a double would cause loss of precision */
     volatile struct timedelta_t last_fixtime = {{0, 0}, {0, 0}};
