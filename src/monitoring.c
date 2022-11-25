@@ -384,7 +384,7 @@ static void json_add_disciplining_disciplining_parameters(struct json_object *re
 
 /**
  * @brief Handle request received by setting monitoring request
- * and add action rquest in json response
+ * and add action request in json response
  *
  * @param request_type
  * @param mon_request
