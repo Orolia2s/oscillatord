@@ -153,7 +153,7 @@ static void report_peer_connected(const struct sockaddr_in* sa, socklen_t salen)
 					NI_MAXSERV, 0) == 0) {
 		log_debug("peer (%s, %s) connected", hostbuf, portbuf);
 	} else {
-		log_debug("peer (unknonwn) connected");
+		log_debug("peer (unknown) connected");
 	}
 }
 
