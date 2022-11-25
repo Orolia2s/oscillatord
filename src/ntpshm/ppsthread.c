@@ -969,7 +969,7 @@ static void *gpsd_ppsmonitor(void *arg)
                         "PPS:%s %.10s pps-detect invisible pulse",
                         thread_context->devicename, edge_str);
         }
-        /* else, unchannged state, and weird cycle time */
+        /* else, unchanged state, and weird cycle time */
 
         state_last = state;
         // (long long) for 32-bit compat.  PRId64 segfaults
