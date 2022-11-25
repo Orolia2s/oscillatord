@@ -174,7 +174,7 @@ This program write default factory data into ART card's eeprom:
 art-eeprom-format -p PATH -s SERIAL_NUMBER
 ```
 * **-p PATH**: path of the file/EEPROM data should be written to
-* **-s SERIAL_NUMBER**: Serial number that should be written within data. Serial must start with an F followed by 8 numerical caracters
+* **-s SERIAL_NUMBER**: Serial number that should be written within data. Serial must start with an F followed by 8 numerical characters
 
 ### ART Disciplining manager
 
