@@ -26,7 +26,7 @@
 static void print_help(void)
 {
 	printf("usage: art_monitoring_client [-h -r REQUEST_TYPE] -a ADDRESS -p PORT\n");
-	printf("- -a ADDRESS: Adress socket should bind to\n");
+	printf("- -a ADDRESS: Address socket should bind to\n");
 	printf("- -p PORT: Port socket should bind to\n");
 	printf("- -r REQUEST_TYPE: send a request to oscillatord. Accepted values are:\n");
 	printf("\t- calibration: request a calibration of the algorithm\n");
