@@ -476,7 +476,7 @@ static int mRo50_oscillator_apply_output(struct oscillator *oscillator, struct o
 	mRo50 = container_of(oscillator, struct mRo50_oscillator, oscillator);
 
 	if (output->action == ADJUST_FINE) {
-		log_trace("mRo50_oscillator_apply_output: Fine adjustement to value %lu requested", output->setpoint);
+		log_trace("mRo50_oscillator_apply_output: Fine adjustment to value %lu requested", output->setpoint);
 		sprintf(command, CMD_WRITE_FINE, output->setpoint);
 	} else if (output->action == ADJUST_COARSE) {
 		log_trace("mRo50_oscillator_apply_output: Coarse adjustment to value %lu requested", output->setpoint);
