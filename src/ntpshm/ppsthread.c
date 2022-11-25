@@ -335,7 +335,7 @@ static int init_kernel_pps(struct inner_context_t *inner_context)
     if (0 > ret) {
         char errbuf[BUFSIZ] = "unknown error";
         pps_strerror_r(errno, errbuf, sizeof(errbuf));
-        // sometimes geteuid)( and geteiud() are long
+        // sometimes getuid() and geteuid() are long
         pps_thread->log_hook(pps_thread, THREAD_INF,
                     "KPPS:%s running as %ld/%ld, cannot open %s: %s",
                     pps_thread->devicename,
