@@ -45,6 +45,7 @@ add_definitions("
     -Wmissing-prototypes
     -Wpointer-arith
     -DLOG_USE_COLOR")
+add_definitions("-D_GNU_SOURCE")
 add_definitions("-DOD_REVISION=\"${PACKAGE_VERSION}\"")
 
 add_subdirectory(src)
