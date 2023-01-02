@@ -16,14 +16,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum PHASEMETER_STATUS {
-	PHASEMETER_INIT,
-	PHASEMETER_NO_GNSS_TIMESTAMPS,
-	PHASEMETER_NO_ART_INTERNAL_TIMESTAMPS,
-	PHASEMETER_BOTH_TIMESTAMPS,
-	PHASEMETER_ERROR
-};
-
 /**
  * @struct phasemeter
  * @brief general structure for phasemeter thread
