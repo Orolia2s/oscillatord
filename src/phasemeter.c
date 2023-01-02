@@ -151,8 +151,8 @@ static void* phasemeter_thread(void *p_data)
 				log_warn("Could not read ptp clock external timestamp for phasemeter");
 			}
 		} while (ts2.index != EXTTS_INDEX_ART_INTERNAL_PPS && ts2.index != EXTTS_INDEX_GNSS_PPS);
-		log_trace("Timestamp 1: type %s, ts %lld", (ts1.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts1.timestamp);
-		log_trace("Timestamp 2: type %s, ts %lld", (ts2.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts2.timestamp);
+		log_debug("Phasemeter: %s, ts %lld", (ts1.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts1.timestamp);
+		log_debug("Phasemeter: %s, ts %lld", (ts2.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts2.timestamp);
 
 		/*
 		 * Did not received GNSS PPS external event
