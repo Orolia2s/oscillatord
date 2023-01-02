@@ -456,10 +456,9 @@ int main(int argc, char *argv[])
 				ignore_next_irq = false;
 				continue;
 			}
-			/* For now continue if we do not have a valid phase error */
-			if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS
-				&& phasemeter_status != PHASEMETER_NO_GNSS_TIMESTAMPS)
-				continue;
+
+			/* Fills in input structure with current phasemeter status */
+			input.phasemeter_status = phasemeter_status;
 
 			if (output.action == ADJUST_FINE && output.setpoint != ctrl_values.fine_ctrl) {
 				log_error("Could not apply output to mro50");
