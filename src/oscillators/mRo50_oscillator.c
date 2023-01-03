@@ -47,7 +47,7 @@
 #define STATUS_CLOCK_LOCKED_BIT 2
 #define STATUS_ANSWER_FIELD_SIZE 4
 
-#define RESET_TIMEOUT 180
+#define RESET_TIMEOUT 300
 
 typedef u_int32_t uint32_t;
 typedef u_int32_t u32;
