@@ -346,7 +346,7 @@ static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path
 	}
 	mRo50->serial_fd = serial_fd;
 	if (set_serial_attributes(serial_fd) != 0)
-		goto error;
+		goto error_openedfd;
 
 	oscillator_factory_init(FACTORY_NAME, oscillator, FACTORY_NAME "-%d",
 			mRo50_oscillator_index);
@@ -354,14 +354,15 @@ static struct oscillator *mRo50_oscillator_new(struct devices_path *devices_path
 
 	/* Reset mRo50 */
 	if (!mRo50_reset(mRo50))
-		goto error;
+		goto error_openedfd;
 	log_debug("instantiated " FACTORY_NAME " oscillator");
 
 	read_temperature_compensation_parameters(mRo50);
 
 	return oscillator;
-error:
+error_openedfd:
 	close(serial_fd);
+error:
 	mRo50_oscillator_destroy(&oscillator);
 	return NULL;
 }
