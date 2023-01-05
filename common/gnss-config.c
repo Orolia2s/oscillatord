@@ -87,7 +87,7 @@ UBLOXCFG_KEYVAL_t *get_default_value_from_config(int *nKv)
     CFG_DB_t db = { .kv = kv, .nKv = 0, .maxKv = CFG_SET_MAX_KV };
     bool res = true;
     char current_line[128];
-    for (int i = 0; i < 284; i++)
+    for (int i = 0; i < 297; i++)
     {
         strcpy(current_line, default_configuration_v220[i]);
         IO_LINE_t line = {
