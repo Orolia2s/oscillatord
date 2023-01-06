@@ -19,6 +19,7 @@
 #include "gnss-config.h"
 #include "log.h"
 #include "utils.h"
+#include "f9_defvalsets.h"
 
 #define NUM_SAT_MIN 3
 
@@ -398,18 +399,18 @@ static bool gnss_connect(RX_t *rx) {
 }
 
 /**
- * @brief Send default configuration from f9_defvalsets.h to GNSS receiver
+ * @brief Send configuration from f9_defvalsets.h to GNSS receiver
  *
  * @param rx pointer to serial communication handler
- * @return boolean indicating receiver has correctly been reset to default configuration
+ * @return boolean indicating receiver has correctly been reset to configuration
  */
-static bool gnss_set_default_configuration(RX_t *rx) {
+static bool gnss_set_default_configuration(RX_t *rx, int major, int minor) {
 	bool receiver_configured = false;
 	int tries = 0;
-
-	// Get default configuration
+	
+	// Get configuration
 	int nAllKvCfg;
-	UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg);
+	UBLOXCFG_KEYVAL_t *allKvCfg = get_dafault_value_from_config(&nAllKvCfg, major, minor);
 
 	/* Check if receiver is already configured */
 	receiver_configured = check_gnss_config_in_ram(rx, allKvCfg, nAllKvCfg);
@@ -491,19 +492,34 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	gnss->action = GNSS_ACTION_NONE;
 	/* Init Survey In Error to undefined values */
 	gnss->session->survey_in_position_error =-1.0;
+	/* Init receiver version values */
+	gnss->receiver_version_minor = -1;
+	gnss->receiver_version_major = -1;
 	if (gnss->rx == NULL)
 		goto err_rxInit;
 
 	if (!gnss_connect(gnss->rx))
 		goto err_gnss_connect;
 
+	/* Fetch receiver version and save it in gnss structure*/
+	char verStr[100];
+    if (rxGetVerStr(gnss->rx, verStr, sizeof(verStr))) {
+		if (parse_receiver_version(verStr, &gnss->receiver_version_major, &gnss->receiver_version_minor) == 0)
+			log_debug("Receiver version successfully detected ! Major is %d, Minor is %d ", gnss->receiver_version_major, gnss->receiver_version_minor);
+		else
+			log_warn("Receiver version parsing failed");
+	}
+	else
+		log_warn("Receiver version get command failed");
+
 	/* Check if GNSS receiver should reset to default configuration */
 	do_reconfiguration = config_get_bool_default(
 		config,
 		"gnss-receiver-reconfigure",
 		false);
-	if (do_reconfiguration && !gnss_set_default_configuration(gnss->rx))
-		goto err_gnss_connect;
+	/* Set configuration depending on the version*/
+	if (do_reconfiguration && !gnss_set_default_configuration(gnss->rx, gnss->receiver_version_major, gnss->receiver_version_minor))
+				goto err_gnss_connect;
 
 	gnss->stop = false;
 
