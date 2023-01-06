@@ -29,4 +29,5 @@ void fd_cleanup(int *fd);
 double compute_temp(uint32_t reg);
 void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path);
 bool find_file(char * path , char * name, char * file_path);
+int parse_receiver_version(char* textToCheck, int* major, int* minor);
 #endif /* UTILS_H_ */
