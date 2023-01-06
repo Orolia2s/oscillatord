@@ -286,8 +286,7 @@ const char default_configuration[284][128] = {
     "CFG-USB-PRODUCT_ID                 425",
     "CFG-USB-POWER                      0"
 };
-
-
+const int default_configuration_size = 284;
 
 const char default_configuration_v220[297][128] = {
     "UART1     115200  UBX                  UBX",
@@ -588,3 +587,4 @@ const char default_configuration_v220[297][128] = {
     "CFG-USB-PRODUCT_ID                 425",
     "CFG-USB-POWER                      0"
 };
+const int default_configuration_v220_size = 297;

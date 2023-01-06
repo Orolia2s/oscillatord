@@ -73,7 +73,7 @@ typedef struct IO_LINE_s
 
 static bool _cfgDbAdd(CFG_DB_t *db, IO_LINE_t *line);
 
-UBLOXCFG_KEYVAL_t *get_default_value_from_config(int *nKv)
+UBLOXCFG_KEYVAL_t *get_dafault_value_from_config(int *nKv, int major, int minor)
 {
     const int kvSize = CFG_SET_MAX_KV * sizeof(UBLOXCFG_KEYVAL_t);
     UBLOXCFG_KEYVAL_t *kv = malloc(kvSize);
@@ -87,17 +87,36 @@ UBLOXCFG_KEYVAL_t *get_default_value_from_config(int *nKv)
     CFG_DB_t db = { .kv = kv, .nKv = 0, .maxKv = CFG_SET_MAX_KV };
     bool res = true;
     char current_line[128];
-    for (int i = 0; i < 297; i++)
+
+    if (major == 2 && minor == 1)
     {
-        strcpy(current_line, default_configuration_v220[i]);
-        IO_LINE_t line = {
-            .line = current_line
-        };
-        if (!_cfgDbAdd(&db, &line))
+        for (int i = 0; i < default_configuration_size; i++)
         {
-            res = false;
-            break;
+            strcpy(current_line, default_configuration[i]);
+            IO_LINE_t line = {
+                .line = current_line
+            };
+            if (!_cfgDbAdd(&db, &line))
+            {
+                res = false;
+                break;
+            }
         }
+    }
+    else if (major == 2 && minor == 20)
+    {
+        for (int i = 0; i < default_configuration_v220_size; i++)
+        {
+            strcpy(current_line, default_configuration_v220[i]);
+            IO_LINE_t line = {
+                .line = current_line
+            };
+            if (!_cfgDbAdd(&db, &line))
+            {
+                res = false;
+                break;
+            }
+        }     
     }
 
     if (!res)

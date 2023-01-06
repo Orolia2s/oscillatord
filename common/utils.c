@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <regex.h>
 
 #include "utils.h"
 #include "log.h"
@@ -94,4 +95,36 @@ bool find_file(char * path , char * name, char * file_path)
     }
     closedir(directory);
     return found;
+}
+
+int parse_receiver_version(char* textToCheck, int* major, int* minor)
+{
+    regex_t compiledRegex;
+    size_t     nmatch = 3;
+    regmatch_t pmatch[3];
+    int ret;
+
+    /* Compile regular expression */
+    ret = regcomp(&compiledRegex, "[a-zA-Z]+ ([0-9])*\\.([0-9]+) \\([^)]*\\)", REG_EXTENDED | REG_ICASE);
+    if (ret) {
+        fprintf(stderr, "Could not compile regex\n");
+        return -2;
+    }
+
+    ret = regexec(&compiledRegex, textToCheck,  nmatch, pmatch, 0); /* Execute compiled regular expression */
+    if (ret == 0)
+    {   
+        char major_str[256];
+        int major_size = pmatch[1].rm_eo - pmatch[1].rm_so;
+        snprintf(major_str, sizeof(major_size), "%.*s", major_size, &textToCheck[pmatch[1].rm_so]);
+        *major = atoi(major_str);
+
+        char minor_str[256];
+        int minor_size = pmatch[2].rm_eo - pmatch[2].rm_so;
+        snprintf(minor_str, sizeof(minor_size), "%.*s", minor_size, &textToCheck[pmatch[2].rm_so]);
+        *minor = atoi(minor_str);
+    }
+    /* Free memory allocated to the pattern buffer by regcomp() */
+    regfree(&compiledRegex);
+    return ret;
 }
