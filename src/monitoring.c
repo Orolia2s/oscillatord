@@ -3,10 +3,10 @@
  * @brief monitoring handler
  * @date 2022-01-10
  *
- * @copyright Copyright (c) 2022
+ * @copyright Copyright (c) 2022-2023
  *
- * Program expose a socket other processes can connect to and
- * request data as well as requesting a calibration
+ * This program exposes a socket other processes can connect to and
+ * request data from, as well as requesting a calibration.
  * Implementation is based on Eli's work: https://eli.thegreenplace.net/2017/concurrent-servers-part-3-event-driven/
  */
 #include <assert.h>
@@ -25,18 +25,28 @@
 #include "monitoring.h"
 #include "log.h"
 
-/** Socket time out */
+/** The socket will not be polled for more than 2 seconds at a time */
 #define SOCKET_TIMEOUT_MS 2000
 
+/** Maximum number of pending connections queued up. */
 #define N_BACKLOG 64
 
-/** Maximum file descriptors socket can handle */
+/**
+ * Maximum file descriptor the socket can handle.
+ *
+ * One peer state will be allocated on the stack for each file descriptor (FD).
+ * This number isn't exactily the maximum number of peers this program
+ * will be able to handle, but this number minus 1 will be the highest
+ * FD handled.
+*/
 #define MAXFDS 16 * 1024
 
+/** Number of chars allocated on the stack for each peer */
 #define SENDBUF_SIZE 1024
 
 typedef enum { INITIAL_ACK, WAIT_FOR_MSG, IN_MSG } ProcessingState;
 
+/** Data stored for each peer. */
 typedef struct {
 	ProcessingState state;
 	char recv_buf[SENDBUF_SIZE];
@@ -44,28 +54,36 @@ typedef struct {
 	int buf_ptr;
 } peer_state_t;
 
-// Each peer is globally identified by the file descriptor (fd) it's connected
-// on. As long as the peer is connected, the fd is unique to it. When a peer
-// disconnects, a new peer may connect and get the same fd. on_peer_connected
-// should initialize the state properly to remove any trace of the old peer on
-// the same fd.
+/**
+ * Global table of peers, with file descriptors as keys and peers as values.
+ *
+ * Each peer is globally identified by the file descriptor (fd) it's connected
+ * on. As long as the peer is connected, the fd is unique to it. When a peer
+ * disconnects, a new peer may connect and get the same fd. on_peer_connected
+ * should initialize the state properly to remove any trace of the old peer on
+ * the same fd.
+*/
 peer_state_t global_state[MAXFDS];
 
-// Callbacks (on_XXX functions) return this status to the main loop; the status
-// instructs the loop about the next steps for the fd for which the callback was
-// invoked.
-// want_read=true means we want to keep monitoring this fd for reading.
-// want_write=true means we want to keep monitoring this fd for writing.
-// When both are false it means the fd is no longer needed and can be closed.
+/**
+ * File descriptor status.
+ *
+ * Callbacks (on_XXX functions) return this status to the main loop; the status
+ * instructs the loop about the next steps for the fd for which the callback was
+ * invoked.
+ * want_read=true means we want to keep monitoring this fd for reading.
+ * want_write=true means we want to keep monitoring this fd for writing.
+ * When both are false it means the fd is no longer needed and can be closed.
+*/
 typedef struct {
 	bool want_read;
 	bool want_write;
 } fd_status_t;
 
 // These constants make creating fd_status_t values less verbose.
-const fd_status_t fd_status_R = {.want_read = true, .want_write = false};
-const fd_status_t fd_status_W = {.want_read = false, .want_write = true};
-const fd_status_t fd_status_RW = {.want_read = true, .want_write = true};
+const fd_status_t fd_status_R    = {.want_read = true,  .want_write = false};
+const fd_status_t fd_status_W    = {.want_read = false, .want_write = true};
+const fd_status_t fd_status_RW   = {.want_read = true,  .want_write = true};
 const fd_status_t fd_status_NORW = {.want_read = false, .want_write = false};
 
 static void * monitoring_thread(void * p_data);
@@ -80,13 +98,14 @@ const char *clock_class_string[CLOCK_CLASS_NUM] = {
 /**
  * @brief Create, bind and listen socket
  *
+ * Will use TCP over IPv4
  * @param address address to bind to
  * @param portnum port to bind to
  * @return socket fd on success, -1 if error
  */
-static int listen_inet_socket(const char* address, int portnum) {
+static int listen_inet_socket(const char* address, unsigned short portnum) {
 	if (!address) {
-		log_error("Monitoring address");
+		log_error("Monitoring address (provided address is NULL)");
 		return -1;
 	}
 
@@ -101,6 +120,7 @@ static int listen_inet_socket(const char* address, int portnum) {
 	int opt = 1;
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
 		log_error("setsockopt");
+		close(sockfd);
 		return -1;
 	}
 
@@ -112,11 +132,13 @@ static int listen_inet_socket(const char* address, int portnum) {
 
 	if (bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
 		log_error("on binding");
+		close(sockfd);
 		return -1;
 	}
 
 	if (listen(sockfd, N_BACKLOG) < 0) {
 		log_error("on listen");
+		close(sockfd);
 		return -1;
 	}
 
@@ -697,6 +719,7 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 	);
 	if (ret != 0) {
 		log_error("Monitoring: Error creating monitoring thread: %d", ret);
+		close(monitoring->sockfd);
 		free(monitoring);
 		return NULL;
 	}
