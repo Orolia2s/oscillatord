@@ -76,8 +76,8 @@ peer_state_t global_state[MAXFDS];
  * When both are false it means the fd is no longer needed and can be closed.
 */
 typedef struct {
-	bool want_read;
-	bool want_write;
+	bool want_read:1;
+	bool want_write:1;
 } fd_status_t;
 
 // These constants make creating fd_status_t values less verbose.
