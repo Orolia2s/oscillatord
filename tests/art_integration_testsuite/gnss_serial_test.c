@@ -40,7 +40,7 @@ bool test_gnss_serial(char * path)
 
     // Get default configuration
     int nAllKvCfg;
-    UBLOXCFG_KEYVAL_t *allKvCfg = get_dafault_value_from_config(&nAllKvCfg, 2, 1);
+    UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg, 2, 1);
 
     // Send Default configuration to GNSS receiver
     bool receiver_reconfigured = false;

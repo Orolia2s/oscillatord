@@ -73,7 +73,7 @@ typedef struct IO_LINE_s
 
 static bool _cfgDbAdd(CFG_DB_t *db, IO_LINE_t *line);
 
-UBLOXCFG_KEYVAL_t *get_dafault_value_from_config(int *nKv, int major, int minor)
+UBLOXCFG_KEYVAL_t *get_default_value_from_config(int *nKv, int major, int minor)
 {
     const int kvSize = CFG_SET_MAX_KV * sizeof(UBLOXCFG_KEYVAL_t);
     UBLOXCFG_KEYVAL_t *kv = malloc(kvSize);

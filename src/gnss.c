@@ -410,7 +410,7 @@ static bool gnss_set_default_configuration(RX_t *rx, int major, int minor) {
 	
 	// Get configuration
 	int nAllKvCfg;
-	UBLOXCFG_KEYVAL_t *allKvCfg = get_dafault_value_from_config(&nAllKvCfg, major, minor);
+	UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg, major, minor);
 
 	/* Check if receiver is already configured */
 	receiver_configured = check_gnss_config_in_ram(rx, allKvCfg, nAllKvCfg);
