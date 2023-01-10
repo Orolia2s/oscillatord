@@ -613,7 +613,7 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
  * @param config
  * @return struct monitoring*
  */
-struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path, const char *oscillator_model)
+struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path)
 {
 	int port;
 	int ret;
@@ -646,6 +646,15 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 		return NULL;
 	}
 
+	monitoring->oscillator_model = config_get(config, "oscillator");
+	if (monitoring->oscillator_model == NULL) {
+		ret = errno;
+		log_error("Monitoring: Configuration \"%s\" doesn't have an oscillator entry.",
+				config->path);
+		errno = ret;
+		return NULL;
+	}
+
 	monitoring->stop = false;
 	monitoring->disciplining_mode = config_get_bool_default(config, "disciplining", false);
 	monitoring->phase_error_supported = false;
@@ -657,7 +666,6 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 	monitoring->disciplining.valid_phase_convergence_threshold = -1;
 	monitoring->disciplining.convergence_progress = 0.00;
 	monitoring->disciplining.ready_for_holdover = false;
-	monitoring->oscillator_model = oscillator_model;
 	monitoring->ctrl_values.fine_ctrl = -1;
 	monitoring->ctrl_values.coarse_ctrl = -1;
 	monitoring->osc_attributes.locked = false;
