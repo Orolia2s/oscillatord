@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
 		phase_error_supported = (oscillator_get_phase_error(oscillator, &phase_error) != -ENOSYS);
 		if (phase_error_supported)
 				sign = 1;
-		monitoring = monitoring_init(&config, &devices_path, oscillator->class->name);
+		monitoring = monitoring_init(&config, &devices_path);
 		if (monitoring == NULL) {
 			log_error("Error creating monitoring socket thread");
 			return -EINVAL;
