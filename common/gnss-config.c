@@ -88,22 +88,8 @@ UBLOXCFG_KEYVAL_t *get_dafault_value_from_config(int *nKv, int major, int minor)
     bool res = true;
     char current_line[128];
 
-    if (major == 2 && minor == 1)
-    {
-        for (int i = 0; i < default_configuration_size; i++)
-        {
-            strcpy(current_line, default_configuration[i]);
-            IO_LINE_t line = {
-                .line = current_line
-            };
-            if (!_cfgDbAdd(&db, &line))
-            {
-                res = false;
-                break;
-            }
-        }
-    }
-    else if (major == 2 && minor == 20)
+    // If version >= to 2.20 apply 2.20 ubx config
+    if ((major == 2 && minor >= 20) | (major >= 3)) 
     {
         for (int i = 0; i < default_configuration_v220_size; i++)
         {
@@ -117,6 +103,23 @@ UBLOXCFG_KEYVAL_t *get_dafault_value_from_config(int *nKv, int major, int minor)
                 break;
             }
         }     
+    }
+
+    // Else apply 2.01 ubx config
+    else
+    {
+        for (int i = 0; i < default_configuration_size; i++)
+        {
+            strcpy(current_line, default_configuration[i]);
+            IO_LINE_t line = {
+                .line = current_line
+            };
+            if (!_cfgDbAdd(&db, &line))
+            {
+                res = false;
+                break;
+            }
+        }
     }
 
     if (!res)
