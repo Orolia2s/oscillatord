@@ -683,7 +683,7 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 	memcpy(&monitoring->devices_path, devices_path, sizeof(struct devices_path));
 
 	monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
-	monitoring->disciplining.status = INIT;
+	monitoring->disciplining.status = WARMUP;
 	monitoring->disciplining.current_phase_convergence_count = -1;
 	monitoring->disciplining.valid_phase_convergence_threshold = -1;
 	monitoring->disciplining.convergence_progress = 0.00;
