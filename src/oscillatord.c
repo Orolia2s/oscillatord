@@ -281,19 +281,8 @@ int main(int argc, char *argv[])
 	log_set_level(log_level >= 0 ? log_level : 0);
 	log_info("Starting Oscillatord v%s", PACKAGE_VERSION);
 
-	/* Create oscillator object */
-	oscillator = oscillator_factory_new(&config, &devices_path);
-	if (oscillator == NULL) {
-		error(EXIT_FAILURE, errno, "oscillator_factory_new");
-		return -EINVAL;
-	}
-	log_info("oscillator model %s", oscillator->class->name);
-
 	/* Start Monitoring Thread */
 	if (monitoring_mode) {
-		phase_error_supported = (oscillator_get_phase_error(oscillator, &phase_error) != -ENOSYS);
-		if (phase_error_supported)
-				sign = 1;
 		monitoring = monitoring_init(&config, &devices_path);
 		if (monitoring == NULL) {
 			log_error("Error creating monitoring socket thread");
@@ -305,6 +294,20 @@ int main(int argc, char *argv[])
 		log_info("Starting monitoring socket");
 	}
 
+	/* Create oscillator object */
+	oscillator = oscillator_factory_new(&config, &devices_path);
+	if (oscillator == NULL) {
+		error(EXIT_FAILURE, errno, "oscillator_factory_new");
+		return -EINVAL;
+	}
+	log_info("oscillator model %s", oscillator->class->name);
+
+	/* Handle phase error */
+	if (monitoring_mode) {
+		phase_error_supported = (oscillator_get_phase_error(oscillator, &phase_error) != -ENOSYS);
+		if (phase_error_supported)
+			sign = 1;
+	}
 
 	/* Open PTP clock file descriptor */
 	fd_clock = open(devices_path.ptp_path, O_RDWR);
