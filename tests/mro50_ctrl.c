@@ -279,7 +279,7 @@ int main(int argc, char** argv) {
                 log_error("value is out of range for fine control !");
                 return -1;
             }
-            sprintf(command, "MON_tpcb PIL_cfield C %04X\r", write_value);
+            sprintf(command, "MON_tpcb PIL_polaraop C %04X\r", write_value);
             err = mRo50_oscillator_cmd(fd, command, strlen(command));
             if (err != 2) {
                 log_error("Could not prepare command request to adjust fine frequency, "

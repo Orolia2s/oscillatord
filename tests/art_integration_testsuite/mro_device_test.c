@@ -129,7 +129,7 @@ static bool mro50_check_fine_read_write(int mro50_fd) {
     } else {
         new_value = original_value - 1;
     }
-    sprintf(command, "MON_tpcb PIL_cfield C %04X\r", new_value);
+    sprintf(command, "MON_tpcb PIL_polaraop C %04X\r", new_value);
     err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
     if (err != 2) {
         log_error("Could not prepare command request to adjust fine value, error %d, "
@@ -164,7 +164,7 @@ static bool mro50_check_fine_read_write(int mro50_fd) {
 
     /* Write back previous value to preserve configuration */
     memset(command, 0, 128);
-    sprintf(command, "MON_tpcb PIL_cfield C %04X\r", original_value);
+    sprintf(command, "MON_tpcb PIL_polaraop C %04X\r", original_value);
     err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
     if (err != 2) {
         log_error("Could not prepare command request to adjust Fine value, error %d, "

@@ -33,12 +33,12 @@
 #define READ_MAX_TRY 400
 
 #define CMD_WRITE_COARSE "FD %08X\r"
-#define CMD_WRITE_FINE   "MON_tpcb PIL_cfield C %04X\r"
+#define CMD_WRITE_FINE   "MON_tpcb PIL_polaraop C %04X\r"
 #define CMD_READ_COARSE "FD\r"
-#define CMD_READ_FINE   "MON_tpcb PIL_cfield C\r"
+#define CMD_READ_FINE   "MON_tpcb PIL_polaraop C\r"
 #define CMD_READ_STATUS "MONITOR1\r"
-#define CMD_READ_TEMP_PARAM_A "MON_tpcb PIL_cfield A\r"
-#define CMD_READ_TEMP_PARAM_B "MON_tpcb PIL_cfield B\r"
+#define CMD_READ_TEMP_PARAM_A "MON_tpcb PIL_polaraop A\r"
+#define CMD_READ_TEMP_PARAM_B "MON_tpcb PIL_polaraop B\r"
 #define CMD_RESET "reset\r"
 
 #define STATUS_ANSWER_SIZE 62

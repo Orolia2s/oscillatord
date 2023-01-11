@@ -12,9 +12,9 @@
 /** Maximum possible value of fine control */
 #define FINE_RANGE_MAX              4800
 
-#define CMD_READ_COARSE             "FD\r"
-#define CMD_READ_FINE               "MON_tpcb PIL_cfield C\r"
-#define CMD_READ_STATUS             "MONITOR1\r"
+#define CMD_READ_COARSE "FD\r"
+#define CMD_READ_FINE   "MON_tpcb PIL_polaraop C\r"
+#define CMD_READ_STATUS "MONITOR1\r"
 
 #define STATUS_ANSWER_SIZE          62
 #define STATUS_EP_TEMPERATURE_INDEX 52
