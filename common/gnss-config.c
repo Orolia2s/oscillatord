@@ -503,7 +503,7 @@ static bool _cfgDbAddKeyVal(CFG_DB_t *db, IO_LINE_t *line, const uint32_t id, co
         return false;
     }
 
-    for (int ix = 0; ix < db->maxKv; ix++)
+    for (int ix = 0; ix < db->nKv; ix++)
     {
         if (db->kv[ix].id == id)
         {
