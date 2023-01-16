@@ -748,7 +748,7 @@ void monitoring_stop(struct monitoring *monitoring)
 	pthread_cond_signal(&monitoring->cond);
 	pthread_mutex_unlock(&monitoring->mutex);
 	pthread_join(monitoring->thread, NULL);
-
+	close(monitoring->sockfd);
 	free(monitoring);
 	return;
 }
