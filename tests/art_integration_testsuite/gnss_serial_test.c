@@ -4,6 +4,7 @@
 #include <ubloxcfg/ff_rx.h>
 #include <ubloxcfg/ff_ubx.h>
 
+#include "gnss.h"
 #include "gnss-config.h"
 #include "gnss_serial_test.h"
 #include "log.h"
@@ -14,13 +15,17 @@
 #define GNSS_RECONFIGURE_MAX_TRY 5
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
+static bool parse_receiver_version(char* textToCheck, int* major, int* minor)
+{
+	return textToCheck && sscanf(textToCheck, "%*s %i.%i", major, minor) == 2;
+}
+
 bool test_gnss_serial(char * path)
 {
     bool got_gnss_fix = false;
     bool got_mon_rf_message = false;
     bool got_nav_timels_message = false;
     bool got_tim_tp_message = false;
-    int tries = 0;
 
     if (path == NULL) {
         log_error("\t- GNSS Path does not exists");
@@ -38,45 +43,80 @@ bool test_gnss_serial(char * path)
         return false;
     }
 
-    // Get default configuration
-    int nAllKvCfg;
-    UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg, 2, 1);
+	/* Fetch receiver version */
+	char verStr[100];
+    int major, minor;
 
-    // Send Default configuration to GNSS receiver
-    bool receiver_reconfigured = false;
-    tries = 0;
-    log_info("configuring receiver with default configuration for ART Card\n");
-    while (!receiver_reconfigured) {
-        log_info("Configuring receiver with ART parameters...\n");
-        bool res = rxSetConfig(rx, allKvCfg, nAllKvCfg, true, true, true);
+    if (rxGetVerStr(rx, verStr, sizeof(verStr))) {
+		if (parse_receiver_version(verStr, &major, &minor))
+			log_debug("Receiver version successfully detected ! Major is %d, Minor is %d ", major, minor);
+		else
+			log_warn("Receiver version parsing failed");
+	}
+	else
+		log_warn("Receiver version get command failed");
 
-        if (res) {
-            log_info("Successfully reconfigured GNSS receiver");
-            log_debug("Performing software reset");
-            if (!rxReset(rx, RX_RESET_HARD)) {
-                free(allKvCfg);
-                return false;
+	/* Send configuration depending on the version*/
+	bool receiver_configured = false;
+    bool rx_closed = false;
+    bool rx_error = false;
+    bool no_try = false;
+	int tries = 0;
+
+	// Get configuration
+	int nAllKvCfg;
+	UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg, major, minor);
+
+	while (!(receiver_configured||rx_closed||rx_error||no_try))
+    {
+		log_info("Configuring receiver with ART parameters...\n");
+		bool res = rxSetConfig(rx, allKvCfg, nAllKvCfg, true, true, true);
+
+		if (res)
+        {
+			log_info("Successfully reconfigured GNSS receiver");
+			log_debug("Performing Hardware reset");
+			if (!rxReset(rx, RX_RESET_HARD))
+            {
+				free(allKvCfg);
+                rx_error = true;
+                log_warn("gnss receiver reset error");
+			}
+            else
+            {
+			    log_info("Hardware reset performed");
+			    receiver_configured = true;
             }
-            log_info("Software reset performed");
-            receiver_reconfigured = true;
         }
 
-        if (tries < GNSS_RECONFIGURE_MAX_TRY) {
-            tries++;
-        } else {
-            log_error("Could not reconfigure GNSS receiver from default config\n");
-            free(rx);
-            return false;
+		if (tries == 0)
+        {
+		    tries++;
         }
-    }
-
-    log_info("Re-opening GNSS serial in case reconfiguration changed baudrate");
-    rxClose(rx);
-    if (!rxOpen(rx)) {
-        free(rx);
-        log_error("\t- Gnss rx open failed\n");
-        return false;
-    }
+		else if (tries < GNSS_RECONFIGURE_MAX_TRY)
+        {
+			log_error("Could not reconfigure GNSS receiver from default config\n");
+			log_warn("gnss receiver configuration error, retrying ...");
+			tries++;
+            log_info("Re-opening GNSS serial in case reconfiguration changed baudrate");
+            rxClose(rx);
+            if (!rxOpen(rx))
+            {
+                free(rx);
+                log_error("Gnss rx open failed");
+			    free(allKvCfg);
+                rx_closed = true;
+            }
+        }
+		else
+        {
+			log_warn("gnss receiver configuration error, no remaining try.");
+			free(allKvCfg);
+            no_try = true;
+		}
+	}
+	free(allKvCfg);
+	log_info("Gnss receiver configuration routine done");
 
     EPOCH_t coll;
     EPOCH_t epoch;

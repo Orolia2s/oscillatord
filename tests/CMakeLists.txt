@@ -32,7 +32,7 @@ if(BUILD_TESTS)
 		)
 	file(GLOB EXTTS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts_test.c)
 	file(GLOB EXTTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts.[ch])
-	
+
 
 	pkg_check_modules(SYSTEMD REQUIRED libsystemd)
 	include_directories(${SYSTEMD_INCLUDE_DIRS})

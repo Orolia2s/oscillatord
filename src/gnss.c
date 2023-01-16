@@ -517,6 +517,7 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 		config,
 		"gnss-receiver-reconfigure",
 		false);
+
 	/* Set configuration depending on the version*/
 	if (do_reconfiguration && !gnss_set_default_configuration(gnss->rx, gnss->receiver_version_major, gnss->receiver_version_minor))
 				goto err_gnss_connect;
