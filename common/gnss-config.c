@@ -1,11 +1,11 @@
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <ubloxcfg/ff_ubx.h>
 
 #include "gnss-config.h"
+
 #include "f9_defvalsets.h"
 #include "log.h"
 
@@ -75,62 +75,51 @@ static bool _cfgDbAdd(CFG_DB_t *db, IO_LINE_t *line);
 
 UBLOXCFG_KEYVAL_t *get_default_value_from_config(int *nKv, int major, int minor)
 {
-    const int kvSize = CFG_SET_MAX_KV * sizeof(UBLOXCFG_KEYVAL_t);
-    UBLOXCFG_KEYVAL_t *kv = malloc(kvSize);
-    if (kv == NULL)
-    {
-        log_warn("malloc fail");
-        return NULL;
-    }
-    memset(kv, 0, kvSize);
+	const int          kvSize = CFG_SET_MAX_KV * sizeof(UBLOXCFG_KEYVAL_t);
+	UBLOXCFG_KEYVAL_t* kv     = malloc(kvSize);
+	if (kv == NULL)
+	{
+		log_warn("malloc fail");
+		return NULL;
+	}
+	memset(kv, 0, kvSize);
 
-    CFG_DB_t db = { .kv = kv, .nKv = 0, .maxKv = CFG_SET_MAX_KV };
-    bool res = true;
-    char current_line[128];
+	CFG_DB_t db  = {.kv = kv, .nKv = 0, .maxKv = CFG_SET_MAX_KV};
+	bool     res = true;
+	char     current_line[128] = {};
 
-    // If version >= to 2.20 apply 2.20 ubx config
-    if ((major == 2 && minor >= 20) | (major >= 3)) 
-    {
-        for (int i = 0; i < default_configuration_v220_size; i++)
-        {
-            strcpy(current_line, default_configuration_v220[i]);
-            IO_LINE_t line = {
-                .line = current_line
-            };
-            if (!_cfgDbAdd(&db, &line))
-            {
-                res = false;
-                break;
-            }
-        }     
-    }
+	{
+		size_t config_length = default_configuration_size;
 
-    // Else apply 2.01 ubx config
-    else
-    {
-        for (int i = 0; i < default_configuration_size; i++)
-        {
-            strcpy(current_line, default_configuration[i]);
-            IO_LINE_t line = {
-                .line = current_line
-            };
-            if (!_cfgDbAdd(&db, &line))
-            {
-                res = false;
-                break;
-            }
-        }
-    }
+		// If version >= to 2.20 apply 2.20 ubx config
+		if ((major == 2 && minor >= 20) || (major >= 3))
+			config_length = default_configuration_v220_size;
 
-    if (!res)
-    {
-        log_warn("Failed reading config file!");
-        free(kv);
-        return NULL;
-    }
+		for (size_t i = 0; i < config_length; i++)
+		{
+			if ((major == 2 && minor >= 20) || (major >= 3))
+				strncpy(current_line, default_configuration_v220[i], 127);
+			else
+				strncpy(current_line, default_configuration[i], 127);
+			IO_LINE_t line = { .line = current_line };
 
-    *nKv = db.nKv;
-    return kv;
+			if (!_cfgDbAdd(&db, &line))
+			{
+				res = false;
+				break;
+			}
+		}
+	}
+
+	if (!res)
+	{
+		log_warn("Failed reading config file!");
+		free(kv);
+		return NULL;
+	}
+
+	*nKv = db.nKv;
+	return kv;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -204,7 +193,7 @@ static bool _cfgDbAdd(CFG_DB_t *db, IO_LINE_t *line)
             return false;
         }
 
-        // Add key-value pari to the list
+        // Add key-value pair to the list
         if (!_cfgDbAddKeyVal(db, line, item->id, &value))
         {
             return false;

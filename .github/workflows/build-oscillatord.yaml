@@ -2,7 +2,7 @@ name: Oscillatord
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, ready_for_review]
     branches: [ main, dev ]
   push:
     branches: [ main, dev ]
@@ -43,7 +43,7 @@ jobs:
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     - name: Clone Oscillatord
       uses: actions/checkout@v3
-    
+
     - name: Install dependencies
       run: sudo apt-get install -y libgps-dev libjson-c-dev pps-tools libsystemd-dev
 

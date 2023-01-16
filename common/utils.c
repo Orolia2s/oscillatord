@@ -1,12 +1,11 @@
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include <regex.h>
-
 #include "utils.h"
+
 #include "log.h"
 
 void file_cleanup(FILE **f)
@@ -57,7 +56,7 @@ double compute_temp(uint32_t reg)
 void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
 {
     char dev_repository[1024];   /* should always be big enough */
-    sprintf(dev_repository, "%s/%s", dirname, dir->d_name );
+    snprintf(dev_repository, 1024, "%s/%s", dirname, dir->d_name );
     char dev_name[100];
     char * token = strtok(realpath(dev_repository, NULL), "/");
     while(token != NULL) {
@@ -97,34 +96,56 @@ bool find_file(char * path , char * name, char * file_path)
     return found;
 }
 
-int parse_receiver_version(char* textToCheck, int* major, int* minor)
+/**
+ * Extracts version information from a string.
+ *
+ * The expected format is `W X.Y (D)` where:
+ *  - W is a word made of one or more non-space characters
+ *  - X is an integer
+ *  - Y is an integer
+ *  - D can be anything
+ * the numerical value of X will be stored in @a major,
+ * that of Y will be stored in @a minor.
+ * @param textToCheck A null-terminated character string
+ * @param major will receive the `X` in `X.Y`
+ * @param minor will receive the `Y` in `X.Y`
+ * @return
+ *  - `true` if the parsing was successful
+ *  - `false` otherwise
+ */
+bool parse_receiver_version(char* textToCheck, int* major, int* minor)
 {
-    regex_t compiledRegex;
-    size_t     nmatch = 3;
-    regmatch_t pmatch[3];
-    int ret;
-    char major_str[256];
-    char minor_str[256];
-        
-    /* Compile regular expression */
-    ret = regcomp(&compiledRegex, "[a-zA-Z]+ ([0-9])*\\.([0-9]+) \\([^)]*\\)", REG_EXTENDED | REG_ICASE);
-    if (ret) {
-        fprintf(stderr, "Could not compile regex\n");
-        return -2;
-    }
-
-    ret = regexec(&compiledRegex, textToCheck,  nmatch, pmatch, 0); /* Execute compiled regular expression */
-    if (ret == 0)
-    {   
-        int major_size = pmatch[1].rm_eo - pmatch[1].rm_so;
-        snprintf(major_str, sizeof(major_size), "%.*s", major_size, &textToCheck[pmatch[1].rm_so]);
-        *major = atoi(major_str);
-
-        int minor_size = pmatch[2].rm_eo - pmatch[2].rm_so;
-        snprintf(minor_str, sizeof(minor_size), "%.*s", minor_size, &textToCheck[pmatch[2].rm_so]);
-        *minor = atoi(minor_str);
-    }
-    /* Free memory allocated to the pattern buffer by regcomp() */
-    regfree(&compiledRegex);
-    return ret;
+	return textToCheck && sscanf(textToCheck, "%*s %i.%i", major, minor) == 2;
 }
+
+#ifdef UNIT_TESTS
+
+#include <assert.h>
+
+# define TEST(STRING, MAJOR, MINOR)                            \
+  {                                                            \
+   int  major = 0, minor = 0;                                  \
+   bool ret = parse_receiver_version(STRING, &major, &minor);  \
+   printf("%s: %i.%i\n", (ret ? "OK" : "fail"), major, minor); \
+   assert(ret && major == MAJOR && minor == MINOR);            \
+  }
+//	assert(parse_receiver_version(STRING, &major, &minor) && major == MAJOR && minor == MINOR)
+
+int main()
+{
+	TEST("f9d 2.01 (smth)", 2, 1);
+	TEST("f9d 2.20 (whtv)", 2, 20);
+	TEST("some_name    4.73  (Some description)", 4, 73);
+	TEST("  nm   1.2(mmh)", 1, 2);
+	TEST(" K 3.04 (abcd)", 3, 4);
+	TEST("K 5.006", 5, 6);
+	TEST("fd 7.8 (36W7vCCffR6Gv83)", 7, 8);
+	TEST("some-name  \t\t  9.10", 9, 10);
+	int major, minor;
+	assert(!parse_receiver_version(NULL, &major, &minor));
+	assert(!parse_receiver_version("", &major, &minor));
+	assert(!parse_receiver_version("2.1", &major, &minor));
+	assert(!parse_receiver_version(" wdw 320", &major, &minor));
+}
+
+#endif

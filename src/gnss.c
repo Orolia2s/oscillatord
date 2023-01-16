@@ -407,7 +407,7 @@ static bool gnss_connect(RX_t *rx) {
 static bool gnss_set_default_configuration(RX_t *rx, int major, int minor) {
 	bool receiver_configured = false;
 	int tries = 0;
-	
+
 	// Get configuration
 	int nAllKvCfg;
 	UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg, major, minor);
@@ -504,7 +504,7 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	/* Fetch receiver version and save it in gnss structure*/
 	char verStr[100];
     if (rxGetVerStr(gnss->rx, verStr, sizeof(verStr))) {
-		if (parse_receiver_version(verStr, &gnss->receiver_version_major, &gnss->receiver_version_minor) == 0)
+		if (parse_receiver_version(verStr, &gnss->receiver_version_major, &gnss->receiver_version_minor))
 			log_debug("Receiver version successfully detected ! Major is %d, Minor is %d ", gnss->receiver_version_major, gnss->receiver_version_minor);
 		else
 			log_warn("Receiver version parsing failed");
