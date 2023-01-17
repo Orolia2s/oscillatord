@@ -5,17 +5,18 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
-#include <getopt.h>
-#include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/fcntl.h>
-#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <getopt.h>
+#include <poll.h>
+#include <sys/fcntl.h>
+#include <sys/types.h>
 
 #include "log.h"
 #include "mRo50.h"
@@ -34,25 +35,24 @@ enum {
     TYPE_STATUS
 };
 
-static void print_help(void)
-{
+static void print_help(void) {
     printf("usage: mro50_ctrl [-h] -d DEVICE -c COMMAND -t TYPE [WRITE_VALUE]\n");
     printf("- DEVICE: mrO50 device's path\n");
     printf("- COMMAND: 'read' or 'write'\n");
-    printf("- TYPE: 'fine', 'coarse', 'temp', 'lock_flag' or 'status' (temp, lock_flag and status are read only)\n");
+    printf("- TYPE: 'fine', 'coarse', 'temp', 'lock_flag' or 'status' (temp, lock_flag "
+           "and status are read only)\n");
     printf("- WRITE_VALUE: mandatory if command is write.\n");
     printf("- -h: prints help\n");
     return;
 }
 
-static int check_device(char * device)
-{
+static int check_device(char* device) {
     if (device == NULL) {
         log_error("Device path not provided!\n");
         return -1;
     }
 
-    if (access(device, F_OK ) != -1)
+    if (access(device, F_OK) != -1)
         return 0;
     else {
         log_error("Device path does not exist\n");
@@ -60,9 +60,7 @@ static int check_device(char * device)
     }
 }
 
-
-static int check_command(char * command)
-{
+static int check_command(char* command) {
     if (command == NULL) {
         log_error("Command not specified!\n");
         return -1;
@@ -78,9 +76,7 @@ static int check_command(char * command)
     }
 }
 
-
-static int check_type(char * type)
-{
+static int check_type(char* type) {
     if (type == NULL) {
         log_error("Type not specified!\n");
         return -1;
@@ -102,53 +98,52 @@ static int check_type(char * type)
     }
 }
 
-int main(int argc, char ** argv)
-{
-    char * device;
-    char * command;
-    int command_int;
-    char * type = NULL;
-    int type_int;
+int main(int argc, char** argv) {
+    char*    device;
+    char*    command;
+    int      command_int;
+    char*    type = NULL;
+    int      type_int;
     long int cmdl_value;
     uint32_t write_value;
-    int index = 0;
-    int c;
-    int err, res;
+    int      index = 0;
+    int      c;
+    int      err, res;
 
     log_set_level(LOG_INFO);
 
     while ((c = getopt(argc, argv, "d:c:t:h")) != -1)
-    switch (c)
-      {
-      case 'd':
-        device = optarg;
-        break;
-      case 'c':
-        command = optarg;
-        break;
-      case 't':
-        type = optarg;
-        break;
-    case 'h':
-        print_help();
-        return 0;
-      case '?':
-        if (optopt == 'd')
-          fprintf (stderr, "Option -%c requires mRO50 serial device's path.\n", optopt);
-        if (optopt == 'c')
-          fprintf (stderr, "Option -%c requires an command type: either read or write.\n", optopt);
-        if (optopt == 't')
-          fprintf (stderr, "Option -%c requires an control values to command: either fine, coarse or serial_activate.\n", optopt);
-        else if (isprint (optopt))
-          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-        else
-          fprintf (stderr,
-                   "Unknown option character `\\x%x'.\n",
-                   optopt);
-        return 1;
-      default:
-        abort ();
-      }
+        switch (c) {
+        case 'd':
+            device = optarg;
+            break;
+        case 'c':
+            command = optarg;
+            break;
+        case 't':
+            type = optarg;
+            break;
+        case 'h':
+            print_help();
+            return 0;
+        case '?':
+            if (optopt == 'd')
+                fprintf(stderr, "Option -%c requires mRO50 serial device's path.\n", optopt);
+            if (optopt == 'c')
+                fprintf(stderr, "Option -%c requires an command type: either read or write.\n", optopt);
+            if (optopt == 't')
+                fprintf(stderr,
+                        "Option -%c requires an control values to command: either fine, "
+                        "coarse or serial_activate.\n",
+                        optopt);
+            else if (isprint(optopt))
+                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+            else
+                fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+            return 1;
+        default:
+            abort();
+        }
 
     err = check_device(device);
     if (err != 0)
@@ -159,12 +154,12 @@ int main(int argc, char ** argv)
         return err;
     command_int = err;
 
-    err = check_type(type);
+    err         = check_type(type);
     if (err == -1)
         return err;
     type_int = err;
 
-    int fd = open(device, O_RDWR|O_NONBLOCK);
+    int fd   = open(device, O_RDWR | O_NONBLOCK);
     if (fd < 0) {
         log_error("Could not open mRo50 device\n");
         return -1;
@@ -174,17 +169,16 @@ int main(int argc, char ** argv)
         return -1;
     }
 
-
     // Check for additional parameter if WRITE command is specified
     if (command_int == COMMAND_WRITE) {
         bool write_value_present = false;
         for (index = optind; index < argc; index++) {
             cmdl_value = atol(argv[index]);
-            if (cmdl_value  < 0 ) {
+            if (cmdl_value < 0) {
                 printf("Value to write must be positive");
                 return -1;
             }
-            write_value = (unsigned int)cmdl_value;
+            write_value         = (unsigned int)cmdl_value;
             write_value_present = true;
             break;
         }
@@ -195,13 +189,11 @@ int main(int argc, char ** argv)
         }
     }
 
-    log_info("device = %s, command = %s, type = %s",
-        device, command, type);
+    log_info("device = %s, command = %s, type = %s", device, command, type);
 
     if (command_int == COMMAND_READ) {
         uint32_t value;
-        switch (type_int)
-        {
+        switch (type_int) {
         case TYPE_FINE:
             err = mRo50_oscillator_cmd(fd, CMD_READ_FINE, sizeof(CMD_READ_FINE) - 1);
             if (err > 0) {
@@ -241,7 +233,7 @@ int main(int argc, char ** argv)
                 log_debug("MONITOR1 from mro50 gives %s", answer_str);
                 /* Parse mRo50 EP temperature */
                 strncpy(EP_temperature, &answer_str[STATUS_EP_TEMPERATURE_INDEX], STATUS_ANSWER_FIELD_SIZE);
-                value = strtoul(EP_temperature, NULL, 16);
+                value              = strtoul(EP_temperature, NULL, 16);
                 double temperature = compute_temp(value);
                 if (temperature == DUMMY_TEMPERATURE_VALUE)
                     return -1;
@@ -283,15 +275,17 @@ int main(int argc, char ** argv)
         memset(command, '\0', 128);
         switch (type_int) {
         case TYPE_FINE:
-            if (write_value < FINE_RANGE_MIN
-                || write_value > FINE_RANGE_MAX) {
+            if (write_value < FINE_RANGE_MIN || write_value > FINE_RANGE_MAX) {
                 log_error("value is out of range for fine control !");
                 return -1;
             }
             sprintf(command, "MON_tpcb PIL_cfield C %04X\r", write_value);
             err = mRo50_oscillator_cmd(fd, command, strlen(command));
             if (err != 2) {
-                log_error("Could not prepare command request to adjust fine frequency, error %d, errno %d", err, errno);
+                log_error("Could not prepare command request to adjust fine frequency, "
+                          "error %d, errno %d",
+                          err,
+                          errno);
                 return -1;
             }
             memset(answer_str, 0, mro_answer_len);
@@ -305,7 +299,10 @@ int main(int argc, char ** argv)
             sprintf(command, "FD %08X\r", write_value);
             err = mRo50_oscillator_cmd(fd, command, strlen(command));
             if (err != 2) {
-                log_error("Could not prepare command request to adjust coarse value, error %d, errno %d", err, errno);
+                log_error("Could not prepare command request to adjust coarse value, "
+                          "error %d, errno %d",
+                          err,
+                          errno);
                 return -1;
             }
             memset(answer_str, 0, mro_answer_len);

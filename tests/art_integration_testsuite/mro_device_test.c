@@ -1,21 +1,22 @@
 #include <errno.h>
 #include <string.h>
+
 #include <sys/ioctl.h>
 
-#include "log.h"
 #include "mro_device_test.h"
+
 #include "../mRo50.h"
+#include "log.h"
 #include "utils.h"
 
 /*
  * Performs read / write on mro50 using ioctl to check wether
  * coarse is working
  */
-static bool mro50_check_coarse_read_write(int mro50_fd)
-{
+static bool mro50_check_coarse_read_write(int mro50_fd) {
     uint32_t original_value;
-    char command[128];
-    int err, res;
+    char     command[128];
+    int      err, res;
     /* Read current coarse value of mro50 */
 
     err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_COARSE, sizeof(CMD_READ_COARSE) - 1);
@@ -46,7 +47,10 @@ static bool mro50_check_coarse_read_write(int mro50_fd)
     sprintf(command, "FD %08X\r", new_value);
     err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
     if (err != 2) {
-        log_error("Could not prepare command request to adjust coarse value, error %d, errno %d", err, errno);
+        log_error("Could not prepare command request to adjust coarse value, error %d, "
+                  "errno %d",
+                  err,
+                  errno);
         return false;
     }
     memset(answer_str, 0, mro_answer_len);
@@ -78,7 +82,10 @@ static bool mro50_check_coarse_read_write(int mro50_fd)
     sprintf(command, "FD %08X\r", original_value);
     err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
     if (err != 2) {
-        log_error("Could not prepare command request to adjust coarse value, error %d, errno %d", err, errno);
+        log_error("Could not prepare command request to adjust coarse value, error %d, "
+                  "errno %d",
+                  err,
+                  errno);
         return false;
     }
     memset(answer_str, 0, mro_answer_len);
@@ -90,11 +97,10 @@ static bool mro50_check_coarse_read_write(int mro50_fd)
  * Performs read / write on mro50 using ioctl to check wether
  * fine is working
  */
-static bool mro50_check_fine_read_write(int mro50_fd)
-{
+static bool mro50_check_fine_read_write(int mro50_fd) {
     uint32_t original_value;
-    char command[128];
-    int err, res;
+    char     command[128];
+    int      err, res;
     /* Read current fine value of mro50 */
 
     err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_FINE, sizeof(CMD_READ_FINE) - 1);
@@ -126,7 +132,10 @@ static bool mro50_check_fine_read_write(int mro50_fd)
     sprintf(command, "MON_tpcb PIL_cfield C %04X\r", new_value);
     err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
     if (err != 2) {
-        log_error("Could not prepare command request to adjust fine value, error %d, errno %d", err, errno);
+        log_error("Could not prepare command request to adjust fine value, error %d, "
+                  "errno %d",
+                  err,
+                  errno);
         return false;
     }
     memset(answer_str, 0, mro_answer_len);
@@ -158,7 +167,10 @@ static bool mro50_check_fine_read_write(int mro50_fd)
     sprintf(command, "MON_tpcb PIL_cfield C %04X\r", original_value);
     err = mRo50_oscillator_cmd(mro50_fd, command, strlen(command));
     if (err != 2) {
-        log_error("Could not prepare command request to adjust Fine value, error %d, errno %d", err, errno);
+        log_error("Could not prepare command request to adjust Fine value, error %d, "
+                  "errno %d",
+                  err,
+                  errno);
         return false;
     }
     memset(answer_str, 0, mro_answer_len);
@@ -166,17 +178,16 @@ static bool mro50_check_fine_read_write(int mro50_fd)
     return true;
 }
 
-static bool mro50_read_temperature(int mro50_fd)
-{
+static bool mro50_read_temperature(int mro50_fd) {
     uint32_t value;
-    int err;
+    int      err;
 
     err = mRo50_oscillator_cmd(mro50_fd, CMD_READ_STATUS, sizeof(CMD_READ_STATUS) - 1);
     if (err == STATUS_ANSWER_SIZE) {
         char EP_temperature[4];
         /* Parse mRo50 EP temperature */
         strncpy(EP_temperature, &answer_str[STATUS_EP_TEMPERATURE_INDEX], STATUS_ANSWER_FIELD_SIZE);
-        value = strtoul(EP_temperature, NULL, 16);
+        value              = strtoul(EP_temperature, NULL, 16);
         double temperature = compute_temp(value);
         if (temperature == DUMMY_TEMPERATURE_VALUE) {
             log_error("Could not compute temperature of mRo50");
@@ -190,8 +201,7 @@ static bool mro50_read_temperature(int mro50_fd)
     return true;
 }
 
-int mro50_read_coarse(int mro50_fd, uint32_t *coarse)
-{
+int mro50_read_coarse(int mro50_fd, uint32_t* coarse) {
     int err, res;
     if (coarse == NULL)
         return -EFAULT;
@@ -215,14 +225,13 @@ int mro50_read_coarse(int mro50_fd, uint32_t *coarse)
     return 0;
 }
 
-bool test_mro50_device(int mro50_fd)
-{
+bool test_mro50_device(int mro50_fd) {
     log_info("\t- Testing mro50 device...");
 
-        if (set_serial_attributes(mro50_fd) != 0) {
-            log_error("Could not set serial attributes");
-            return -1;
-        }
+    if (set_serial_attributes(mro50_fd) != 0) {
+        log_error("Could not set serial attributes");
+        return -1;
+    }
 
     log_info("\t- Testing read / write operations on coarse value:");
     if (mro50_check_coarse_read_write(mro50_fd)) {

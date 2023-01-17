@@ -1,25 +1,26 @@
 #include <errno.h>
-#include <fcntl.h>
-#include <linux/ptp_clock.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 
+#include <fcntl.h>
+#include <linux/ptp_clock.h>
+
 #include "configurable_io_test.h"
+
 #include "../extts.h"
 #include "log.h"
 
-#define PHC_OUT "OUT: MAC"
+#define PHC_OUT  "OUT: MAC"
 #define GNSS_OUT "OUT: GNSS"
-#define PPS_IN "IN: PPS1"
+#define PPS_IN   "IN: PPS1"
 
-static int configure_io(char * ocp_path, int io, char *mode)
-{
-    FILE *fptr;
-    char io_path[128];
-    
+static int configure_io(char* ocp_path, int io, char* mode) {
+    FILE* fptr;
+    char  io_path[128];
+
     if (io < 1 || io > 4) {
         log_error("Only IO 1-4 exists ! wanted %d", io);
         return -1;
@@ -42,8 +43,7 @@ static int configure_io(char * ocp_path, int io, char *mode)
     return 0;
 }
 
-static int configure_ios(char *ocp_path, char *mode_1, char *mode_2, char *mode_3, char *mode_4)
-{
+static int configure_ios(char* ocp_path, char* mode_1, char* mode_2, char* mode_3, char* mode_4) {
     int ret;
     ret = configure_io(ocp_path, 1, mode_1);
     if (ret != 0) {
@@ -70,13 +70,12 @@ static int configure_ios(char *ocp_path, char *mode_1, char *mode_2, char *mode_
 
 /**
  * @brief Read 100 timestamps max and expect to see the one set in expected_timestamps
- * 
+ *
  * @param fd file descriptor of the PHC
  * @param expected_timestamps flag of expected timestamps
  * @return int 0 on success else -1
  */
-static int test_extts(int fd, uint8_t expected_timestamps)
-{
+static int test_extts(int fd, uint8_t expected_timestamps) {
     uint8_t read_timestamps = 0;
     for (int i = 0; i < 100; i++) {
         struct ptp_extts_event event = {0};
@@ -92,7 +91,7 @@ static int test_extts(int fd, uint8_t expected_timestamps)
             return -EINVAL;
         }
 
-        switch(event.index) {
+        switch (event.index) {
         case EXTTS_INDEX_TS_1:
         case EXTTS_INDEX_TS_2:
         case EXTTS_INDEX_TS_3:
@@ -108,7 +107,6 @@ static int test_extts(int fd, uint8_t expected_timestamps)
         case EXTTS_INDEX_TS_GNSS:
         case EXTTS_INDEX_TS_INTERNAL:
             break;
-
         }
         /* Check if we read every timestamp we expected */
         if (read_timestamps == expected_timestamps)
@@ -117,8 +115,7 @@ static int test_extts(int fd, uint8_t expected_timestamps)
     return read_timestamps == expected_timestamps ? 0 : -1;
 }
 
-static int enable_all_extts(int fd_clock)
-{
+static int enable_all_extts(int fd_clock) {
     int ret;
     for (int i = 0; i < NUM_EXTTS; i++) {
         ret = enable_extts(fd_clock, i);
@@ -130,8 +127,7 @@ static int enable_all_extts(int fd_clock)
     return ret;
 }
 
-static int disable_all_extts(int fd_clock)
-{
+static int disable_all_extts(int fd_clock) {
     int ret;
     for (int i = 0; i < NUM_EXTTS; i++) {
         ret = disable_extts(fd_clock, i);
@@ -141,8 +137,7 @@ static int disable_all_extts(int fd_clock)
     return ret;
 }
 
-bool test_configurable_io(char * ocp_path, char *ptp_path)
-{
+bool test_configurable_io(char* ocp_path, char* ptp_path) {
     int passed = false;
     int fd_clock;
     int ret;
@@ -163,7 +158,6 @@ bool test_configurable_io(char * ocp_path, char *ptp_path)
         goto out;
     }
     log_info("Passed test on SMA 1 and 3");
-
 
     ret = configure_ios(ocp_path, PHC_OUT, PPS_IN, PHC_OUT, PPS_IN);
     if (ret != 0) {
