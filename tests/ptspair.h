@@ -30,63 +30,60 @@
 #include <stdbool.h>
 
 #ifndef PTSPAIR_BUFFER_SIZE
-#define PTSPAIR_BUFFER_SIZE 0x200
+#    define PTSPAIR_BUFFER_SIZE 0x200
 #endif /* PTSPAIR_BUFFER_SIZE */
 
 #ifndef PTSPAIR_PATH_MAX
-#define PTSPAIR_PATH_MAX 0x1000
+#    define PTSPAIR_PATH_MAX 0x1000
 #endif /* PTSPAIR_PATH_MAX */
 
 #define PTSPAIR_API __attribute__((visibility("default")))
 
 enum pts_index {
-	PTSPAIR_FOO,
-	PTSPAIR_BAR,
+    PTSPAIR_FOO,
+    PTSPAIR_BAR,
 
-	PTSPAIR_NB,
+    PTSPAIR_NB,
 };
 
 /* circular buffer */
 struct buffer {
-	char buf[PTSPAIR_BUFFER_SIZE];
-	int start;
-	int end;
-	/* used to distinguish full / empty when start == end */
-	bool full;
+    char buf[PTSPAIR_BUFFER_SIZE];
+    int  start;
+    int  end;
+    /* used to distinguish full / empty when start == end */
+    bool full;
 };
 
 struct pts {
-	char slave_path[PTSPAIR_PATH_MAX];
-	/*
-	 * stores the data read from the other pts, ready to be written to this
-	 * pts
-	 */
-	struct buffer buf;
-	int master;
-	/*
-	 * if one of the pts is closed, it's master fd will keep triggering
-	 * EPOLLHUP events, having a fd opened WRONLY on the slave's end
-	 * prevent this
-	 */
-	int writer;
+    char          slave_path[PTSPAIR_PATH_MAX];
+    /*
+     * stores the data read from the other pts, ready to be written to this
+     * pts
+     */
+    struct buffer buf;
+    int           master;
+    /*
+     * if one of the pts is closed, it's master fd will keep triggering
+     * EPOLLHUP events, having a fd opened WRONLY on the slave's end
+     * prevent this
+     */
+    int           writer;
 };
 
 struct ptspair {
-	struct pts pts[PTSPAIR_NB];
-	int epollfd;
+    struct pts pts[PTSPAIR_NB];
+    int        epollfd;
 };
 
-PTSPAIR_API int ptspair_init(struct ptspair *ptspair);
-PTSPAIR_API const char *ptspair_get_path(const struct ptspair *ptspair,
-		enum pts_index pts_index);
+PTSPAIR_API int         ptspair_init(struct ptspair* ptspair);
+PTSPAIR_API const char* ptspair_get_path(const struct ptspair* ptspair, enum pts_index pts_index);
 /* returns the writer fd on the given pts, must NOT be closed */
-PTSPAIR_API int ptspair_get_writer_fd(const struct ptspair *ptspair,
-		enum pts_index pts_index);
-PTSPAIR_API int ptspair_raw(struct ptspair *ptspair, enum pts_index pts_index);
-PTSPAIR_API int ptspair_cooked(struct ptspair *ptspair,
-			       enum pts_index pts_index);
-PTSPAIR_API int ptspair_get_fd(const struct ptspair *ptspair);
-PTSPAIR_API int ptspair_process_events(struct ptspair *ptspair);
-PTSPAIR_API void ptspair_clean(struct ptspair *ptspair);
+PTSPAIR_API int ptspair_get_writer_fd(const struct ptspair* ptspair, enum pts_index pts_index);
+PTSPAIR_API int  ptspair_raw(struct ptspair* ptspair, enum pts_index pts_index);
+PTSPAIR_API int  ptspair_cooked(struct ptspair* ptspair, enum pts_index pts_index);
+PTSPAIR_API int  ptspair_get_fd(const struct ptspair* ptspair);
+PTSPAIR_API int  ptspair_process_events(struct ptspair* ptspair);
+PTSPAIR_API void ptspair_clean(struct ptspair* ptspair);
 
 #endif /* PTSPAIR_H_ */

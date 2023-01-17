@@ -5,18 +5,20 @@
  * @date 2022-01-10
  *
  * @copyright Copyright (c) 2022
- * Check wether art card handled by ptp_ocp driver works 
+ * Check wether art card handled by ptp_ocp driver works
  * by interacting will all its devices
  */
-#include <dirent.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/fcntl.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
+
+#include <dirent.h>
+#include <getopt.h>
+#include <sys/fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+
 #include "../common/mRO50_ioctl.h"
 #include "art_integration_testsuite/gnss_serial_test.h"
 #include "art_integration_testsuite/mro_device_test.h"
@@ -26,13 +28,12 @@
 #include "log.h"
 #include "utils.h"
 
-#define READ 0
-#define WRITE 1
+#define READ        0
+#define WRITE       1
 
 #define SOCKET_PORT 2958
 
-static void print_help(void)
-{
+static void print_help(void) {
     printf("usage: art_integration_test_suite [-h] -p SYSFS_PATH\n");
     printf("Parameters:\n");
     printf("- -p SYSFS_PATH: path to ART card sysfs (ex: /sys/class/timecard/ocp0)\n");
@@ -40,28 +41,28 @@ static void print_help(void)
     return;
 }
 
-static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_path) {
-    DIR * ocp_dir = opendir(ocp_path);
-    bool gnss_receiver_passed = false;
+static bool test_ocp_directory(char* ocp_path, struct devices_path* devices_path) {
+    DIR*     ocp_dir              = opendir(ocp_path);
+    bool     gnss_receiver_passed = false;
     uint32_t mro50_coarse_value;
-    bool mro50_passed = false;
-    bool found_eeprom = false;
-    bool ptp_passed = false;
+    bool     mro50_passed = false;
+    bool     found_eeprom = false;
+    bool     ptp_passed   = false;
 
     if (ocp_dir == NULL) {
         log_error("Directory %s does not exists\n", ocp_path);
         return false;
     }
 
-    struct dirent * entry = readdir(ocp_dir);
+    struct dirent* entry = readdir(ocp_dir);
     while (entry != NULL) {
         /* I2C TEST: Find EEPROM File
          * EEPROM file will be written if test is successful
          */
         if (strncmp(entry->d_name, "i2c", 4) == 0) {
             log_info("I2C device detected");
-            char pathname[1280];   /* should always be big enough */
-            sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
+            char pathname[1280]; /* should always be big enough */
+            sprintf(pathname, "%s/%s", ocp_path, entry->d_name);
             found_eeprom = find_file(realpath(pathname, NULL), "eeprom", devices_path->eeprom_path);
             if (found_eeprom) {
                 log_info("\t- Found EEPROM file: %s\n", devices_path->eeprom_path);
@@ -69,38 +70,35 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
                 log_warn("\t- Could not find EEPROM file\n");
             }
 
-        /* MRO50 TEST: Perform R/W operations using ioctls
-         * Also read factory coarse which needs to be written in EEPROM
-         */
-        } 
-	else if (strncmp(entry->d_name, "mro50", 6) == 0) {
-	   log_info("mro50 device detected");
+            /* MRO50 TEST: Perform R/W operations using ioctls
+             * Also read factory coarse which needs to be written in EEPROM
+             */
+        } else if (strncmp(entry->d_name, "mro50", 6) == 0) {
+            log_info("mro50 device detected");
             find_dev_path(ocp_path, entry, devices_path->mro_path);
             log_info("mro50 device path: %s", devices_path->mro_path);
-	    int fd = open(devices_path->mro_path, O_RDWR);
+            int fd = open(devices_path->mro_path, O_RDWR);
             if (fd < 0) {
                 log_error("Could not open mRo50 device\n");
             }
             uint32_t serial_activate = 1;
-            int ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
+            int      ret = ioctl(fd, MRO50_BOARD_CONFIG_WRITE, &serial_activate);
             if (ret != 0) {
                 log_error("Could not activate mro50 serial");
+            } else {
+                log_info("mro50 serial successfully activated");
             }
-	    else {
-	    	log_info("mro50 serial successfully activated");
-	    }
-	}
-	else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
+        } else if (strncmp(entry->d_name, "ttyMAC", 6) == 0) {
             log_info("mro50 Serial detected");
             find_dev_path(ocp_path, entry, devices_path->mac_path);
-	    log_info("mro50 Serial path: %s", devices_path->mac_path);
-            
-	    int mro50 = open(devices_path->mac_path, O_RDWR|O_NONBLOCK);
-	    if (mro50 > 0) {
+            log_info("mro50 Serial path: %s", devices_path->mac_path);
+
+            int mro50 = open(devices_path->mac_path, O_RDWR | O_NONBLOCK);
+            if (mro50 > 0) {
                 mro50_passed = test_mro50_device(mro50);
                 if (mro50_passed) {
                     /* Read factory coarse of the mRO50 which needs to be stored in EEPROM */
-                    if(mro50_read_coarse(mro50, &mro50_coarse_value) != 0) {
+                    if (mro50_read_coarse(mro50, &mro50_coarse_value) != 0) {
                         log_error("Could not read factory coarse value of mRO50");
                         mro50_passed = false;
                     }
@@ -110,7 +108,7 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
                 log_error("\t- Error opening mro50 device");
             }
 
-        /* PTP CLOCK TEST: Set clock time */
+            /* PTP CLOCK TEST: Set clock time */
         } else if (strncmp(entry->d_name, "ptp", 4) == 0) {
             log_info("ptp clock device detected");
             find_dev_path(ocp_path, entry, devices_path->ptp_path);
@@ -122,11 +120,11 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
                 log_error("\t- Error opening ptp device");
             }
 
-        /* SERIAL GNSS TEST:
-         * Check serial can be opened
-         * Reconfigure GNSS to default configuration
-         * check it can receive a fix and UBX-MON-RF message
-         */
+            /* SERIAL GNSS TEST:
+             * Check serial can be opened
+             * Reconfigure GNSS to default configuration
+             * check it can receive a fix and UBX-MON-RF message
+             */
         } else if (strncmp(entry->d_name, "ttyGNSS", 7) == 0) {
             log_info("ttyGPS detected");
             find_dev_path(ocp_path, entry, devices_path->gnss_path);
@@ -144,8 +142,11 @@ static bool test_ocp_directory(char * ocp_path, struct devices_path *devices_pat
     return true;
 }
 
-static void prepare_config_file_for_oscillatord(struct devices_path *devices_path, char * ocp_name, int socket_port_offset,struct config *config, char * sysfspath)
-{
+static void prepare_config_file_for_oscillatord(struct devices_path* devices_path,
+                                                char*                ocp_name,
+                                                int                  socket_port_offset,
+                                                struct config*       config,
+                                                char*                sysfspath) {
     char socket_port_number[10];
     /* Define socket port offset */
     sprintf(socket_port_number, "%d", SOCKET_PORT + socket_port_offset);
@@ -175,21 +176,20 @@ static void prepare_config_file_for_oscillatord(struct devices_path *devices_pat
     config_set(config, "max_allowed_coarse", "30");
     config_set(config, "nb_calibration", "10");
     config_set(config, "oscillator_factory_settings", "true");
-    config_set(config, "learn_temperature_table","false");
+    config_set(config, "learn_temperature_table", "false");
     config_set(config, "use_temperature_table", "false");
-    config_set(config, "oscillator_factory_settings","true");
+    config_set(config, "oscillator_factory_settings", "true");
     return;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     struct devices_path devices_path;
-    struct config config;
-    char *sysfs_path = NULL;
-    char ocp_name[100];
-    char temp[1024];
-    int ocp_number;
-    int c;
+    struct config       config;
+    char*               sysfs_path = NULL;
+    char                ocp_name[100];
+    char                temp[1024];
+    int                 ocp_number;
+    int                 c;
 
     log_set_level(LOG_DEBUG);
     log_info("ART Program Test Suite");
@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
             break;
         case '?':
             if (optopt == 'p')
-                fprintf (stderr, "Option -%c requires path to ART card sysfs.\n", optopt);
+                fprintf(stderr, "Option -%c requires path to ART card sysfs.\n", optopt);
             return -1;
             break;
         }
@@ -216,11 +216,11 @@ int main(int argc, char *argv[])
         return -1;
     }
     log_info("Testing ART card which sysfs is %s", sysfs_path);
-    if(test_ocp_directory(sysfs_path, &devices_path)) {
+    if (test_ocp_directory(sysfs_path, &devices_path)) {
         /* Extract ocpX from sysfs */
         sprintf(temp, "%s", sysfs_path);
-        char * token = strtok(realpath(temp, NULL), "/");
-        while(token != NULL) {
+        char* token = strtok(realpath(temp, NULL), "/");
+        while (token != NULL) {
             strncpy(ocp_name, token, sizeof(ocp_name));
             token = strtok(NULL, "/");
         }
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
             prepare_config_file_for_oscillatord(&devices_path, ocp_name, ocp_number, &config, sysfs_path);
 
             /* Test card by checking phase error stays in limits defined in phase error tracking test */
-            switch(test_phase_error_tracking(ocp_name, &config)) {
+            switch (test_phase_error_tracking(ocp_name, &config)) {
             case TEST_PHASE_ERROR_TRACKING_OK:
                 /* Test passed without calibration, card is ready */
                 break;
@@ -243,7 +243,6 @@ int main(int argc, char *argv[])
                 log_error("This test result is not supported !");
                 return -1;
             }
-
         }
 
     } else {
