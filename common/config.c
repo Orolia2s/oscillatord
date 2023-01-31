@@ -99,14 +99,16 @@ bool config_get_bool_default(const struct config *config, const char *key,
 	const char *value;
 
 	value = config_get(config, key);
-	if (value == NULL)
+	if (value == NULL) {
+		log_warn("value not found for %s!", key);
 		return default_value;
-
+	}
 	if (strcmp(value, "true") == 0)
 		return true;
 	if (strcmp(value, "false") == 0)
 		return false;
 
+	log_error("invalid value for %s!", key);
 	return default_value;
 }
 
