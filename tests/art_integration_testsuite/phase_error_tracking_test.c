@@ -7,12 +7,11 @@
 #include <sys/socket.h>
 #include <systemd/sd-bus.h>
 
+#include "log.h"
 #include "phase_error_tracking_test.h"
 
-#include "log.h"
-
-#define PHASE_ERROR_ABS_MAX           100
-#define PHASE_ERROR_TRACKING_TIME_MIN 10
+#define PHASE_ERROR_ABS_MAX 100
+#define PHASE_ERROR_TRACKING_TIME_MIN 1
 
 enum monitoring_request {
     REQUEST_NONE,

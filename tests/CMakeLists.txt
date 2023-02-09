@@ -15,12 +15,14 @@ if(BUILD_TESTS)
 		${PROJECT_SOURCE_DIR}/common/gnss-config.[ch]
 	)
 	file(GLOB MRO50_CTRL_SOURCES
-	${CMAKE_CURRENT_SOURCE_DIR}/mro50_ctrl.c
-	${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
+		${CMAKE_CURRENT_SOURCE_DIR}/mro50_ctrl.c
+		${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
 	)
 	file(GLOB ART_INTEGRATION_TEST_SUITE_SOURCES
-	${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/*.[ch]
-	${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
+		${PROJECT_SOURCE_DIR}/src/oscillator.[ch]
+		${PROJECT_SOURCE_DIR}/src/oscillator_factory.[ch]
+		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/*.[ch]
+		${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
 	)
 	file(GLOB ART_INTEGRATION_IN_SERVER_TEST_SOURCES
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_in_server_test.c
@@ -29,7 +31,7 @@ if(BUILD_TESTS)
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/phase_error_tracking_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/art_integration_testsuite/ptp_device_test.[ch]
 		${CMAKE_CURRENT_SOURCE_DIR}/mRo50.[ch]
-		)
+	)
 	file(GLOB EXTTS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts_test.c)
 	file(GLOB EXTTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts.[ch])
 
@@ -40,8 +42,8 @@ if(BUILD_TESTS)
 	add_executable(oscillator_sim ${SIM_SOURCES} ${COMMON_SOURCES})
 	add_executable(mro50_ctrl ${MRO50_CTRL_SOURCES} ${COMMON_SOURCES})
 	add_executable(art_integration_test_suite
-		${ART_INTEGRATION_TEST_SUITE_SOURCES}
 		${COMMON_SOURCES}
+		${ART_INTEGRATION_TEST_SUITE_SOURCES}
 		${EXTTS_SOURCES}
 		${COMMON_GNSS_SOURCES}
 	)
@@ -53,10 +55,8 @@ if(BUILD_TESTS)
 	)
 	add_executable(extts_test ${EXTTS_TEST_SOURCES} ${COMMON_SOURCES} ${EXTTS_SOURCES})
 
-	target_link_libraries(oscillator_sim PRIVATE
-		m)
-	target_link_libraries(mro50_ctrl PRIVATE
-		m)
+	target_link_libraries(oscillator_sim PRIVATE m)
+	target_link_libraries(mro50_ctrl PRIVATE m)
 	target_link_libraries(art_integration_test_suite PRIVATE
 		m
 		json-c
