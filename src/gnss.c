@@ -46,6 +46,10 @@
 /** Survey In max duration allowed (s) */
 #define SVIN_MAX_DUR SVIN_MIN_DUR + 600
 
+#ifndef UBX_TIM_TM2_V0_SIZE
+#define UBX_TIM_TP_V0_GROUP0_t UBX_TIME_TP_V0_GROUP0_t
+#define UBX_TIM_SVIN_V0_GROUP0_t UBX_TIME_SVIN_V0_GROUP0_t
+#endif
 
 #ifndef FLAG
 #define FLAG(field, flag) ( ((field) & (flag)) == (flag) )
@@ -190,7 +194,7 @@ static void gnss_parse_ubx_nav_timels(struct gps_device_t *session, PARSER_MSG_t
  */
 static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *msg) {
 	if (msg->size == (int) UBX_TIM_TP_V0_SIZE) {
-		UBX_TIME_TP_V0_GROUP0_t gr0;
+		UBX_TIM_TP_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
 		log_trace("UBX-TIM-TP: towMS %lu, towSubMs %lu, qErr %ld, week %ld, flags %x; refInfo %x",
 			gr0.towMs,
@@ -257,7 +261,7 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
  */
 static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, PARSER_MSG_t *msg) {
 	if (msg->size == (int) UBX_TIM_SVIN_V0_SIZE) {
-		UBX_TIME_SVIN_V0_GROUP0_t gr0;
+		UBX_TIM_SVIN_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
 		log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
 			gr0.dur,
