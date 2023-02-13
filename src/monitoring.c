@@ -469,6 +469,19 @@ static void json_handle_request(struct monitoring *monitoring, int request_type,
 	}
 }
 
+static void json_add_clock_data(struct json_object *resp, struct monitoring *monitoring)
+{
+	struct json_object *clock = json_object_new_object();
+	json_object_object_add(clock, "class",
+		json_object_new_string(clock_class_string[monitoring->disciplining.clock_class])
+	);
+	json_object_object_add(clock, "offset",
+		json_object_new_int(monitoring->phase_error));
+
+	json_object_object_add(resp, "clock", clock);
+
+}
+
 /**
  * @brief Add disciplining data to json response
  *
@@ -504,16 +517,6 @@ static void json_add_disciplining_data(struct json_object *resp, struct monitori
 		)
 	);
 	json_object_object_add(resp, "disciplining", disciplining);
-
-	/* Add clock class data */
-	struct json_object *clock = json_object_new_object();
-	json_object_object_add(clock, "class",
-		json_object_new_string(clock_class_string[monitoring->disciplining.clock_class])
-	);
-	json_object_object_add(clock, "offset",
-		json_object_new_int(monitoring->phase_error));
-
-	json_object_object_add(resp, "clock", clock);
 }
 
 /**
@@ -600,6 +603,7 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
 	if (monitoring->disciplining_mode || monitoring->phase_error_supported)
 		json_add_disciplining_data(json_resp, monitoring);
 
+	json_add_clock_data(json_resp, monitoring);
 	json_add_oscillator_data(json_resp, monitoring);
 	json_add_gnss_data(json_resp, monitoring);
 
