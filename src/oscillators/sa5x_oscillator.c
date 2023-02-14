@@ -88,6 +88,7 @@ struct sa5x_oscillator {
 	struct timespec gnss_last_fix;
 	struct timespec mac_last_latch;
 	bool gnss_fix_status;
+	bool latch_fixed;
 	char   version[20];      // SW Rev
 	char   serial[12];       // SerialNumber
 };
@@ -280,6 +281,7 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 	}
 
 	if (attributes_mask & ATTR_FW_SERIAL) {
+		int fw_major, fw_minor;
 		err = sa5x_oscillator_cmd(sa5x, CMD_SWVER, sizeof(CMD_SWVER));
 		if (err > 0) {
 			sscanf(answer_str, "[=%19[^,],", sa5x->version);
@@ -290,6 +292,13 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 		if (err > 0) {
 			sscanf(answer_str, "[=%11c]\r\n", sa5x->serial);
 			memset(answer_str, 0, err);
+		}
+		if (sscanf(sa5x->version, "V%d.%d", &fw_major, &fw_minor) == 2) {
+			if ((fw_major * 0x100 + fw_minor) >= 0x101) {
+				sa5x->latch_fixed = true;
+				log_debug("SA5x firmware has latching issue fixes");
+			} else
+				log_warn("SA5x firmware is affected to latching issue, upgrade is needed");
 		}
 		return 0;
 	}
@@ -489,7 +498,7 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 	// check if we stuck with disciplining error
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	if (a.alarms) {
-		if ((a.alarms & BIT(18)) && !a.lastcorrection) {
+		if ((a.alarms & BIT(18)) && !a.lastcorrection && !sa5x->latch_fixed) {
 			// digital correction is out of range, needs latch command
 			log_warn("SA5x: Digital tuning is out of range, adjust base frequency initiated");
 			latch = true;
@@ -500,8 +509,10 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 	} else if (!a.lastcorrection && !a.disciplinelocked &&
 			   (a.digitaltuning == DIGITAL_TUNING_MAX || a.digitaltuning == -DIGITAL_TUNING_MAX) &&
 			   (ts.tv_sec - sa5x->mac_last_latch.tv_sec > tau_interval[0])) {
-		latch = true;
-		adjust_tau = true;
+		if (!sa5x->latch_fixed) {
+			latch = true;
+			adjust_tau = true;
+		}
 		log_warn("SA5x: no Alarms, but latch is needed, digital tuning is %ld", a.digitaltuning);
 	}
 
