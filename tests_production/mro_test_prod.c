@@ -100,11 +100,7 @@ int main(int argc, char *argv[])
 	struct config config;
     struct devices_path devices_path = { 0 };
 	struct oscillator_ctrl ctrl_values;
-	const char *path;
 	struct oscillator_attributes osc_attr = { 0 };
-    int fd_clock;
-    int log_level;
-
     int ret;
 
 	struct od_output output_fine = {
@@ -193,7 +189,6 @@ int main(int argc, char *argv[])
 		}
 
 		int default_fine_ctrl = ctrl_values.fine_ctrl;
-		int default_coarse_ctrl = ctrl_values.coarse_ctrl;
 
 		output_fine.setpoint = default_fine_ctrl + 1;
 		ret = oscillator_apply_output(oscillator, &output_fine);
@@ -209,7 +204,7 @@ int main(int argc, char *argv[])
 			log_info("\t-Coarse control: %d", ctrl_values.coarse_ctrl);
 		}
 
-		if (ctrl_values.fine_ctrl == default_fine_ctrl +1 )
+		if (ctrl_values.fine_ctrl == (unsigned int) default_fine_ctrl +1 )
 		{
 			log_info("\tApply adjust_fine successful");
 
@@ -226,7 +221,7 @@ int main(int argc, char *argv[])
 				log_info("\t-Fine control: %d", ctrl_values.fine_ctrl);
 				log_info("\t-Coarse control: %d", ctrl_values.coarse_ctrl);
 			}
-			if (ctrl_values.fine_ctrl == default_fine_ctrl)
+			if (ctrl_values.fine_ctrl == (unsigned int) default_fine_ctrl)
 			{
 				log_info("Reapply adjust_fine successful");
 				adjust_fine_valid = true;
