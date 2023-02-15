@@ -6,7 +6,6 @@
 
 #include "gnss.h"
 #include "gnss-config.h"
-#include "gnss_serial_test.h"
 #include "log.h"
 #include "f9_defvalsets.h"
 
@@ -26,7 +25,7 @@ int main(int argc, char *argv[])
     bool receiver_configured = false;
 
 	/* Set log level */
-	log_set_level(0);
+	log_set_level(1);
 
     snprintf(path, sizeof(path), "%s", argv[1]);
 
@@ -37,8 +36,8 @@ int main(int argc, char *argv[])
         gnss_path_valid = false;
     }
 
-	log_info("\t-GNSS serial path is: \"%s\", checking...",file_path);
-	if (access(file_path, F_OK) != -1) 
+	log_info("\t-GNSS serial path is: \"%s\", checking...",path);
+	if (access(path, F_OK) != -1) 
 	{
 		gnss_path_valid = true;
         log_info("\t\tGNSS serial path exists !");
@@ -59,7 +58,7 @@ int main(int argc, char *argv[])
 
         if (!rxOpen(rx)) {
             free(rx);
-            log_error("\t- Gnss rx init failed\n");
+            log_error("\t- Gnss rx init failed");
             return false;
         }
 
@@ -89,7 +88,7 @@ int main(int argc, char *argv[])
             if (!rxOpen(rx)) 
             {
                 free(rx);
-                log_warn("GNSS rx init failed\n");
+                log_warn("GNSS rx init failed");
             }
 
             log_info("Successfully reconfigured GNSS receiver");
@@ -111,11 +110,12 @@ int main(int argc, char *argv[])
         }
 
         log_info("Gnss receiver configuration routine done");
+        rxClose(rx);
         free(rx);
         free(allKvCfg);
     }
     else
     {
-        log_warn("GNSS config aborted");
+        log_warn("GNSS Config Aborted");
     }
 }

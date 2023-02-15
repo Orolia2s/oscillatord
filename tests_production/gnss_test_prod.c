@@ -1,17 +1,17 @@
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <ubloxcfg/ff_epoch.h>
 #include <ubloxcfg/ff_rx.h>
 #include <ubloxcfg/ff_ubx.h>
 
 #include "gnss.h"
 #include "gnss-config.h"
-#include "gnss_serial_test.h"
 #include "log.h"
 #include "f9_defvalsets.h"
 
 #define GNSS_TIMEOUT_MS 1500
-#define GNSS_TEST_TIMEOUT 600
+#define GNSS_TEST_TIMEOUT 120
 #define GNSS_RECONFIGURE_MAX_TRY 5
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
@@ -26,8 +26,13 @@ int main(int argc, char *argv[])
     bool gnss_path_valid;
     bool gnss_test_valid;
 
+    bool got_gnss_fix = false;
+    bool got_mon_rf_message = false;
+    bool got_nav_timels_message = false;
+    bool got_tim_tp_message = false;
+
 	/* Set log level */
-	log_set_level(0);
+	log_set_level(1);
 
     snprintf(path, sizeof(path), "%s", argv[1]);
 
@@ -38,8 +43,8 @@ int main(int argc, char *argv[])
         gnss_path_valid = false;
     }
 
-	log_info("\t-GNSS serial path is: \"%s\", checking...",file_path);
-	if (access(file_path, F_OK) != -1) 
+	log_info("\t-GNSS serial path is: \"%s\", checking...",path);
+	if (access(path, F_OK) != -1) 
 	{
 		gnss_path_valid = true;
         log_info("\t\tGNSS serial path exists !");
@@ -52,6 +57,18 @@ int main(int argc, char *argv[])
 
     if (gnss_path_valid)
     {
+        RX_ARGS_t args = RX_ARGS_DEFAULT();
+        args.autobaud = true;
+        args.detect = true;
+        log_info("Path is %s", path);
+        RX_t * rx = rxInit(path, &args);
+
+        if (!rxOpen(rx)) {
+            free(rx);
+            log_error("\t- Gnss rx init failed");
+            return false;
+        }
+
         EPOCH_t coll;
         EPOCH_t epoch;
 
@@ -96,8 +113,8 @@ int main(int argc, char *argv[])
         rxClose(rx);
         free(rx);
 
-        if (got_gnss_fix && got_mon_rf_message && got_nav_timels_message && got_tim_tp_message
-        ) {
+        if (got_gnss_fix && got_mon_rf_message && got_nav_timels_message && got_tim_tp_message) 
+        {
             log_info("GNSS Test Passed");
             return true;
         }
@@ -105,9 +122,10 @@ int main(int argc, char *argv[])
         {
             log_warn("GNSS Test Failed");
         }
+    }
     else
     {
-        log_warn("GNSS config aborted");
+        log_warn("GNSS Test Aborted");
     }
 
 }
