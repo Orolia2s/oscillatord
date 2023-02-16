@@ -3,7 +3,11 @@
 #include <ubloxcfg/ff_epoch.h>
 #include <ubloxcfg/ff_rx.h>
 #include <ubloxcfg/ff_ubx.h>
+#include <dirent.h>
+#include <string.h>
+#include <stdio.h>
 
+#include "utils.h"
 #include "gnss.h"
 #include "gnss-config.h"
 #include "log.h"
@@ -13,39 +17,56 @@
 #define GNSS_TEST_TIMEOUT 600
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 
-static bool parse_receiver_version(char* textToCheck, int* major, int* minor)
-{
-	return textToCheck && sscanf(textToCheck, "%*s %i.%i", major, minor) == 2;
-}
-
 int main(int argc, char *argv[])
 {
-    char path[256] = "";
+    char ocp_path[256] = "";
+    char gnss_path[256] = "";
     bool gnss_path_valid;
-    bool receiver_configured = false;
+    bool ocp_path_valid;
+
+    bool got_gnss_fix = false;
+    bool got_mon_rf_message = false;
+    bool got_nav_timels_message = false;
+    bool got_tim_tp_message = false;
 
 	/* Set log level */
 	log_set_level(1);
 
-    snprintf(path, sizeof(path), "%s", argv[1]);
-
 	log_info("Checking input:");
-
-    if (path == NULL) {
-        log_error("\t- GNSS Path does not exists");
-        gnss_path_valid = false;
+    snprintf(ocp_path, sizeof(ocp_path), "/sys/class/timecard/%s", argv[1]);
+    if (ocp_path == NULL) {
+        log_error("\t- ocp path doesn't exists");
+        ocp_path_valid = false;
     }
 
-	log_info("\t-GNSS serial path is: \"%s\", checking...",path);
-	if (access(path, F_OK) != -1) 
+	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
+	if (access(ocp_path, F_OK) != -1) 
 	{
-		gnss_path_valid = true;
-        log_info("\t\tGNSS serial path exists !");
+		ocp_path_valid = true;
+        log_info("\t\tocp path exists !");
     } 
 	else 
 	{
-		gnss_path_valid = false;
-        log_info("\t\tGNSS serial path doesn't exists !");
+		ocp_path_valid = false;
+        log_info("\t\tocp path doesn't exists !");
+    }
+
+    if (ocp_path_valid)
+    {
+        log_info("\t-sysfs path %s", ocp_path);
+
+        DIR* ocp_dir = opendir(ocp_path);
+        struct dirent * entry = readdir(ocp_dir);
+        while (entry != NULL) 
+        {
+            if (strcmp(entry->d_name, "ttyGNSS") == 0)
+                {
+                    find_dev_path(ocp_path, entry, gnss_path);
+                    log_info("\t-ttyGPS detected: %s", gnss_path);
+                    gnss_path_valid = true;
+                }
+            entry = readdir(ocp_dir);
+        }
     }
 
     if (gnss_path_valid)
@@ -53,8 +74,8 @@ int main(int argc, char *argv[])
         RX_ARGS_t args = RX_ARGS_DEFAULT();
         args.autobaud = true;
         args.detect = true;
-        log_info("Path is %s", path);
-        RX_t * rx = rxInit(path, &args);
+        log_info("Path is %s", gnss_path);
+        RX_t * rx = rxInit(gnss_path, &args);
 
         if (!rxOpen(rx)) {
             free(rx);
@@ -80,7 +101,7 @@ int main(int argc, char *argv[])
         int nAllKvCfg;
         UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg, major, minor);
 
-        log_info("Configuring receiver with ART parameters...\n");
+        log_info("Configuring receiver with ART parameters...");
         bool res = rxSetConfig(rx, allKvCfg, nAllKvCfg, true, true, true);
         if (res)
         {       
@@ -101,7 +122,6 @@ int main(int argc, char *argv[])
             else
             {
                 log_info("Hardware reset performed");
-                receiver_configured = true;
             }
         }
         else
