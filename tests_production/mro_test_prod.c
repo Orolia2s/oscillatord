@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
 	bool adjust_fine_valid;
 
 	/* Set log level */
-	log_set_level(0);
+	log_set_level(1);
 
     snprintf(file_path, sizeof(file_path), "/etc/oscillatord_%s.conf", argv[1]);
     snprintf(ocp_path, sizeof(ocp_path), "/sys/class/timecard/%s", argv[1]);

@@ -6,7 +6,9 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <dirent.h>
 
+#include "utils.h"
 #include "utils/extts.h"
 #include "log.h"
 
@@ -140,18 +142,63 @@ static int disable_all_extts(int fd_clock)
     return ret;
 }
 
+bool test_configurable_io(char * ocp_path, char *ptp_path)
+{
+    int passed = false;
+    int fd_clock;
+    int ret;
+
+    log_info("Starting Configurable IO test");
+    fd_clock = open(ptp_path, O_RDWR);
+    enable_all_extts(fd_clock);
+
+    ret = configure_ios(ocp_path, PPS_IN, PHC_OUT, PPS_IN, PHC_OUT);
+    if (ret != 0) {
+        log_error("Error configuring IOs");
+        goto out;
+    }
+
+    if (test_extts(fd_clock, (1 << EXTTS_INDEX_TS_1 | 1 << EXTTS_INDEX_TS_3)) != 0) {
+        log_error("Did not read EXTTS on 1 & 3");
+        passed = false;
+        goto out;
+    }
+    log_info("Passed test on SMA 1 and 3");
+
+
+    ret = configure_ios(ocp_path, PHC_OUT, PPS_IN, PHC_OUT, PPS_IN);
+    if (ret != 0) {
+        log_error("Error configuring IOs");
+        goto out;
+    }
+
+    if (test_extts(fd_clock, 1 << EXTTS_INDEX_TS_2 | 1 << EXTTS_INDEX_TS_4) != 0) {
+        log_error("Did not read EXTTS on 2 & 4");
+        passed = false;
+        goto out;
+    }
+    log_info("Passed test on SMA 2 and 4");
+    passed = true;
+
+out:
+    configure_ios(ocp_path, PPS_IN, PPS_IN, PPS_IN, PPS_IN);
+    disable_all_extts(fd_clock);
+    close(fd_clock);
+    return passed;
+}
+
 int main(int argc, char *argv[])
 {
     char ocp_path[256] = "";
     char ptp_path[256] = "";
     bool ocp_path_valid;
-    bool ptp_path_valid;
+    bool ptp_path_valid = false;
 
 	/* Set log level */
 	log_set_level(1);
 
 	log_info("Checking input:");
-    snprintf(ocp_path, sizeof(ocp_path), "%s", argv[1]);
+    snprintf(ocp_path, sizeof(ocp_path), "/sys/class/timecard/%s", argv[1]);
     if (ocp_path == NULL) {
         log_error("\t- ocp path doesn't exists");
         ocp_path_valid = false;
@@ -169,64 +216,34 @@ int main(int argc, char *argv[])
         log_info("\t\tocp path doesn't exists !");
     }
 
-    snprintf(ptp_path, sizeof(ptp_path), "%s", argv[2]);
-    if (ptp_path == NULL) {
-        log_error("\t- ptp path doesn't exists");
-        ptp_path_valid = false;
-    }
+    if (ocp_path_valid)
+    {
+        log_info("\t-sysfs path %s", ocp_path);
 
-	log_info("\t-ptp path is: \"%s\", checking...", ptp_path);
-	if (access(ptp_path, F_OK) != -1) 
-	{
-		ptp_path_valid = true;
-        log_info("\t\tptp path exists !");
-    } 
-	else 
-	{
-		ptp_path_valid = false;
-        log_info("\t\tptp path doesn't exists !");
+        DIR* ocp_dir = opendir(ocp_path);
+        struct dirent * entry = readdir(ocp_dir);
+        while (entry != NULL) 
+        {
+            if (strcmp(entry->d_name, "ptp") == 0)
+            {
+                find_dev_path(ocp_path, entry, ptp_path);
+                log_info("\t-ptp clock device detected: %s", ptp_path);
+                ptp_path_valid = true;
+            }
+            entry = readdir(ocp_dir);
+        }
     }
 
     if (ocp_path_valid && ptp_path_valid)
     {
-        int fd_clock;
-        int ret;
-
-        log_info("Starting Configurable IO test");
-        fd_clock = open(ptp_path, O_RDWR);
-        enable_all_extts(fd_clock);
-
-        ret = configure_ios(ocp_path, PPS_IN, PHC_OUT, PPS_IN, PHC_OUT);
-        if (ret != 0) {
-            log_error("Error configuring IOs");
-            configure_ios(ocp_path, PPS_IN, PPS_IN, PPS_IN, PPS_IN);
-            disable_all_extts(fd_clock);
-            close(fd_clock);
+        if (test_configurable_io(ocp_path, ptp_path))
+        {
+            log_info("IO Test Passed");
         }
-
-        if (test_extts(fd_clock, (1 << EXTTS_INDEX_TS_1 | 1 << EXTTS_INDEX_TS_3)) != 0) {
-            log_error("Did not read EXTTS on 1 & 3");
-            configure_ios(ocp_path, PPS_IN, PPS_IN, PPS_IN, PPS_IN);
-            disable_all_extts(fd_clock);
-            close(fd_clock);
+        else
+        {
+            log_info("IO Test Failed");
         }
-        log_info("Passed test on SMA 1 and 3");
-
-        ret = configure_ios(ocp_path, PHC_OUT, PPS_IN, PHC_OUT, PPS_IN);
-        if (ret != 0) {
-            log_error("Error configuring IOs");
-            configure_ios(ocp_path, PPS_IN, PPS_IN, PPS_IN, PPS_IN);
-            disable_all_extts(fd_clock);
-            close(fd_clock);
-        }
-
-        if (test_extts(fd_clock, 1 << EXTTS_INDEX_TS_2 | 1 << EXTTS_INDEX_TS_4) != 0) {
-            log_error("Did not read EXTTS on 2 & 4");
-            configure_ios(ocp_path, PPS_IN, PPS_IN, PPS_IN, PPS_IN);
-            disable_all_extts(fd_clock);
-            close(fd_clock);
-        }
-        log_info("Passed test on SMA 2 and 4");
     }
     else
     {

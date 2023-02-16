@@ -224,7 +224,6 @@ int main(int argc, char *argv[])
     char ocp_path[256] = "";
 	bool config_path_valid;
 	bool ocp_path_valid;
-    bool test_passed = false;
 
 	/* Set log level */
 	log_set_level(0);
@@ -261,7 +260,7 @@ int main(int argc, char *argv[])
     {
         int socket_port;
         log_info("Starting Phase error limit test");
-        const char * socket_port_string = config_get_default(config_path_valid, "socket-port", NULL);
+        const char * socket_port_string = "2958";
         if (!socket_port_string) 
         {
             log_warn("Phase error tracking Test Aborted: socket port is not set in config !");
@@ -269,22 +268,19 @@ int main(int argc, char *argv[])
         else
         {
             socket_port = atoi(socket_port_string);
+            oscillatord_start_service(argv[1]);
+            sleep(120);
+            if (oscillatord_track_phase_error_under_limit(socket_port, PHASE_ERROR_ABS_MAX, PHASE_ERROR_TRACKING_TIME_MIN)) 
+            {
+                log_info("ART Card ran without reaching phase error limit");
+                log_info("Test PASSED !");
+            } 
             else
             {
-                oscillatord_start_service(argv[1]);
-                sleep(120);
-                if (oscillatord_track_phase_error_under_limit(socket_port, PHASE_ERROR_ABS_MAX, PHASE_ERROR_TRACKING_TIME_MIN)) 
-                {
-                    log_info("ART Card ran without reaching phase error limit");
-                    log_info("Test PASSED !");
-                } 
-                else
-                {
-                    log_warn("Card did not passed phase error limit test even after calibration");
-                    log_warn("Test FAILED !");
-                }
-                oscillatord_stop_service(argv[1]);
+                log_warn("Card did not passed phase error limit test even after calibration");
+                log_warn("Test FAILED !");
             }
+            oscillatord_stop_service(argv[1]);
         }
         log_warn("Phase error tracking Test Aborted: invalid path !");
     }

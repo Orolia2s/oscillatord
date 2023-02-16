@@ -3,9 +3,12 @@
 #include <sys/time.h>
 #include <sys/timex.h>
 #include <unistd.h>
+#include <fcntl.h> 
+#include <dirent.h>
+#include <string.h>
+#include <stdio.h>
 
 #include "log.h"
-#include "ptp_device_test.h"
 #include "utils.h"
 
 #define CLOCKFD 3
@@ -20,7 +23,6 @@ static void timespec_diff(struct timespec *ts1, struct timespec *ts2,
     *diff_ns = ts1_ns - ts2_ns;
     return;
 }
-
 
 /*
  * When setting time, a small delay is added because of the time
@@ -41,29 +43,29 @@ static bool test_ptp_adjtime(clockid_t clkid, int64_t adjust_ns)
     // Get realtime
     ret = clock_gettime(CLOCK_REALTIME, &ts_real);
     if (ret != 0) {
-        log_error("\t- Could not read clock realtime on server\n");
+        log_error("\t- Could not read clock realtime on server");
         return false;
     }
     // Set PTP clock time to realtime
     ret = clock_settime(clkid, &ts_real);
     if (ret != 0) {
-        log_error("\t- Could not set time of ptp clock\n");
+        log_error("\t- Could not set time of ptp clock");
         return false;
     }
 
     // Compute time diff between realtime clock and ptp_clock time before adjustment
     ret = clock_gettime(CLOCK_REALTIME, &ts_real);
     if (ret != 0) {
-        log_error("\t- Could not read clock realtime on server\n");
+        log_error("\t- Could not read clock realtime on server");
         return false;
     }
     ret = clock_gettime(clkid, &ts_before_adjustment);
     if (ret != 0) {
-        log_error("\t- Could not read clock realtime on server\n");
+        log_error("\t- Could not read clock realtime on server");
         return false;
     }
     timespec_diff(&ts_before_adjustment, &ts_real, &diff_ns_before_adjustment);
-    log_trace("\t- Diff before adjustment is %lld", diff_ns_before_adjustment);
+    log_info("\t- Diff before adjustment is %lldns", diff_ns_before_adjustment);
 
     struct timex timex = {
         .modes = ADJ_SETOFFSET | ADJ_NANO,
@@ -84,12 +86,12 @@ static bool test_ptp_adjtime(clockid_t clkid, int64_t adjust_ns)
 
     ret = clock_gettime(CLOCK_REALTIME, &ts_real);
     if (ret != 0) {
-        log_error("\t- Could not read time of ptp clock\n");
+        log_error("\t- Could not read time of ptp clock");
         return false;
     }
     ret = clock_gettime(clkid, &ts_after_adjustment);
     if (ret != 0) {
-        log_error("\t- Could not read clock realtime on server\n");
+        log_error("\t- Could not read clock realtime on server");
         return false;
     }
 
@@ -101,42 +103,62 @@ static bool test_ptp_adjtime(clockid_t clkid, int64_t adjust_ns)
         log_error("\t- Error making an adjustment of %lld  to ptp clock time");
         return false;
     }
-    log_info("\t- Adjustment of %lldns passed\n", adjust_ns);
+    log_info("\t- Adjustment of %lldns passed", adjust_ns);
     return true;
 }
 
 
 int main(int argc, char *argv[])
 {
+    char ocp_path[256] = "";
     char ptp_path[256] = "";
     bool ptp_path_valid;
-    bool ptp_test_passed = true;
+    bool ocp_path_valid;
+    bool ptp_test_passed = false;
 
 	/* Set log level */
 	log_set_level(1);
 
 	log_info("Checking input:");
-    snprintf(ptp_path, sizeof(ptp_path), "%s", argv[2]);
-    if (path == NULL) {
-        log_error("\t- ptp path doesn't exists");
-        ptp_path_valid = false;
+    snprintf(ocp_path, sizeof(ocp_path), "/sys/class/timecard/%s", argv[1]);
+    if (ocp_path == NULL) {
+        log_error("\t- ocp path doesn't exists");
+        ocp_path_valid = false;
     }
 
-	log_info("\t-ptp path is: \"%s\", checking...", ptp_path);
-	if (access(path, F_OK) != -1) 
+	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
+	if (access(ocp_path, F_OK) != -1) 
 	{
-		ptp_path_valid = true;
-        log_info("\t\tptp path exists !");
+		ocp_path_valid = true;
+        log_info("\t\tocp path exists !");
     } 
 	else 
 	{
-		ptp_path_valid = false;
-        log_info("\t\tptp path doesn't exists !");
+		ocp_path_valid = false;
+        log_info("\t\tocp path doesn't exists !");
+    }
+
+    if (ocp_path_valid)
+    {
+        log_info("\t-sysfs path %s", ocp_path);
+
+        DIR* ocp_dir = opendir(ocp_path);
+        struct dirent * entry = readdir(ocp_dir);
+        while (entry != NULL) 
+        {
+            if (strcmp(entry->d_name, "ptp") == 0)
+            {
+                find_dev_path(ocp_path, entry, ptp_path);
+                log_info("\t-ptp clock device detected: %s", ptp_path);
+                ptp_path_valid = true;
+            }
+            entry = readdir(ocp_dir);
+        }
     }
 
     if (ptp_path_valid)
     {
-        int ptp_clock = open(devices_path->ptp_path, O_RDWR);
+        int ptp_clock = open(ptp_path, O_RDWR);
         if (ptp_clock > 0) 
         {
             int ret;
@@ -150,30 +172,34 @@ int main(int argc, char *argv[])
             };
 
             ret = clock_gettime(CLOCK_REALTIME, &ts_real);
-            if (ret != 0) {
+            if (ret != 0)
+            {
                 log_warn("\t- Could not read clock realtime on server");
                 ptp_test_passed = false;
             }
 
             clkid = FD_TO_CLOCKID(ptp_clock);
             ret = clock_settime(clkid, &ts_real);
-            else if (ret != 0) {
+            if (ret != 0)
+            {
                 log_warn("\t- Could not set time of ptp clock");
                 ptp_test_passed = false;
             }
             ret = clock_gettime(clkid, &ts_set);
-            else if (ret != 0) {
+            if (ret != 0)
+            {
                 log_warn("\t- Could not read time of ptp clock");
                 ptp_test_passed = false;
             }
 
             // Test diff between gettime and settime is inferior to 250µs
             timespec_diff(&ts_real, &ts_set, &diff_ns);
-            else if (diff_ns > SET_TIME_PHASE_ERROR || diff_ns < -SET_TIME_PHASE_ERROR) {
+            if (diff_ns > SET_TIME_PHASE_ERROR || diff_ns < -SET_TIME_PHASE_ERROR)
+            {
                 log_warn("\t- Timespec between get and settime is to big");
                 ptp_test_passed = false;
             }
-            else
+            if (ptp_test_passed)
             {
                 log_info("\t- PTP Clock time correctly set");
             }
@@ -192,12 +218,11 @@ int main(int argc, char *argv[])
         }
         else
         {
-            log_warn("PTP Test Aborted");  
+            log_warn("PTP Test Aborted: failed to open clock device");  
         }   
     }
     else
     {
         log_warn("PTP Test Aborted");  
     }
-
 }
