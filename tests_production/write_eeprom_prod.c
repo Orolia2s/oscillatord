@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     bool disciplining_config_found = false;
     bool temperature_table_found = false;
     int mro50_coarse_value;
-
+    bool passed = true;
     char serial[256] = "";
     char eeprom_path[256] = "";
     char disciplining_config_path[256] = "";
@@ -103,7 +103,6 @@ int main(int argc, char *argv[])
     }
     if (ocp_path_valid && coarse_value_valid && serial_value_valid)
     {
-        bool passed;
         if (found_eeprom)
         {
             log_info("Writing EEPROM manufacturing data");
@@ -140,18 +139,30 @@ int main(int argc, char *argv[])
                     sprintf(command, "art_temperature_table_manager -p %s -f", temperature_table_path);
                     if (system(command) != 0) 
                     {
-                        log_warn("Could not write factory temperature table in %s",temperature_table_path
-                        );
-                        return false;
+                        log_warn("Could not write factory temperature table in %s",temperature_table_path);
+                        passed = false;
                     }
                     memset(command, 0, 4141);
                 }
                 else 
                 {
                     log_warn("Temperature table file not found!");
-                    return false;
+                    passed = false;
                 }
             }
         }
+    }
+    else
+    {
+        log_warn("EEPROM writting Aborted");
+        passed = false;
+    }
+    if (passed)
+    {
+        log_info("EEPROM writting succeeded");
+    }
+    else
+    {
+        log_info("EEPROM writting failed");
     }
 }
