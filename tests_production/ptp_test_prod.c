@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     char ptp_path[256] = "";
     bool ptp_path_valid;
     bool ocp_path_valid;
-    bool ptp_test_passed = false;
+    bool ptp_test_passed = true;
 
 	/* Set log level */
 	log_set_level(1);

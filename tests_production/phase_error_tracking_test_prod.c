@@ -110,7 +110,6 @@ static struct json_object *send_monitoring_request(int socket_port, enum monitor
         log_error("FAIL");
         return NULL;
     }
-
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -260,7 +259,7 @@ int main(int argc, char *argv[])
     {
         int socket_port;
         log_info("Starting Phase error limit test");
-        const char * socket_port_string = "2958";
+        const char * socket_port_string = "2970";
         if (!socket_port_string) 
         {
             log_warn("Phase error tracking Test Aborted: socket port is not set in config !");
@@ -269,7 +268,7 @@ int main(int argc, char *argv[])
         {
             socket_port = atoi(socket_port_string);
             oscillatord_start_service(argv[1]);
-            sleep(120);
+            sleep(60);
             if (oscillatord_track_phase_error_under_limit(socket_port, PHASE_ERROR_ABS_MAX, PHASE_ERROR_TRACKING_TIME_MIN)) 
             {
                 log_info("ART Card ran without reaching phase error limit");
@@ -282,6 +281,9 @@ int main(int argc, char *argv[])
             }
             oscillatord_stop_service(argv[1]);
         }
+    }
+    else
+    {
         log_warn("Phase error tracking Test Aborted: invalid path !");
     }
 }
