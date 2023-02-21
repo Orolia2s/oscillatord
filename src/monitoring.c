@@ -88,13 +88,6 @@ const fd_status_t fd_status_NORW = {.want_read = false, .want_write = false};
 
 static void * monitoring_thread(void * p_data);
 
-const char *clock_class_string[CLOCK_CLASS_NUM] = {
-	"Uncalibrated",
-	"Calibrating",
-	"Holdover",
-	"Lock"
-};
-
 /**
  * @brief Create, bind and listen socket
  *
@@ -473,7 +466,7 @@ static void json_add_clock_data(struct json_object *resp, struct monitoring *mon
 {
 	struct json_object *clock = json_object_new_object();
 	json_object_object_add(clock, "class",
-		json_object_new_string(clock_class_string[monitoring->disciplining.clock_class])
+		json_object_new_string(cstring_from_clock_class(monitoring->disciplining.clock_class))
 	);
 	json_object_object_add(clock, "offset",
 		json_object_new_int(monitoring->phase_error));
@@ -493,7 +486,7 @@ static void json_add_disciplining_data(struct json_object *resp, struct monitori
 	struct json_object *disciplining = json_object_new_object();
 	json_object_object_add(disciplining, "status",
 		json_object_new_string(
-			status_string[monitoring->disciplining.status]
+			cstring_from_disciplining_state(monitoring->disciplining.status)
 		)
 	);
 	json_object_object_add(disciplining, "current_phase_convergence_count",
