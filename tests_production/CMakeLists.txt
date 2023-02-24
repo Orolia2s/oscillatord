@@ -69,7 +69,7 @@ if(BUILD_TESTS)
 	add_executable(ptp_test_prod ${ptp_test_prod_SOURCES} ${COMMON_SOURCES})
 	add_executable(write_eeprom_prod ${write_eeprom_prod_SOURCES} ${COMMON_SOURCES})
 	add_executable(ocpdir_test_prod ${ocpdir_test_prod_SOURCES} ${COMMON_SOURCES})
-	
+
 	target_link_libraries(gnss_config_prod PRIVATE m ${ubloxcfg_LIBRARIES})
 	target_link_libraries(gnss_test_prod PRIVATE m ${ubloxcfg_LIBRARIES})
 	target_link_libraries(mro_test_prod PRIVATE m pthread ${ubloxcfg_LIBRARIES})
@@ -78,7 +78,7 @@ if(BUILD_TESTS)
 	target_link_libraries(ptp_test_prod PRIVATE m)
 	target_link_libraries(write_eeprom_prod PRIVATE m)
 	target_link_libraries(ocpdir_test_prod PRIVATE m)
-	
+
 	install(TARGETS gnss_config_prod RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS gnss_test_prod RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS mro_test_prod RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -87,5 +87,5 @@ if(BUILD_TESTS)
 	install(TARGETS ptp_test_prod RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS write_eeprom_prod RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS ocpdir_test_prod RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-	
+
 endif(BUILD_TESTS)

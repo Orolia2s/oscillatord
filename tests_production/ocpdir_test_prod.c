@@ -25,12 +25,12 @@ int main(int argc, char *argv[])
     snprintf(ocp_path, sizeof(ocp_path), "%s", argv[1]);
 
 	log_info("\t-ocp path is: \"%s\", checking...",ocp_path);
-	if (access(ocp_path, F_OK) != -1) 
+	if (access(ocp_path, F_OK) != -1)
 	{
 		ocp_path_valid = true;
         log_info("\t\tocp dir path exists !");
-    } 
-	else 
+    }
+	else
 	{
 		ocp_path_valid = false;
         log_info("\t\tocp path doesn't exists !");
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 
     DIR * ocp_dir = opendir(ocp_path);
 
-    if (ocp_dir == NULL) 
+    if (ocp_dir == NULL)
     {
         log_error("Directory %s does not exists", ocp_path);
     }
@@ -52,10 +52,10 @@ int main(int argc, char *argv[])
         char mac_path[256];
         char disciplining_config_path[256];
         char temperature_table_path[256];
-        
+
         DIR * ocp_dir;
 
-        if (ocp_path == NULL) 
+        if (ocp_path == NULL)
         {
             log_error("No sysfs-path provided in oscillatord config file !");
         }
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 
             ocp_dir = opendir(ocp_path);
             struct dirent * entry = readdir(ocp_dir);
-            while (entry != NULL) 
+            while (entry != NULL)
             {
                 if (strncmp(entry->d_name, "i2c", 4) == 0)
                 {
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
                     find_dev_path(ocp_path, entry, gnss_path);
                     log_info("\t-ttyGPS detected: %s", gnss_path);
                 }
-                else if (strcmp(entry->d_name, "ttyMAC") == 0) 
+                else if (strcmp(entry->d_name, "ttyMAC") == 0)
                 {
                     find_dev_path(ocp_path, entry, mac_path);
                     log_info("\t-ttyMAC detected: %s", mac_path);

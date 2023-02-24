@@ -40,12 +40,12 @@ int main(int argc, char *argv[])
     }
 
 	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
-	if (access(ocp_path, F_OK) != -1) 
+	if (access(ocp_path, F_OK) != -1)
 	{
 		ocp_path_valid = true;
         log_info("\t\tocp path exists !");
-    } 
-	else 
+    }
+	else
 	{
 		ocp_path_valid = false;
         log_info("\t\tocp path doesn't exists !");
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 
         DIR* ocp_dir = opendir(ocp_path);
         struct dirent * entry = readdir(ocp_dir);
-        while (entry != NULL) 
+        while (entry != NULL)
         {
             if (strcmp(entry->d_name, "ttyGNSS") == 0)
                 {
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
         char verStr[100];
         int major, minor;
 
-        if (rxGetVerStr(rx, verStr, sizeof(verStr))) 
+        if (rxGetVerStr(rx, verStr, sizeof(verStr)))
         {
             if (parse_receiver_version(verStr, &major, &minor))
                 log_debug("Receiver version successfully detected ! Major is %d, Minor is %d ", major, minor);
@@ -104,9 +104,9 @@ int main(int argc, char *argv[])
         log_info("Configuring receiver with ART parameters...");
         bool res = rxSetConfig(rx, allKvCfg, nAllKvCfg, true, true, true);
         if (res)
-        {       
+        {
             rxClose(rx);
-            if (!rxOpen(rx)) 
+            if (!rxOpen(rx))
             {
                 free(rx);
                 log_warn("GNSS rx init failed");

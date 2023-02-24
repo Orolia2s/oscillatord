@@ -73,7 +73,7 @@ static int get_devices_path_from_sysfs(const char* sysfs_path, struct devices_pa
 			find_dev_path(sysfs_path, entry, devices_path->gnss_path);
 			log_info("\t-ttyGPS detected: %s", devices_path->gnss_path);
 		}
-		else if (strcmp(entry->d_name, "ttyMAC") == 0) 
+		else if (strcmp(entry->d_name, "ttyMAC") == 0)
 		{
 			find_dev_path(sysfs_path, entry, devices_path->mac_path);
 			log_info("\t-ttyMAC detected: %s", devices_path->mac_path);
@@ -125,24 +125,24 @@ int main(int argc, char *argv[])
 	log_info("Checking input:");
 
 	log_info("\t-oscillatord config file path is: \"%s\", checking...",file_path);
-	if (access(file_path, F_OK) != -1) 
+	if (access(file_path, F_OK) != -1)
 	{
 		config_path_valid = true;
         log_info("\t\tconfig file exists !");
-    } 
-	else 
+    }
+	else
 	{
 		config_path_valid = false;
         log_info("\t\tconfig file doesn't exists !");
     }
 
 	log_info("\t-ocp driver path is: \"%s\", checking...",file_path);
-	if (access(file_path, F_OK) != -1) 
+	if (access(file_path, F_OK) != -1)
 	{
 		ocp_path_valid = true;
         log_info("\t\tocp driver exists !");
-    } 
-	else 
+    }
+	else
 	{
 		ocp_path_valid = false;
         log_info("\t\tocp driver doesn't exists !");
@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
 		{
 			osc_attr.temperature = 0.0;
 			osc_attr.locked = false;
-		} 
+		}
 		else if (ret < 0)
 		{
 			log_warn("Coud not get temperature of oscillator");
@@ -252,6 +252,5 @@ int main(int argc, char *argv[])
 	{
 	log_warn("mRo50 test aborted");
 	}
-
 	return EXIT_SUCCESS;
 }

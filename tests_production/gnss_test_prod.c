@@ -42,12 +42,12 @@ int main(int argc, char *argv[])
     }
 
 	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
-	if (access(ocp_path, F_OK) != -1) 
+	if (access(ocp_path, F_OK) != -1)
 	{
 		ocp_path_valid = true;
         log_info("\t\tocp path exists !");
-    } 
-	else 
+    }
+	else
 	{
 		ocp_path_valid = false;
         log_info("\t\tocp path doesn't exists !");
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 
         DIR* ocp_dir = opendir(ocp_path);
         struct dirent * entry = readdir(ocp_dir);
-        while (entry != NULL) 
+        while (entry != NULL)
         {
             if (strcmp(entry->d_name, "ttyGNSS") == 0)
                 {
@@ -102,8 +102,8 @@ int main(int argc, char *argv[])
                         log_info("\t- Got fix !");
                         got_gnss_fix = true;
                     }
-                } 
-                else 
+                }
+                else
                 {
                     uint8_t clsId = UBX_CLSID(msg->data);
                     uint8_t msgId = UBX_MSGID(msg->data);
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
                     }
                 }
             }
-            else 
+            else
             {
                 log_warn("GNSS: UART Timeout !");
                 usleep(5 * 1000);
