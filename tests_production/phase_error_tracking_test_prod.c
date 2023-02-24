@@ -232,34 +232,34 @@ int main(int argc, char *argv[])
 	log_info("Checking input:");
 
 	log_info("\t-oscillatord config file path is: \"%s\", checking...",config_file_path);
-	if (access(config_file_path, F_OK) != -1) 
+	if (access(config_file_path, F_OK) != -1)
 	{
 		config_path_valid = true;
         log_info("\t\tconfig file exists !");
-    } 
-	else 
+    }
+	else
 	{
 		config_path_valid = false;
         log_info("\t\tconfig file doesn't exists !");
     }
 
 	log_info("\t-ocp driver path is: \"%s\", checking...",config_file_path);
-	if (access(config_file_path, F_OK) != -1) 
+	if (access(config_file_path, F_OK) != -1)
 	{
 		ocp_path_valid = true;
         log_info("\t\tocp driver exists !");
-    } 
-	else 
+    }l
+	else
 	{
 		ocp_path_valid = false;
         log_info("\t\tocp driver doesn't exists !");
     }
 
-	if (config_path_valid && ocp_path_valid)
+	if (config_path_valid && ocp_path_valid && (argc == 3) && (strlen(argv[2])==4))
     {
         int socket_port;
         log_info("Starting Phase error limit test");
-        const char * socket_port_string = "2970";
+        const char * socket_port_string = argv[2];
         if (!socket_port_string) 
         {
             log_warn("Phase error tracking Test Aborted: socket port is not set in config !");
@@ -284,6 +284,6 @@ int main(int argc, char *argv[])
     }
     else
     {
-        log_warn("Phase error tracking Test Aborted: invalid path !");
+        log_warn("Phase error tracking Test Aborted: invalid path or port!");
     }
 }

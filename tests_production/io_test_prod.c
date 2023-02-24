@@ -20,7 +20,7 @@ static int configure_io(char * ocp_path, int io, char *mode)
 {
     FILE *fptr;
     char io_path[128];
-    
+
     if (io < 1 || io > 4) {
         log_error("Only IO 1-4 exists ! wanted %d", io);
         return -1;
@@ -71,7 +71,7 @@ static int configure_ios(char *ocp_path, char *mode_1, char *mode_2, char *mode_
 
 /**
  * @brief Read 100 timestamps max and expect to see the one set in expected_timestamps
- * 
+ *
  * @param fd file descriptor of the PHC
  * @param expected_timestamps flag of expected timestamps
  * @return int 0 on success else -1
@@ -205,12 +205,12 @@ int main(int argc, char *argv[])
     }
 
 	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
-	if (access(ocp_path, F_OK) != -1) 
+	if (access(ocp_path, F_OK) != -1)
 	{
 		ocp_path_valid = true;
         log_info("\t\tocp path exists !");
-    } 
-	else 
+    }
+	else
 	{
 		ocp_path_valid = false;
         log_info("\t\tocp path doesn't exists !");
@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
 
         DIR* ocp_dir = opendir(ocp_path);
         struct dirent * entry = readdir(ocp_dir);
-        while (entry != NULL) 
+        while (entry != NULL)
         {
             if (strcmp(entry->d_name, "ptp") == 0)
             {
@@ -247,8 +247,6 @@ int main(int argc, char *argv[])
     }
     else
     {
-        log_warn("IO Test Aborted");     
+        log_warn("IO Test Aborted");
     }
-
-
 }
