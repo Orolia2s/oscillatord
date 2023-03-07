@@ -93,6 +93,12 @@ int main(int argc, char *argv[]) {
 			request = REQUEST_GNSS_START;
 		else if (strcmp(optarg, "gnss_stop") == 0)
 			request = REQUEST_GNSS_STOP;
+		else if (strcmp(optarg, "gnss_soft") == 0)
+			request = REQUEST_GNSS_SOFT;
+		else if (strcmp(optarg, "gnss_hard") == 0)
+			request = REQUEST_GNSS_HARD;
+		else if (strcmp(optarg, "gnss_cold") == 0)
+			request = REQUEST_GNSS_COLD;
 		else if (strcmp(optarg, "read_eeprom") == 0)
 			request = REQUEST_READ_EEPROM;
 		else if (strcmp(optarg, "save_eeprom") == 0)
@@ -101,6 +107,10 @@ int main(int argc, char *argv[]) {
 			request = REQUEST_FAKE_HOLDOVER_START;
 		else if (strcmp(optarg, "fake_holdover_stop") == 0)
 			request = REQUEST_FAKE_HOLDOVER_STOP;
+		else if (strcmp(optarg, "mro_coarse_inc") == 0)
+			request = REQUEST_MRO_COARSE_INC;
+		else if (strcmp(optarg, "mro_coarse_dec") == 0)
+			request = REQUEST_MRO_COARSE_DEC;
 		else {
 			log_error("Unknown request %s", optarg);
 			return -1;
@@ -142,7 +152,7 @@ int main(int argc, char *argv[]) {
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(socket_port);
 	server_addr.sin_addr.s_addr = inet_addr(socket_addr);
-	
+
 	/* Initiate a connection to the server */
 	int ret = connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 	if (ret == -1)

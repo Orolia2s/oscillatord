@@ -424,6 +424,21 @@ static void json_handle_request(struct monitoring *monitoring, int request_type,
 			json_object_new_string("GNSS stop"));
 		*mon_request = REQUEST_GNSS_STOP;
 		break;
+	case REQUEST_GNSS_SOFT:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("GNSS soft"));
+		*mon_request = REQUEST_GNSS_SOFT;
+		break;
+	case REQUEST_GNSS_HARD:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("GNSS hard"));
+		*mon_request = REQUEST_GNSS_HARD;
+		break;
+	case REQUEST_GNSS_COLD:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("GNSS cold"));
+		*mon_request = REQUEST_GNSS_COLD;
+		break;
 	case REQUEST_READ_EEPROM:
 	{
 		struct disciplining_parameters dsc_params;
@@ -453,6 +468,16 @@ static void json_handle_request(struct monitoring *monitoring, int request_type,
 		json_object_object_add(resp, "Action requested",
 			json_object_new_string("Stop fake holdover"));
 		*mon_request = REQUEST_FAKE_HOLDOVER_STOP;
+		break;
+	case REQUEST_MRO_COARSE_INC:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("MRO coarse inc"));
+		*mon_request = REQUEST_MRO_COARSE_INC;
+		break;
+	case REQUEST_MRO_COARSE_DEC:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("MRO coarse dec"));
+		*mon_request = REQUEST_MRO_COARSE_DEC;
 		break;
 	case REQUEST_NONE:
 	default:

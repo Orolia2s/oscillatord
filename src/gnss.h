@@ -74,6 +74,9 @@ enum gnss_action {
 	GNSS_ACTION_NONE,
 	GNSS_ACTION_START,
 	GNSS_ACTION_STOP,
+	GNSS_ACTION_SOFT,
+	GNSS_ACTION_HARD,
+	GNSS_ACTION_COLD,
 };
 
 struct gps_context_t {
