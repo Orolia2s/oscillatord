@@ -654,6 +654,18 @@ int main(int argc, char *argv[])
 				log_info("Monitoring: GNSS Stop requested");
 				gnss_set_action(gnss, GNSS_ACTION_STOP);
 				break;
+			case REQUEST_GNSS_SOFT:
+				log_info("Monitoring: GNSS Soft requested");
+				gnss_set_action(gnss, GNSS_ACTION_SOFT);
+				break;
+			case REQUEST_GNSS_HARD:
+				log_info("Monitoring: GNSS Hard requested");
+				gnss_set_action(gnss, GNSS_ACTION_HARD);
+				break;
+			case REQUEST_GNSS_COLD:
+				log_info("Monitoring: GNSS Cold requested");
+				gnss_set_action(gnss, GNSS_ACTION_COLD);
+				break;
 			case REQUEST_SAVE_EEPROM:
 				log_info("Monitoring: Saving EEPROM data");
 				pthread_create(
@@ -670,6 +682,22 @@ int main(int argc, char *argv[])
 				fake_holdover_activated = false;
 				break;
 			case REQUEST_READ_EEPROM:
+			case REQUEST_MRO_COARSE_INC:
+				log_info("Monitoring: MRO INC requested");
+				struct od_output adj_coarse_inc_output = { .action = ADJUST_COARSE, .setpoint = ctrl_values.coarse_ctrl + 1, };
+				ret = oscillator_apply_output(oscillator, &adj_coarse_inc_output);
+				if (ret < 0) {
+					log_error("Could not apply output on oscillator !");
+				}
+				break;
+			case REQUEST_MRO_COARSE_DEC:
+				log_info("Monitoring: MRO DEC requested");
+				struct od_output adj_coarse_dec_output = { .action = ADJUST_COARSE, .setpoint = ctrl_values.coarse_ctrl - 1, };
+				ret = oscillator_apply_output(oscillator, &adj_coarse_dec_output);
+				if (ret < 0) {
+					log_error("Could not apply output on oscillator !");
+				}
+				break;
 			case REQUEST_NONE:
 			default:
 				break;

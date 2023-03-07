@@ -922,6 +922,24 @@ static void * gnss_thread(void * p_data)
 				log_error("Could not stop GNSS Receiver");
 			else
 				log_info("GNSS STOP performed");
+		} else if (action == GNSS_ACTION_SOFT) {
+			log_debug("Performing GNSS SOFT RESET");
+			if (!rxReset(gnss->rx, RX_RESET_SOFT))
+				log_error("Could not soft reset GNSS Receiver");
+			else
+				log_info("GNSS SOFT RESET performed");
+		} else if (action == GNSS_ACTION_HARD) {
+			log_debug("Performing GNSS HARD RESET");
+			if (!rxReset(gnss->rx, RX_RESET_HARD))
+				log_error("Could not hard reset GNSS Receiver");
+			else
+				log_info("GNSS HARD RESET performed");
+		} else if (action == GNSS_ACTION_COLD) {
+			log_debug("Performing GNSS COLD RESET");
+			if (!rxReset(gnss->rx, RX_RESET_COLD))
+				log_error("Could not cold reset GNSS Receiver");
+			else
+				log_info("GNSS COLD RESET performed");
 		}
 	}
 
@@ -957,7 +975,7 @@ void gnss_set_action(struct gnss *gnss, enum gnss_action action)
 	if (!gnss)
 		return;
 
-	if (action != GNSS_ACTION_START && action != GNSS_ACTION_STOP) {
+	if (action != GNSS_ACTION_START && action != GNSS_ACTION_STOP && action != GNSS_ACTION_SOFT && action != GNSS_ACTION_HARD && action != GNSS_ACTION_COLD) {
 		log_error("Unknown action %d", action);
 		return;
 	}
