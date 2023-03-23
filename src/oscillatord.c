@@ -281,19 +281,6 @@ int main(int argc, char *argv[])
 	log_set_level(log_level >= 0 ? log_level : 0);
 	log_info("Starting Oscillatord v%s", PACKAGE_VERSION);
 
-	/* Start Monitoring Thread */
-	if (monitoring_mode) {
-		monitoring = monitoring_init(&config, &devices_path);
-		if (monitoring == NULL) {
-			log_error("Error creating monitoring socket thread");
-			return -EINVAL;
-		}
-		pthread_mutex_lock(&monitoring->mutex);
-		monitoring->phase_error_supported = phase_error_supported;
-		pthread_mutex_unlock(&monitoring->mutex);
-		log_info("Starting monitoring socket");
-	}
-
 	/* Create oscillator object */
 	oscillator = oscillator_factory_new(&config, &devices_path);
 	if (oscillator == NULL) {
@@ -302,11 +289,21 @@ int main(int argc, char *argv[])
 	}
 	log_info("oscillator model %s", oscillator->class->name);
 
-	/* Handle phase error */
+	/* Start Monitoring Thread */
 	if (monitoring_mode) {
+		monitoring = monitoring_init(&config, &devices_path);
+		if (monitoring == NULL) {
+			log_error("Error creating monitoring socket thread");
+			return -EINVAL;
+		}
+		/* Handle phase error */
 		phase_error_supported = (oscillator_get_phase_error(oscillator, &phase_error) != -ENOSYS);
 		if (phase_error_supported)
 			sign = 1;
+		pthread_mutex_lock(&monitoring->mutex);
+		monitoring->phase_error_supported = phase_error_supported;
+		pthread_mutex_unlock(&monitoring->mutex);
+		log_info("Starting monitoring socket");
 	}
 
 	/* Open PTP clock file descriptor */
