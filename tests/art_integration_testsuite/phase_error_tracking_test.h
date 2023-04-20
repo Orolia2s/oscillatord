@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "config.h"
+#include "log.h"
 
 #define TEST_PHASE_ERROR_TRACKING_OK 0
 #define TEST_PHASE_ERROR_TRACKING_KO -1
