@@ -8,8 +8,6 @@ if(BUILD_TESTS)
 	)
 	file(GLOB mro_test_prod_SOURCES
 		${PROJECT_SOURCE_DIR}/common/f9_defvalsets.[ch]
-		${PROJECT_SOURCE_DIR}/common/gnss-config.[ch]
-		${CMAKE_CURRENT_SOURCE_DIR}/mro_test_prod.c
 		${PROJECT_SOURCE_DIR}/src/ntpshm/ppsthread.[ch]
 		${PROJECT_SOURCE_DIR}/src/ntpshm/ntpshmread.[ch]
 		${PROJECT_SOURCE_DIR}/src/ntpshm/timehint.[ch]
@@ -23,12 +21,10 @@ if(BUILD_TESTS)
 		${PROJECT_SOURCE_DIR}/src/oscillator.[ch]
 		${PROJECT_SOURCE_DIR}/src/oscillator_factory.[ch]
 		${PROJECT_SOURCE_DIR}/src/oscillators/mRo50_oscillator.c
+		${PROJECT_SOURCE_DIR}/common/gnss-config.[ch]
+		${CMAKE_CURRENT_SOURCE_DIR}/mro_test_prod.c
 	)
 	file(GLOB gnss_config_prod_SOURCES
-		${PROJECT_SOURCE_DIR}/common/f9_defvalsets.[ch]
-		${PROJECT_SOURCE_DIR}/src/gnss.[ch]
-		${PROJECT_SOURCE_DIR}/common/gnss-config.[ch]
-		${CMAKE_CURRENT_SOURCE_DIR}/gnss_config_prod.c
 		${PROJECT_SOURCE_DIR}/src/ntpshm/ppsthread.[ch]
 		${PROJECT_SOURCE_DIR}/src/ntpshm/ntpshmread.[ch]
 		${PROJECT_SOURCE_DIR}/src/ntpshm/timehint.[ch]
@@ -37,6 +33,10 @@ if(BUILD_TESTS)
 		${PROJECT_SOURCE_DIR}/src/ntpshm/ntpshm.[ch]
 		${PROJECT_SOURCE_DIR}/src/ntpshm/ntpshmread.[ch]
 		${PROJECT_SOURCE_DIR}/src/ntpshm/ntpshmwrite.[ch]
+		${PROJECT_SOURCE_DIR}/common/f9_defvalsets.[ch]
+		${PROJECT_SOURCE_DIR}/src/gnss.[ch]
+		${PROJECT_SOURCE_DIR}/common/gnss-config.[ch]
+		${CMAKE_CURRENT_SOURCE_DIR}/gnss_config_prod.c
 	)
 	file(GLOB gnss_test_prod_SOURCES
 		${PROJECT_SOURCE_DIR}/common/f9_defvalsets.[ch]
@@ -70,8 +70,8 @@ if(BUILD_TESTS)
 	add_executable(write_eeprom_prod ${write_eeprom_prod_SOURCES} ${COMMON_SOURCES})
 	add_executable(ocpdir_test_prod ${ocpdir_test_prod_SOURCES} ${COMMON_SOURCES})
 
-	target_link_libraries(gnss_config_prod PRIVATE m ${ubloxcfg_LIBRARIES})
-	target_link_libraries(gnss_test_prod PRIVATE m ${ubloxcfg_LIBRARIES})
+	target_link_libraries(gnss_config_prod PRIVATE m pthread ${ubloxcfg_LIBRARIES})
+	target_link_libraries(gnss_test_prod PRIVATE m pthread ${ubloxcfg_LIBRARIES})
 	target_link_libraries(mro_test_prod PRIVATE m pthread ${ubloxcfg_LIBRARIES})
 	target_link_libraries(io_test_prod PRIVATE m)
 	target_link_libraries(phase_error_tracking_test_prod PRIVATE m json-c ${SYSTEMD_LIBRARIES})

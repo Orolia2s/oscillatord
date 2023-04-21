@@ -263,16 +263,16 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, 
 	if (msg->size == (int) UBX_TIM_SVIN_V0_SIZE) {
 		UBX_TIM_SVIN_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
-		log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
-			gr0.dur,
-			gr0.meanX,
-			gr0.meanY,
-			gr0.meanZ,
-			gr0.meanV,
-			gr0.obs,
-			gr0.valid,
-			gr0.active
-		);
+		// log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
+		// 	gr0.dur,
+		// 	gr0.meanX,
+		// 	gr0.meanY,
+		// 	gr0.meanZ,
+		// 	gr0.meanV,
+		// 	gr0.obs,
+		// 	gr0.valid,
+		// 	gr0.active
+		// );
 		session->survey_in_position_error = sqrt(gr0.meanV)/1000;
 		if (!gr0.active && gr0.dur >= SVIN_MIN_DUR)
 			return gr0.valid ? SURVEY_IN_COMPLETED : SURVEY_IN_KO;
@@ -340,6 +340,16 @@ static void log_gnss_data(struct gps_device_t *session)
 		session->context->lsset ? "True" : "False",
 		session->context->qErr,
 		session->context->qErr_last_epoch
+	);
+}
+
+static void log_gnss_data2(struct gps_device_t *session)
+{
+	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d",
+		fix_log[session->fix],
+		session->fix,
+		session->fixOk ? "True" : "False",
+		session->satellites_count
 	);
 }
 
@@ -796,6 +806,21 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	return 0;
 }
 
+
+static char* convert_to_hex(const uint8_t* data, int size) {
+    char* hex_str = (char*) malloc(size*2+1);
+    if (hex_str == NULL)
+	{
+        return NULL;
+    }
+    for (int i = 0; i < size; i++)
+	{
+        sprintf(hex_str+i*2, "%02X", data[i]);
+    }
+    hex_str[size*2] = '\0';
+    return hex_str;
+}
+
 /**
  * @brief Thread routine
  *
@@ -825,6 +850,8 @@ static void * gnss_thread(void * p_data)
 			pthread_mutex_lock(&gnss->mutex_data);
 			session = gnss->session;
 			// Epoch collect is used to fetch navigation data such as time and leap seconds
+			log_info("Name: %s, Data: %s, Seq: %lu, TS: %lu , Info: %s",
+					msg->name , convert_to_hex(msg->data, strlen(msg->data)), msg->seq, msg->ts,msg->info);
 			if(epochCollect(&coll, msg, &epoch))
 			{
 				// if epoch has no fix there will be no Nav solution and 0 satellites
@@ -842,7 +869,8 @@ static void * gnss_thread(void * p_data)
 					}
 					struct timedelta_t td;
 					ntp_latch(session, &td);
-					log_gnss_data(session);
+					// log_gnss_data(session);
+					log_gnss_data2(session);
 				} else {
 					session->fix = MODE_NO_FIX;
 					session->fixOk = false;

@@ -12,6 +12,8 @@
 #include "log.h"
 #include "f9_defvalsets.h"
 
+#include <time.h>
+
 static struct gps_context_t context;
 struct devices_path devices_path = { 0 };
 
@@ -73,7 +75,7 @@ int main(int argc, char *argv[])
     bool valid = false;
     int32_t qErr = -1;
 
-	log_set_level(0);
+	log_set_level(2);
 
 	if (argc != 2)
 		error(EXIT_FAILURE, 0, "usage: %s config_file_path", argv[0]);
@@ -116,14 +118,59 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
+	bool fixOk;
+	struct timespec lastFix;
+
+
+	log_info("[DEBUG TEST]: Init !");
+	gnss_get_fix_info(gnss, &fixOk, &lastFix);
+	if (!fixOk)
+	{
+		log_info("[DEBUG TEST]: GNSS START requested");
+		gnss_set_action(gnss, GNSS_ACTION_START);
+	}
+	usleep(30000000);
+	log_info("[DEBUG TEST]: Init done!");
+
+
+	time_t start;
+	double cpu_time_used;
 	while(loop)
-    {
-        /* Get Phase error and status*/
-        if (gnss_get_epoch_data(gnss, &survey, &valid, &qErr) != 0)
-        {
-            log_error("Error getting GNSS data, exiting");
-            break;
-        }
-		usleep(1000);
+    {	
+
+		// printf("fix value is: %d\n", session.fix);
+		// printf(fixOk? "fixOk : true\n" : "fixOk : false\n");
+		// printf("lastfix date is %ld s - %ld ns\n\n", lastFix.tv_sec, lastFix.tv_nsec);
+
+		gnss_get_fix_info(gnss, &fixOk, &lastFix);
+		if (!fixOk)
+		{
+			log_info("[DEBUG TEST]: GNSS START requested");
+			gnss_set_action(gnss, GNSS_ACTION_START);
+		}
+
+		start = time(NULL);
+		while (!fixOk)
+		{
+			log_debug("[DEBUG TEST]: Waiting to recover fix");
+			usleep(1000000);
+			gnss_get_fix_info(gnss, &fixOk, &lastFix);
+		}
+		log_info("[DEBUG TEST]: fix recovered in %.2f s!\n", (double)(time(NULL) - start));
+		
+		if (fixOk)
+		{
+			log_info("[DEBUG TEST]: GNSS STOP requested");
+			gnss_set_action(gnss, GNSS_ACTION_STOP);
+		}
+
+		start = time(NULL);
+		while (fixOk)
+		{
+			log_debug("[DEBUG TEST]: Waiting to loose fix");
+			usleep(1000000);
+			gnss_get_fix_info(gnss, &fixOk, &lastFix);
+		}
+		log_info("[DEBUG TEST]: fix lost in %.2f s!\n", (double)(time(NULL) - start));
     }
 }
