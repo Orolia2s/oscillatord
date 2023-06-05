@@ -183,7 +183,6 @@ static void report_peer_connected(const struct sockaddr_in* sa, socklen_t salen)
 static fd_status_t on_peer_connected(int sockfd, const struct sockaddr_in* peer_addr,
 									socklen_t peer_addr_len) {
 	assert(sockfd < MAXFDS);
-	report_peer_connected(peer_addr, peer_addr_len);
 
 	// Initialize state to send back a '*' to the peer immediately.
 	peer_state_t* peerstate = &global_state[sockfd];
