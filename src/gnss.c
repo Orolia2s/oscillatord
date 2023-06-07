@@ -796,6 +796,17 @@ int gnss_set_ptp_clock_time(struct gnss *gnss)
 	return 0;
 }
 
+static bool reset_serial(RX_t* rx)
+{
+	log_debug("Reseting receiver serial connection");
+	rxClose(rx);
+	usleep(500 * 1000);
+	if (rxOpen(rx))
+		return true;
+	log_error("Unable to re-open serial connection");
+	return false;
+}
+
 /**
  * @brief Thread routine
  *
@@ -900,6 +911,7 @@ static void * gnss_thread(void * p_data)
 			pthread_mutex_lock(&gnss->mutex_data);
 			/* Reset data because we cannot assume either of these */
 			gnss_reset_session_navigation_data(gnss->session);
+			reset_serial(gnss->rx);
 			pthread_cond_signal(&gnss->cond_data);
 			pthread_mutex_unlock(&gnss->mutex_data);
 			usleep(5 * 1000);
@@ -940,6 +952,9 @@ static void * gnss_thread(void * p_data)
 				log_error("Could not cold reset GNSS Receiver");
 			else
 				log_info("GNSS COLD RESET performed");
+		} else if (action == GNSS_ACTION_RESET_SERIAL)
+		{
+			reset_serial(gnss->rx);
 		}
 	}
 
