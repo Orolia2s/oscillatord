@@ -478,6 +478,11 @@ static void json_handle_request(struct monitoring *monitoring, int request_type,
 			json_object_new_string("MRO coarse dec"));
 		*mon_request = REQUEST_MRO_COARSE_DEC;
 		break;
+	case REQUEST_RESET_UBLOX_SERIAL:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("Ublox Serial reset"));
+		*mon_request = REQUEST_RESET_UBLOX_SERIAL;
+		break;
 	case REQUEST_NONE:
 	default:
 		json_object_object_add(resp, "Action requested",

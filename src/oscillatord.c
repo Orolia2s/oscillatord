@@ -683,6 +683,10 @@ int main(int argc, char *argv[])
 			case REQUEST_FAKE_HOLDOVER_STOP:
 				fake_holdover_activated = false;
 				break;
+			case REQUEST_RESET_UBLOX_SERIAL:
+				log_info("Monitoring: Ublox serial reset requested");
+				gnss_set_action(gnss, GNSS_ACTION_RESET_SERIAL);
+				break;
 			case REQUEST_READ_EEPROM:
 				log_warn("Read EEPROM: not implemented");
 				break;
