@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <systemd/sd-bus.h>
 
+#include "log.h"
 #include "phase_error_tracking_test.h"
 
 #define PHASE_ERROR_ABS_MAX 100

@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 	{
 		ocp_path_valid = true;
         log_info("\t\tocp driver exists !");
-    }l
+    }
 	else
 	{
 		ocp_path_valid = false;

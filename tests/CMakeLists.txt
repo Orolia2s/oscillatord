@@ -42,8 +42,8 @@ if(BUILD_TESTS)
 	add_executable(oscillator_sim ${SIM_SOURCES} ${COMMON_SOURCES})
 	add_executable(mro50_ctrl ${MRO50_CTRL_SOURCES} ${COMMON_SOURCES})
 	add_executable(art_integration_test_suite
-		${ART_INTEGRATION_TEST_SUITE_SOURCES}
 		${COMMON_SOURCES}
+		${ART_INTEGRATION_TEST_SUITE_SOURCES}
 		${EXTTS_SOURCES}
 		${COMMON_GNSS_SOURCES}
 	)
