@@ -23,10 +23,15 @@ static uint8_t gencrc(uint8_t *data, size_t len)
     return crc;
 }
 
+int init_eeprom_manufacturing_pcba(const char *path, struct eeprom_manufacturing_data *data)
+{
+    strncpy(data->od_pcba_part_number, "1003066C00", min(sizeof("1003066C00") , 12));
+    return(0);
+}
+
 int write_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturing_data *data)
 {
     int err = 0;
-
     FILE *fp = fopen(path, "wb");
     if (fp == NULL) {
         log_error("ERROR Opening file");
@@ -37,6 +42,7 @@ int write_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturin
         log_error("Error moving pointer across file");
         err = -1;
     } else {
+
         size_t written = fwrite(data, 1, sizeof(*data), fp);
         if (written != sizeof(*data)) {
             log_error("Did not write all bytes in eeprom data");
