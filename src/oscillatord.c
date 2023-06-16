@@ -326,7 +326,9 @@ int main(int argc, char *argv[])
 	pps_thread->context = &session;
 
 	/* Start GNSS Thread */
-	gnss = gnss_init(&config, devices_path.gnss_path, &session, fd_clock);
+	char flip_flip_path[1024];
+	snprintf(flip_flip_path, sizeof(flip_flip_path) - 1, "%s@115200", devices_path.gnss_path);
+	gnss = gnss_init(&config, flip_flip_path, &session, fd_clock);
 	if (gnss == NULL) {
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 		return -EINVAL;
@@ -682,6 +684,8 @@ int main(int argc, char *argv[])
 				fake_holdover_activated = false;
 				break;
 			case REQUEST_READ_EEPROM:
+				log_warn("Read EEPROM: not implemented");
+				break;
 			case REQUEST_MRO_COARSE_INC:
 				log_info("Monitoring: MRO INC requested");
 				struct od_output adj_coarse_inc_output = { .action = ADJUST_COARSE, .setpoint = ctrl_values.coarse_ctrl + 1, };
