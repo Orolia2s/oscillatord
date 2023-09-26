@@ -47,7 +47,7 @@
 
 #define DISCIPLINING_PHASES 3
 
-static const unsigned int tau_values[DISCIPLINING_PHASES] = {50, 500, 10000};
+static const unsigned int tau_values[DISCIPLINING_PHASES] = {10, 500, 10000};
 static const unsigned int tau_interval[DISCIPLINING_PHASES] = {600, 7200, 86400}; // in seconds
 
 enum SA5x_ClockClass {
