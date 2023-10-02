@@ -18,7 +18,7 @@
 #define MAX_VER_LENGTH 20
 #define MAX_SERIALNUM_LENGTH 11
 #define DIGITAL_TUNING_MAX 20000000LL
-
+#define DEFAULT_PHASELIMIT 100000 // Phase limit is 100us
 #define BIT(nr)			(1UL << (nr))
 
 #define ATTR_FW_SERIAL    		BIT(0)
@@ -27,6 +27,7 @@
 #define ATTR_PHASE		  		BIT(3)
 #define ATTR_STATUS_PPS         BIT(4)
 #define ATTR_STATUS_TEMPERATURE BIT(5)
+#define ATTR_PHASELIMIT		  	BIT(6)
 
 #define CMD_SWVER                     "\\{swrev?}"
 #define CMD_SERIAL                    "{serial?}"
@@ -44,10 +45,12 @@
 #define CMD_SET_TAU                   "{set,TauPps0,%d}"
 #define CMD_GET_DISCIPLINING          "{get,Disciplining}"
 #define CMD_SET_DISCIPLINING          "{set,Disciplining,%d}"
+#define CMD_GET_PHASELIMIT            "{get,PhaseLimit}"
+#define CMD_SET_PHASELIMIT            "{set,PhaseLimit,%d}"
 
 #define DISCIPLINING_PHASES 3
 
-static const unsigned int tau_values[DISCIPLINING_PHASES] = {10, 500, 10000};
+static const unsigned int tau_values[DISCIPLINING_PHASES] = {50, 500, 10000};
 static const unsigned int tau_interval[DISCIPLINING_PHASES] = {600, 7200, 86400}; // in seconds
 
 enum SA5x_ClockClass {
@@ -299,6 +302,18 @@ static int sa5x_oscillator_get_attributes(struct oscillator *oscillator, struct 
 				log_debug("SA5x firmware has latching issue fixes");
 			} else
 				log_warn("SA5x firmware is affected to latching issue, upgrade is needed");
+		}
+		err = sa5x_oscillator_read_intval(&val, sa5x_oscillator_cmd(sa5x, CMD_GET_PHASELIMIT, sizeof(CMD_GET_PHASELIMIT)));
+		if (err > 0) {
+			if (val != DEFAULT_PHASELIMIT) {
+				log_info("SA5x reports non-default phase limit value: %d, updating...", val);
+				val = snprintf(answer_str, answer_len, CMD_SET_PHASELIMIT, DEFAULT_PHASELIMIT);
+				if (sa5x_oscillator_cmd(sa5x, answer_str, val) == -1) {
+					log_warn("SA5x: couldn't setup phase limit");
+				}
+			}
+		} else {
+			log_warn("SA5x: cannot get phase limit value");
 		}
 		return 0;
 	}
