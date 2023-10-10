@@ -55,6 +55,9 @@
 #define FLAG(field, flag) ( ((field) & (flag)) == (flag) )
 #endif
 
+/** The resolution of our phasemeter in pico seconds */
+#define QERR_ABS_THRESHOLD_PS 5000
+
 enum AntennaStatus {
 	ANT_STATUS_INIT,
 	ANT_STATUS_DONT_KNOW,
@@ -196,6 +199,13 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 	if (msg->size == (int) UBX_TIM_TP_V0_SIZE) {
 		UBX_TIM_TP_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
+
+		if (abs(gr0.qErr) > QERR_ABS_THRESHOLD_PS)
+		{
+			log_warn("Aberrant qErr of %i will be ignored", gr0.qErr);
+			gr0.qErr = 0;
+		}
+
 		log_trace("UBX-TIM-TP: towMS %lu, towSubMs %lu, qErr %ld, week %ld, flags %x; refInfo %x",
 			gr0.towMs,
 			gr0.towSubMS,
