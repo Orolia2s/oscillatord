@@ -90,7 +90,6 @@
 #include <sys/timepps.h>
 #endif
 
-// #include "../include/gpsd.h"    // for socket_t
 #include "timespec.h"
 #include "os_compat.h"
 #include "ppsthread.h"

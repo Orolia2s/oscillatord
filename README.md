@@ -13,7 +13,6 @@ For now only the following oscillators are supported:
 ## Requirements
 
 * cmake
-* libgps-dev
 * libjson-c-dev
 * pps-tools
 * [disciplining-minipod](https://github.com/Orolia2s/disciplining-minipod)

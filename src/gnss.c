@@ -82,6 +82,8 @@ enum SurveyInState {
 	SURVEY_IN_COMPLETED
 };
 
+#define NO_FIX 1
+
 static const char *fix_log[11] = {
 	"unknown",
 	"no fix",
@@ -110,7 +112,7 @@ static void gnss_reset_session_navigation_data(struct gps_device_t *session)
 {
 	session->valid = false;
 	session->satellites_count = 0;
-	session->fix = MODE_NO_FIX;
+	session->fix = NO_FIX;
 	session->fixOk = false;
 }
 
@@ -865,7 +867,7 @@ static void * gnss_thread(void * p_data)
 					ntp_latch(session, &td);
 					log_gnss_data(session);
 				} else {
-					session->fix = MODE_NO_FIX;
+					session->fix = NO_FIX;
 					session->fixOk = false;
 				}
 				pthread_cond_signal(&gnss->cond_data);

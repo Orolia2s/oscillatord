@@ -15,8 +15,6 @@
 #ifndef OSCILLATORD_GNSS_H
 #define OSCILLATORD_GNSS_H
 
-#include <gps.h>
-
 #include <ubloxcfg/ff_rx.h>
 #include <pthread.h>
 #include <termios.h>
