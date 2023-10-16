@@ -9,7 +9,6 @@
 #define PPSTHREAD_H
 
 #include <time.h>
-#include <gps.h>
 
 #ifndef TIMEDELTA_DEFINED
 #define TIMEDELTA_DEFINED
@@ -34,7 +33,7 @@ struct timedelta_t {
  */
 struct pps_thread_t {
     void *context;              /* PPS thread code leaves this alone */
-    socket_t devicefd;          // device file descriptor
+    int devicefd;          // device file descriptor
     const char *devicename;           /* device path */
     char *(*report_hook)(volatile struct pps_thread_t *,
                          struct timedelta_t *);

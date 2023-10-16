@@ -27,7 +27,6 @@ ADD_DEFINITIONS( -DPACKAGE_VERSION=\"${PACKAGE_VERSION}\" )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common/)
 include_directories(${oscillator-disciplining_INCLUDE_DIRS})
-include_directories(${gps_INCLUDE_DIRS})
 include_directories(${ubloxcfg_INCLUDE_DIRS})
 
 add_definitions("
