@@ -3,7 +3,7 @@
 #include <sys/time.h>
 #include <sys/timex.h>
 #include <unistd.h>
-#include <fcntl.h> 
+#include <fcntl.h>
 #include <dirent.h>
 #include <string.h>
 #include <stdio.h>
@@ -123,12 +123,12 @@ int main(int argc, char *argv[])
     snprintf(ocp_path, sizeof(ocp_path) - 1, "/sys/class/timecard/%s", argv[1]);
 
 	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
-	if (access(ocp_path, F_OK) != -1) 
+	if (access(ocp_path, F_OK) != -1)
 	{
 		ocp_path_valid = true;
         log_info("\t\tocp path exists !");
-    } 
-	else 
+    }
+	else
 	{
 		ocp_path_valid = false;
         log_info("\t\tocp path doesn't exists !");
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 
         DIR* ocp_dir = opendir(ocp_path);
         struct dirent * entry = readdir(ocp_dir);
-        while (entry != NULL) 
+        while (entry != NULL)
         {
             if (strcmp(entry->d_name, "ptp") == 0)
             {
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
     if (ptp_path_valid)
     {
         int ptp_clock = open(ptp_path, O_RDWR);
-        if (ptp_clock > 0) 
+        if (ptp_clock > 0)
         {
             int ret;
             clockid_t clkid;
@@ -214,11 +214,11 @@ int main(int argc, char *argv[])
         }
         else
         {
-            log_warn("PTP Test Aborted: failed to open clock device");  
-        }   
+            log_warn("PTP Test Aborted: failed to open clock device");
+        }
     }
     else
     {
-        log_warn("PTP Test Aborted");  
+        log_warn("PTP Test Aborted");
     }
 }

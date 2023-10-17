@@ -69,7 +69,7 @@ static void removeChar(char * str, char charToRemove){
         }
 }
 
-static void print_help(void) 
+static void print_help(void)
 {
     printf("art-eeprom-format: Format Manufacturing data in ART Card's EEPROM");
 }
