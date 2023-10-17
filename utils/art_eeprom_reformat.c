@@ -25,7 +25,7 @@
 
 #include <dirent.h>
 
-bool detect_eeprom_path(const char* ocp_path, char* eeprom_path){
+static bool detect_eeprom_path(const char* ocp_path, char* eeprom_path){
     char dirpath[256];
     sprintf(dirpath, "%s/i2c", ocp_path);
     DIR* dir = opendir(dirpath);
@@ -77,7 +77,7 @@ static void print_help(void)
 int main(int argc, char *argv[])
 {
     int ret = 0;
-    char ocp_path[256] = "";
+    char ocp_path[256] = {0};
     struct eeprom_manufacturing_data data_read;
 
 	log_set_level(2);
@@ -89,11 +89,7 @@ int main(int argc, char *argv[])
     }
 
 	log_info("Checking input:");
-    snprintf(ocp_path, sizeof(ocp_path), "/sys/class/timecard/%s", argv[1]);
-    if (ocp_path == NULL) {
-        log_error("\t- ocp path doesn't exists");
-        return(0);
-    }
+    snprintf(ocp_path, sizeof(ocp_path) - 1, "/sys/class/timecard/%s", argv[1]);
 
 	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
 	if (access(ocp_path, F_OK) != -1)

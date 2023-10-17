@@ -326,7 +326,7 @@ int main(int argc, char *argv[])
 	pps_thread->context = &session;
 
 	/* Start GNSS Thread */
-	char flip_flip_path[1024];
+	char flip_flip_path[5000];
 	snprintf(flip_flip_path, sizeof(flip_flip_path) - 1, "%s@115200", devices_path.gnss_path);
 	gnss = gnss_init(&config, flip_flip_path, &session, fd_clock);
 	if (gnss == NULL) {

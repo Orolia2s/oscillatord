@@ -2,6 +2,7 @@
 
 #include "extts.h"
 #include "log.h"
+#include <signal.h>
 
 static volatile int keepRunning = 1;
 

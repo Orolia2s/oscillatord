@@ -15,14 +15,14 @@
 
 int main(int argc, char *argv[])
 {
-    char ocp_path[256] = "";
+	char ocp_path[256] = {0};
     bool ocp_path_valid;
     bool found_eeprom = false;
 
 	/* Set log level */
 	log_set_level(1);
 
-    snprintf(ocp_path, sizeof(ocp_path), "%s", argv[1]);
+    snprintf(ocp_path, sizeof(ocp_path) - 1, "%s", argv[1]);
 
 	log_info("\t-ocp path is: \"%s\", checking...",ocp_path);
 	if (access(ocp_path, F_OK) != -1)

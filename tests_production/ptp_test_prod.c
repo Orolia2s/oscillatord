@@ -110,8 +110,8 @@ static bool test_ptp_adjtime(clockid_t clkid, int64_t adjust_ns)
 
 int main(int argc, char *argv[])
 {
-    char ocp_path[256] = "";
-    char ptp_path[256] = "";
+	char ocp_path[256] = {0};
+	char ptp_path[256] = {0};
     bool ptp_path_valid;
     bool ocp_path_valid;
     bool ptp_test_passed = true;
@@ -120,11 +120,7 @@ int main(int argc, char *argv[])
 	log_set_level(1);
 
 	log_info("Checking input:");
-    snprintf(ocp_path, sizeof(ocp_path), "/sys/class/timecard/%s", argv[1]);
-    if (ocp_path == NULL) {
-        log_error("\t- ocp path doesn't exists");
-        ocp_path_valid = false;
-    }
+    snprintf(ocp_path, sizeof(ocp_path) - 1, "/sys/class/timecard/%s", argv[1]);
 
 	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
 	if (access(ocp_path, F_OK) != -1) 
