@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
         rxClose(rx);
         free(rx);
 
-        if (got_gnss_fix && got_mon_rf_message && got_nav_timels_message && got_tim_tp_message) 
+        if (got_gnss_fix && got_mon_rf_message && got_nav_timels_message && got_tim_tp_message)
         {
             log_info("GNSS Test Passed");
             return true;
