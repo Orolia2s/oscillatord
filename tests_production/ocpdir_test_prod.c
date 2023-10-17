@@ -53,17 +53,10 @@ int main(int argc, char *argv[])
         char disciplining_config_path[256];
         char temperature_table_path[256];
 
-        DIR * ocp_dir;
-
-        if (ocp_path == NULL)
-        {
-            log_error("No sysfs-path provided in oscillatord config file !");
-        }
-        else if (ocp_path_valid)
+        if (ocp_path_valid)
         {
             log_info("\t-sysfs path %s", ocp_path);
 
-            ocp_dir = opendir(ocp_path);
             struct dirent * entry = readdir(ocp_dir);
             while (entry != NULL)
             {
