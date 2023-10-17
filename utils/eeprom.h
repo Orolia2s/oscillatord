@@ -108,4 +108,6 @@ int write_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturin
 int read_eeprom_manufacturing_data(const char *path, struct eeprom_manufacturing_data *data);
 void init_manufacturing_eeprom_data(struct eeprom_manufacturing_data *data, char *serial_number);
 int read_disciplining_parameters(const char*path, struct disciplining_parameters *dsc_parameters);
+int init_eeprom_manufacturing_pcba(const char *path, struct eeprom_manufacturing_data *data);
+
 #endif /* EEPROM_H */

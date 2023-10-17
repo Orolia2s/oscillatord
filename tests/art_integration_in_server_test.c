@@ -147,9 +147,9 @@ static void prepare_config_file_for_oscillatord(struct devices_path* devices_pat
                                                 int                  socket_port_offset,
                                                 struct config*       config,
                                                 char*                sysfspath) {
-    char socket_port_number[10];
+    char socket_port_number[16];
     /* Define socket port offset */
-    sprintf(socket_port_number, "%d", SOCKET_PORT + socket_port_offset);
+    snprintf(socket_port_number, sizeof(socket_port_number) - 1, "%d", SOCKET_PORT + socket_port_offset);
 
     memset(config, 0, sizeof(struct config));
 

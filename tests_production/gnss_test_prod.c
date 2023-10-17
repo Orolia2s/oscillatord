@@ -35,11 +35,7 @@ int main(int argc, char *argv[])
 	log_set_level(1);
 
 	log_info("Checking input:");
-    snprintf(ocp_path, sizeof(ocp_path), "/sys/class/timecard/%s", argv[1]);
-    if (ocp_path == NULL) {
-        log_error("\t- ocp path doesn't exists");
-        ocp_path_valid = false;
-    }
+    snprintf(ocp_path, sizeof(ocp_path) - 1, "/sys/class/timecard/%s", argv[1]);
 
 	log_info("\t-ocp path is: \"%s\", checking...", ocp_path);
 	if (access(ocp_path, F_OK) != -1)
