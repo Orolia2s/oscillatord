@@ -10,25 +10,37 @@ For now only the following oscillators are supported:
 - Orolia's mRO50
 - Microsemi's SA3X
 - Microsemi's SA5X
+
 ## Requirements
 
-* cmake
-* libjson-c-dev
-* pps-tools
+[Conan](https://conan.io/) ([PyPI reference](https://pypi.org/project/conan/))
+
+```
+pip install conan -U
+conan profile detect
+```
+
+It will handle the following dependencies:
+
+* [json-c](https://github.com/json-c/json-c.git)
+* [pps-tools](https://github.com/redlab-i/pps-tools)
 * [disciplining-minipod](https://github.com/Orolia2s/disciplining-minipod)
 * [ubloxcfg](https://github.com/Orolia2s/ubloxcfg)
-* libsystemd for tests
 
 ## Installation
 
-This program is built using **cmake**:
-
 ```
-mkdir build
-cd build
-cmake ..
-make
-sudo make install
+# Export homemade dependencies recipes
+git clone https://github.com/Orolia2s/disciplining-minipod.git --branch conan vendor/minipod
+conan export vendor/minipod
+conan export vendor/ubloxcfg
+conan export vendor/pps-tools
+
+# To specify a profile, you can manually run:
+# conan install . --build=missing -pr=<...>
+
+# Compile
+make conan_build
 ```
 
 - **make install** will install the executable as well as a service to run oscillatord
