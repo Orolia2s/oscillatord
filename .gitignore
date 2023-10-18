@@ -1,4 +1,11 @@
+*.a
+bin
+*conan*.sh
 .cproject
+*.d
+*.o
+oscillatord
 .project
 .settings/
-build/
+.zig-cache
+zig-out

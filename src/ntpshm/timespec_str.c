@@ -7,7 +7,9 @@
  * SPDX-License-Identifier: BSD-2-clause
  */
 
-// #include "../include/gpsd_config.h"  /* must be before all includes */
+#include "timespec.h"
+
+#include <sys/time.h>
 
 #include <ctype.h>
 #include <errno.h>
@@ -15,10 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 #include <time.h>
-
-#include "timespec.h"
 
 /* Convert a normalized timespec to a nice string
  * put in it *buf, buf should be at least 22 bytes
@@ -39,21 +38,19 @@
  * date --date='@9999999999' is: Sat Nov 20 09:46:39 PST 2286
  *
  */
-const char *timespec_str(const struct timespec *ts, char *buf, size_t buf_size)
+const char* timespec_str(const struct timespec* ts, char* buf, size_t buf_size)
 {
-    char sign = ' ';
+	char sign = ' ';
 
-    if (!TS_GEZ(ts)) {
-        sign = '-';
-    }
+	if (!TS_GEZ(ts))
+	{
+		sign = '-';
+	}
 
-    /* %lld and (long long) because some time_t is bigger than a long
-     * mostly on 32-bit systems. */
-    (void)snprintf(buf, buf_size, "%c%lld.%09ld",
-                   sign,
-                   (long long)llabs(ts->tv_sec),
-                   (long)labs(ts->tv_nsec));
-    return  buf;
+	/* %lld and (long long) because some time_t is bigger than a long
+	 * mostly on 32-bit systems. */
+	(void)snprintf(buf, buf_size, "%c%lld.%09ld", sign, (long long)llabs(ts->tv_sec), (long)labs(ts->tv_nsec));
+	return buf;
 }
 
 /* end */

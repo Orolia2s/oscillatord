@@ -1,0 +1,30 @@
+.{
+    .name = .oscillatord,
+    .version = "3.8.3",
+    .fingerprint = 0x78ed59d69ea71fce,
+    .dependencies = .{
+        .pps_tools = .{
+            .url = "git+https://github.com/redlab-i/pps-tools?ref=master#e5083fe1481a34373dee2acfabb63001ee9c40e0",
+            .hash = "N-V-__8AAEmvAAD7TeH2DgeiDHcUGsXLVnnulotfATDrctsJ",
+        },
+        .ubloxcfg = .{
+            .url = "git+https://github.com/Orolia2s/ubloxcfg?ref=zig-old#a965486772d910b625745001bce45282ce191262",
+            .hash = "ubloxcfg-1.16.0-OcThgPikIgCIZqOvr61kt6Ted8CGDYsTFX_cj3ukg41C",
+        },
+        .disciplining_minipod = .{
+            .url = "git+https://github.com/Orolia2s/disciplining-minipod?ref=zig#86b5920a685ec4982e815ed1d2de5e258d8ce85d",
+            .hash = "disciplining_minipod-3.8.3-sAGgeALiAQA4LDzRJ0wTKKgyyYB8n_7E26TIckPo7EkR",
+        },
+        .jsonc = .{
+            .url = "git+https://github.com/allyourcodebase/json-c?ref=master#59f246c658b562d4c2a10c612c1a2bc6aeb55970",
+            .hash = "jsonc-0.18.0-DbRvtkwcAAC4u29konOcuBB84MozeYQDn4JbI6haE7D5",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "include",
+        "tests",
+    },
+}

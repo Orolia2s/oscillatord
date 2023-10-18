@@ -38,14 +38,19 @@
 #include "gnss.h"
 #include "log.h"
 #include "monitoring.h"
-#include "ntpshm/ntpshm.h"
-#include "ntpshm/ppsthread.h"
+#include "ntpshm.h"
+#include "ppsthread.h"
 #include "oscillator.h"
 #include "oscillator_factory.h"
 #include "phasemeter.h"
 #include "utils.h"
 
+int clock_adjtime(clockid_t, struct timex *);
+
 #define UPDATE_DISCIPLINING_PARAMETERS_SEC 3600
+
+#define PREPRO_STRINGIZE_NOEVAL(TEXT) #TEXT
+#define PREPRO_STRINGIZE(EXPRESSION) PREPRO_STRINGIZE_NOEVAL(EXPRESSION)
 
 static struct gps_context_t context;
 struct od *od = NULL;
@@ -232,7 +237,7 @@ int main(int argc, char *argv[])
 	/* Set log level according to configuration */
 	log_level = config_get_unsigned_number(&config, "debug");
 	log_set_level(log_level >= 0 ? log_level : 0);
-	log_info("Starting Oscillatord v%s", PACKAGE_VERSION);
+	log_info("Starting Oscillatord %s", PREPRO_STRINGIZE(PACKAGE_VERSION));
 
 	/* Start Monitoring Thread */
 	if (monitoring_mode) {
