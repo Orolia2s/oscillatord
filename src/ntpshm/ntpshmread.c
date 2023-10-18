@@ -6,8 +6,6 @@
  * Some of this was swiped from the NTPD distribution.
  */
 
-// #include "../include/gpsd_config.h"  /* must be before all includes */
-
 #include <assert.h>
 #include <errno.h>
 #include <math.h>

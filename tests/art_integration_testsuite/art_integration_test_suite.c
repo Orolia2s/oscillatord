@@ -20,7 +20,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 
-#include "../../common/mRO50_ioctl.h"
+#include "mRO50_ioctl.h"
 #include "config.h"
 #include "configurable_io_test.h"
 #include "gnss_serial_test.h"
