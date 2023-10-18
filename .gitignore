@@ -1,4 +1,7 @@
+*.a
+*.d
+*.o
+*conan*.sh
 .cproject
 .project
 .settings/
-build/
