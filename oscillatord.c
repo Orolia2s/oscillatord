@@ -45,6 +45,8 @@
 #include "phasemeter.h"
 #include "utils.h"
 
+int clock_adjtime(clockid_t, struct timex *);
+
 #define UPDATE_DISCIPLINING_PARAMETERS_SEC 3600
 
 #define PREPRO_STRINGIZE_NOEVAL(TEXT) #TEXT
