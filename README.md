@@ -32,6 +32,8 @@ It will handle the following dependencies:
 ```
 # Export homemade dependencies recipes
 git clone https://github.com/Orolia2s/disciplining-minipod.git --branch conan vendor/minipod
+git clone https://github.com/Orolia2s/ubloxcfg.git --branch conan vendor/ubloxcfg
+
 conan export vendor/minipod
 conan export vendor/ubloxcfg
 conan export vendor/pps-tools
