@@ -1,5 +1,7 @@
 import os
 from conan import ConanFile
+from conan.tools.scm import Git
+from conan.tools.files import copy
 
 class PPSToolsConan(ConanFile):
     name = 'pps-tools'
@@ -17,7 +19,7 @@ class PPSToolsConan(ConanFile):
 
     def package(self):
         copy(self, '*.h', self.source_folder,
-             os.path.join(self.package_folder, 'include'))
+             os.path.join(self.package_folder, 'include', 'sys'))
         for file in ('README.md', 'COPYING'):
             copy(self, file, self.source_folder, self.package_folder)
 
