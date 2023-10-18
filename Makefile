@@ -19,7 +19,15 @@ ClangFormat ?= clang-format
 ImplementationFolder := src
 InterfaceFolder      := include
 BuildFolder          := cache
+SystemdServiceFolder := systemd
 Subfolders           != find $(ImplementationFolder) -type d
+
+InstallPath ?= /usr/local/bin
+Installed   := $(InstallPath)/$(Executable)
+
+SystemdServiceInstallPath ?= $(shell pkg-config systemd --variable=systemdsystemunitdir)
+SystemdServiceSources     != find $(SystemdServiceFolder) -type f -name '*.service'
+SystemdServiceInstalled   := $(SystemdServiceSources:$(SystemdServiceFolder)/%=$(SystemdServiceInstallPath)/%)
 
 CFLAGS   += -O2
 CFLAGS   += -Wall -Wextra
@@ -93,6 +101,15 @@ conan_build conan_lib: conan_%: $(ConanSetupEnv)
 
 .PHONY: conan_build
 
+##@ Install
+
+install: $(SystemdServiceInstalled) $(Installed) ## Install the binary and systemd services
+
+uninstall: ## Remove the binary and service files placed by install
+	$(RM) -v $(SystemdServiceInstalled) $(Installed)
+
+.PHONY: install uninstall
+
 ##@ Developping
 
 format: $(Sources) $(Headers) ## Apply clang-format on source files and headers
@@ -141,3 +158,9 @@ $(EntrypointObject): | $$(@D)
 
 $(Objects): | $$(@D) # Compile a single object
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+$(SystemdServiceInstalled): $(SystemdServiceFolder)/$$(@F)
+	install --mode=644 $< $@
+
+$(Installed): $$(@F)
+	install $< $@
