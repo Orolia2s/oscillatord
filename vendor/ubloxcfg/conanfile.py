@@ -25,6 +25,7 @@ class UbloxCfgConan(ConanFile):
 
     exports_sources = 'ff/*', 'ubloxcfg/*', 'README.md', 'config.h.*', 'cmake/*', '3rdparty/stuff/*'
 
+
     def source(self):
         Git(self).clone(self.url, '.')
 
