@@ -16,6 +16,9 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/timex.h>
+#include <inttypes.h> // PRI*
+
+#include <oscillator-disciplining/oscillator-disciplining.h>
 
 #include "log.h"
 #include "phasemeter.h"
@@ -57,7 +60,7 @@ static int read_extts(int fd, int64_t *nsec)
 	 */
 	*nsec = (int64_t) event.t.sec * 1000000000ULL + event.t.nsec;
 	log_trace(
-		"%s timestamp: %llu",
+		"%s timestamp: %" PRIi64,
 		event.index == 0? "GNSS     " : "Internal ",
 		*nsec);
 
@@ -151,8 +154,8 @@ static void* phasemeter_thread(void *p_data)
 				log_warn("Could not read ptp clock external timestamp for phasemeter");
 			}
 		} while (ts2.index != EXTTS_INDEX_ART_INTERNAL_PPS && ts2.index != EXTTS_INDEX_GNSS_PPS);
-		log_debug("Phasemeter: %s, ts %lld", (ts1.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts1.timestamp);
-		log_debug("Phasemeter: %s, ts %lld", (ts2.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts2.timestamp);
+		log_debug("Phasemeter: %s, ts %" PRIi64 , (ts1.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts1.timestamp);
+		log_debug("Phasemeter: %s, ts %" PRIi64 , (ts2.index == EXTTS_INDEX_GNSS_PPS)? "GNSS" : "INT ", ts2.timestamp);
 
 		/*
 		 * Did not received GNSS PPS external event
@@ -197,7 +200,7 @@ static void* phasemeter_thread(void *p_data)
 				memcpy(&ts1, &ts2, sizeof(struct external_timestamp));
 				continue;
 			}
-			log_debug("Phasemeter: phase_error: %lldns", timestamp_diff);
+			log_debug("Phasemeter: phase_error: %" PRIi64 "ns", timestamp_diff);
 			pthread_mutex_lock(&phasemeter->mutex);
 			phasemeter->status = PHASEMETER_BOTH_TIMESTAMPS;
 			phasemeter->phase_error = timestamp_diff;
