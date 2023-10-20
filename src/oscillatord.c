@@ -121,7 +121,7 @@ static int apply_phase_offset(int fd_clock, const char *device_name,
 			phase_error % NS_IN_SECOND + NS_IN_SECOND,
 	};
 
-	log_info("%s: applying phase offset correction of %"PRIi32"ns",
+	log_info("%s: applying phase offset correction of %"PRIi64"ns",
 		device_name, phase_error);
 	ret = clock_adjtime(clkid, &timex);
 	return ret;
@@ -386,7 +386,7 @@ int main(int argc, char *argv[])
 			do {
 				phasemeter_status = get_phase_error(phasemeter, &phase_error);
 			} while (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS);
-			log_debug("Initial phase error to apply is %d", phase_error);
+			log_debug("Initial phase error to apply is %" PRIi64, phase_error);
 			log_info("Applying initial phase jump before setting PTP clock time");
 			ret = apply_phase_offset(
 				fd_clock,
