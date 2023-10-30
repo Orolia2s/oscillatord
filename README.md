@@ -41,12 +41,12 @@ conan export vendor/pps-tools
 # To specify a profile, you can manually run:
 # conan install . --build=missing -pr=<...>
 
-# Compile
 make conan_build
+
+sudo make install
 ```
 
-- **make install** will install the executable as well as a service to run oscillatord
-- for the service to work, one must copy the [oscillatord_default.conf](./example_configurations/oscillatord_default.conf) file and rename it in */etc/oscillatord.conf*
+for the service to work, one must copy the [oscillatord_default.conf](./example_configurations/oscillatord_default.conf) file and rename it to `/etc/oscillatord.conf`
 
 For test purposes, it is easier to compile the executable and run it from a terminal:
 in project's root directory

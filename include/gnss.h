@@ -18,6 +18,7 @@
 #include <ubloxcfg/ff_rx.h>
 #include <pthread.h>
 #include <termios.h>
+#include <sys/types.h>
 
 #include "config.h"
 #include "ppsthread.h"
