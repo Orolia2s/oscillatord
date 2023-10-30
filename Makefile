@@ -142,8 +142,8 @@ $(EntrypointObject): $(BuildFolder)/%.o: %.c
 $(Library): $(Objects) # Group all the compiled objects into an indexed archive
 	$(AR) rcs $@ $^
 
-$(Executable): $(EntrypointObject) $(Library)
-	$(CC) $(CFLAGS) $< $(LDFLAGS) -L . -l$(Name) $(LDLIBS) -o $@
+$(Executable): $(EntrypointObject) $(Objects)
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) $(LDLIBS) -o $@
 
 $(ConanSetupEnv): # Run conan to have dependencies
 	conan install . --build=missing
