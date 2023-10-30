@@ -1,8 +1,9 @@
 *.a
-*.d
-*.o
+bin
 *conan*.sh
 .cproject
+*.d
+*.o
+oscillatord
 .project
 .settings/
-oscillatord
