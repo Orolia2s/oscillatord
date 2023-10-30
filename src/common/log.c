@@ -36,7 +36,7 @@ static struct {
   int level;
   bool quiet;
   Callback callbacks[MAX_CALLBACKS];
-} L;
+} L = {0};
 
 
 static const char *level_strings[] = {
