@@ -21,6 +21,8 @@ InterfaceFolder      := include
 BuildFolder          := cache
 SystemdServiceFolder := systemd
 Subfolders           != find $(ImplementationFolder) -type d
+UtilsSourceFolder    := utils
+UtilsBinaryFolder    := bin
 
 InstallPath ?= /usr/local/bin
 Installed   := $(InstallPath)/$(Executable)
@@ -40,7 +42,6 @@ CFLAGS   += -Wno-address-of-packed-member
 CPPFLAGS += -I $(InterfaceFolder)
 CPPFLAGS += -DPACKAGE_VERSION=$(Version)
 CPPFLAGS += -DLOG_USE_COLOR
-CPPFLAGS += -MMD
 CPPFLAGS += -DNDEBUG
 
 LDLIBS   += $(LIBS)
@@ -50,6 +51,9 @@ EntrypointObject := $(BuildFolder)/$(Name).o
 Sources != find $(ImplementationFolder) -type f -name '*.c'
 Objects := $(Sources:$(ImplementationFolder)/%.c=$(BuildFolder)/%.o)
 Headers != find $(InterfaceFolder) $(ImplementationFolder) -type f -name '*.h'
+
+UtilsSources  != find $(UtilsSourceFolder) -type f -name 'art_*.c'
+UtilsBinaries := $(UtilsSources:$(UtilsSourceFolder)/%.c=$(UtilsBinaryFolder)/%)
 
 ConanSetupEnv := conanbuild.sh
 
@@ -89,17 +93,20 @@ build: $(Executable) ## Compile both the library and the executable
 
 lib: $(Library) ## Compile only the library (statically)
 
-.PHONY: build lib
+utils: $(UtilsBinaries) ## Compile utilities
+
+.PHONY: build lib utils
 
 ##@ Building with Conan
 
 conan_build: ## Compile both the library and the executable, using the conan environment
 conan_lib: ## Compile only the library (statically), using the conan environment
+conan_utils: ## Compile utilities, using the conan environment
 
-conan_build conan_lib: conan_%: $(ConanSetupEnv)
+conan_build conan_lib conan_utils: conan_%: $(ConanSetupEnv)
 	bash -c "( . $< && $(MAKE) $* --no-print-directory )"
 
-.PHONY: conan_build
+.PHONY: conan_build conan_lib conan_utils
 
 ##@ Install
 
@@ -125,6 +132,7 @@ clean: ## Remove intermediate objects
 
 fclean: clean ## Remove all generated files
 	$(RM) $(Executable) $(Library)
+	$(RM) -r $(UtilsBinaryFolder)
 
 .PHONY: clean fclean
 
@@ -132,7 +140,7 @@ fclean: clean ## Remove all generated files
 
 include $(wildcard $(Objects:.o=.d)) # To know on which header each .o depends
 
-$(Subfolders:$(ImplementationFolder)%=$(BuildFolder)%): # Create the build folder and its subfolders
+$(Subfolders:$(ImplementationFolder)%=$(BuildFolder)%) $(UtilsBinaryFolder): # Create the build folder and its subfolders
 	mkdir -p $@
 
 # declare the dependency between objects sources
@@ -154,13 +162,16 @@ $(ConanSetupEnv): # Run conan to have dependencies
 .SECONDEXPANSION:
 
 $(EntrypointObject): | $$(@D)
-	$(CC) $(CFLAGS) $(CPPFLAGS) -I $(ImplementationFolder) -c $< -o $@
+	$(CC) $(CFLAGS) $(CPPFLAGS) -MMD -I $(ImplementationFolder) -c $< -o $@
 
 $(Objects): | $$(@D) # Compile a single object
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(CPPFLAGS) -MMD -c $< -o $@
 
 $(SystemdServiceInstalled): $(SystemdServiceFolder)/$$(@F)
 	install --mode=644 $< $@
 
 $(Installed): $$(@F)
 	install $< $@
+
+$(UtilsBinaries): $(UtilsBinaryFolder)/%: $(UtilsSourceFolder)/%.c $(Library) | $$(@D)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -I $(ImplementationFolder) $< $(UtilsSourceFolder)/eeprom.c $(LDFLAGS) -L . -l$(Name) $(LDLIBS) -o $@
