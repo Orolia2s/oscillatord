@@ -4,10 +4,12 @@
  */
 #ifndef CONFIG_H_
 #define CONFIG_H_
-#include <linux/limits.h>
+
+#include <linux/limits.h> // PATH_MAX
 
 #include <stdbool.h>
-#include <stddef.h>
+#include <stddef.h> // size_t
+#include <stdint.h> // int16_t
 
 /**
  * @struct config
@@ -53,4 +55,5 @@ void                config_cleanup(struct config* config);
 
 void                config_dump(const struct config* config, char* buf, size_t buf_len);
 int                 config_save(struct config* config, const char* path);
+
 #endif /* CONFIG_H_ */
