@@ -11,9 +11,9 @@
 
 #include <dirent.h>
 
-#include <inttypes.h>
 #include <stdbool.h>
-#include <stddef.h>
+#include <stdint.h> // uintptr_t
+#include <stdio.h>  // FILE
 
 #define NS_IN_SECOND            1000000000l
 #define DUMMY_TEMPERATURE_VALUE -3000.0
