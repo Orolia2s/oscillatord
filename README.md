@@ -51,8 +51,8 @@ for the service to work, one must copy the [oscillatord_default.conf](./example_
 For test purposes, it is easier to compile the executable and run it from a terminal:
 in project's root directory
 ```
-make -C build
-sudo ./build/src/oscillatord example_configurations/oscillatord_default.conf
+make conan_build
+sudo ./oscillatord example_configurations/oscillatord_default.conf
 ```
 
 

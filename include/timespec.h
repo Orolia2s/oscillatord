@@ -6,8 +6,9 @@
 #ifndef GPSD_TIMESPEC_H
 #	define GPSD_TIMESPEC_H
 
-#	include <math.h>    /* for modf() */
-#	include <stdbool.h> /* for bool */
+#	include <time.h> // struct timespec
+#	include <math.h> // modf
+#	include <stdbool.h>
 
 #	define NS_IN_SEC              1000000000LL /* nanoseconds in a second */
 #	define MS_IN_NS               1000000LL    /* milliseconds in a nano second */
