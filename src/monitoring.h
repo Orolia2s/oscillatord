@@ -11,12 +11,14 @@
 #ifndef MONITORING_H
 #define MONITORING_H
 
-#include <pthread.h>
-#include <oscillator-disciplining/oscillator-disciplining.h>
 #include "config.h"
 #include "oscillator.h"
 
-enum monitoring_request {
+#include <oscillator-disciplining/oscillator-disciplining.h>
+#include <pthread.h>
+
+enum monitoring_request
+{
 	REQUEST_NONE,
 	REQUEST_CALIBRATION,
 	REQUEST_GNSS_START,
@@ -36,23 +38,25 @@ enum monitoring_request {
 /**
  * @brief General structure for monitoring thread
  */
-struct monitoring {
-	pthread_t thread;
-	pthread_mutex_t mutex;
-	pthread_cond_t cond;
-	enum monitoring_request request;
-	struct od_monitoring disciplining;
-	struct oscillator_ctrl ctrl_values;
+struct monitoring
+{
+	pthread_t                    thread;
+	pthread_mutex_t              mutex;
+	pthread_cond_t               cond;
+	enum monitoring_request      request;
+	struct od_monitoring         disciplining;
+	struct oscillator_ctrl       ctrl_values;
 	struct oscillator_attributes osc_attributes;
-	struct gnss_state gnss_info;
-	const char *oscillator_model;
-	struct devices_path devices_path;
-	int sockfd;
-	bool stop;
-	bool disciplining_mode;
-	bool phase_error_supported;
+	struct gnss_state            gnss_info;
+	const char*                  oscillator_model;
+	struct devices_path          devices_path;
+	int                          sockfd;
+	bool                         stop;
+	bool                         disciplining_mode;
+	bool                         phase_error_supported;
 };
 
-struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path);
-void monitoring_stop(struct monitoring *monitoring);
+struct monitoring* monitoring_init(const struct config* config, struct devices_path* devices_path);
+void               monitoring_stop(struct monitoring* monitoring);
+
 #endif // MONITORING_H

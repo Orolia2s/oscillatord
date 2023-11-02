@@ -1,13 +1,11 @@
-#include <errno.h>
-#include <error.h>
-#include <math.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/timex.h>
-#include <time.h>
-#include <unistd.h>
+#include "gnss.h"
 
+#include "f9_defvalsets.h"
+#include "gnss-config.h"
+#include "log.h"
+#include "utils.h"
+
+#include <error.h>
 #include <ubloxcfg/ff_epoch.h>
 #include <ubloxcfg/ff_parser.h>
 #include <ubloxcfg/ff_rx.h>
@@ -15,50 +13,55 @@
 #include <ubloxcfg/ff_ubx.h>
 #include <ubloxcfg/ubloxcfg.h>
 
-#include "gnss.h"
-#include "gnss-config.h"
-#include "log.h"
-#include "utils.h"
-#include "f9_defvalsets.h"
+#include <sys/timex.h>
 
-#define NUM_SAT_MIN 3
+#include <errno.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
 
-#define GNSS_CONNECT_MAX_TRY 5
+#define NUM_SAT_MIN              3
 
-#define GNSS_TIMEOUT_MS 1200
+#define GNSS_CONNECT_MAX_TRY     5
+
+#define GNSS_TIMEOUT_MS          1200
 #define GNSS_RECONFIGURE_MAX_TRY 5
-#define SEC_IN_WEEK 604800
+#define SEC_IN_WEEK              604800
 
-#define GPS_EPOCH_TO_TAI 315964819
+#define GPS_EPOCH_TO_TAI         315964819
 
-#define GAL_EPOCH_TO_GPS 619315200
-#define GAL_EPOCH_TO_TAI GAL_EPOCH_TO_GPS + GPS_EPOCH_TO_TAI
+#define GAL_EPOCH_TO_GPS         619315200
+#define GAL_EPOCH_TO_TAI         GAL_EPOCH_TO_GPS + GPS_EPOCH_TO_TAI
 
-#define BDS_EPOCH_TO_GPS 820108814
-#define BDS_EPOCH_TO_TAI BDS_EPOCH_TO_GPS + GPS_EPOCH_TO_TAI
+#define BDS_EPOCH_TO_GPS         820108814
+#define BDS_EPOCH_TO_TAI         BDS_EPOCH_TO_GPS + GPS_EPOCH_TO_TAI
 
-#define GLO_EPOCH_TO_TAI 315954019
+#define GLO_EPOCH_TO_TAI         315954019
 
-#define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
+#define ARRAY_SIZE(_A)           (sizeof(_A) / sizeof((_A)[0]))
 
 /** Survey In min duration (s) */
-#define SVIN_MIN_DUR 1200
+#define SVIN_MIN_DUR             1200
 /** Survey In max duration allowed (s) */
-#define SVIN_MAX_DUR SVIN_MIN_DUR + 600
+#define SVIN_MAX_DUR             SVIN_MIN_DUR + 600
 
 #ifndef UBX_TIM_TM2_V0_SIZE
-#define UBX_TIM_TP_V0_GROUP0_t UBX_TIME_TP_V0_GROUP0_t
-#define UBX_TIM_SVIN_V0_GROUP0_t UBX_TIME_SVIN_V0_GROUP0_t
+#	define UBX_TIM_TP_V0_GROUP0_t   UBX_TIME_TP_V0_GROUP0_t
+#	define UBX_TIM_SVIN_V0_GROUP0_t UBX_TIME_SVIN_V0_GROUP0_t
 #endif
 
 #ifndef FLAG
-#define FLAG(field, flag) ( ((field) & (flag)) == (flag) )
+#	define FLAG(field, flag) (((field) & (flag)) == (flag))
 #endif
 
 /** The resolution of our phasemeter in pico seconds */
 #define QERR_ABS_THRESHOLD_PS 5000
 
-enum AntennaStatus {
+enum AntennaStatus
+{
 	ANT_STATUS_INIT,
 	ANT_STATUS_DONT_KNOW,
 	ANT_STATUS_OK,
@@ -67,7 +70,8 @@ enum AntennaStatus {
 	ANT_STATUS_UNDEFINED
 };
 
-enum AntennaPower {
+enum AntennaPower
+{
 	ANT_POWER_OFF,
 	ANT_POWER_ON,
 	ANT_POWER_DONTKNOW,
@@ -75,7 +79,8 @@ enum AntennaPower {
 	ANT_POWER_UNDEFINED
 };
 
-enum SurveyInState {
+enum SurveyInState
+{
 	SURVEY_IN_KO,
 	SURVEY_IN_UNKNOWN,
 	SURVEY_IN_IN_PROGRESS,
@@ -84,36 +89,37 @@ enum SurveyInState {
 
 #define NO_FIX 1
 
-static const char *fix_log[11] = {
-	"unknown",
-	"no fix",
-	"DR only",
-	"time",
-	"2D",
-	"3D",
-	"3D_DR",
-	"RTK_FLOAT",
-	"RTK_FIXED",
-	"RTK_FLOAT_DR",
-	"RTK_FIXED_DR",
+static const char* fix_log[11] = {
+    "unknown",
+    "no fix",
+    "DR only",
+    "time",
+    "2D",
+    "3D",
+    "3D_DR",
+    "RTK_FLOAT",
+    "RTK_FIXED",
+    "RTK_FLOAT_DR",
+    "RTK_FIXED_DR",
 };
 
-static void * gnss_thread(void * p_data);
+static void* gnss_thread(void* p_data);
 
-static int gnss_get_satellites(EPOCH_t *epoch)
+static int   gnss_get_satellites(EPOCH_t* epoch)
 {
-	if (epoch->haveNumSv) {
+	if (epoch->haveNumSv)
+	{
 		return epoch->numSv;
 	}
 	return 0;
 }
 
-static void gnss_reset_session_navigation_data(struct gps_device_t *session)
+static void gnss_reset_session_navigation_data(struct gps_device_t* session)
 {
-	session->valid = false;
+	session->valid            = false;
 	session->satellites_count = 0;
-	session->fix = NO_FIX;
-	session->fixOk = false;
+	session->fix              = NO_FIX;
+	session->fixOk            = false;
 }
 
 /**
@@ -122,30 +128,28 @@ static void gnss_reset_session_navigation_data(struct gps_device_t *session)
  * @param epoch
  * @return time_t
  */
-static time_t gnss_get_utc_time(EPOCH_t *epoch)
+static time_t gnss_get_utc_time(EPOCH_t* epoch)
 {
-	struct tm t = {
-		// Year - 1900
-		.tm_year = epoch->year - 1900,
-		// Month, where 0 = jan. libublox starts indexing by 1
-		.tm_mon = epoch->month - 1,
-		// Day of the month
-		.tm_mday = epoch->day,
-		.tm_hour = epoch->hour,
-		.tm_min = epoch->minute,
-		.tm_sec = (int) round(epoch->second),
-		// Is DST on? 1 = yes, 0 = no, -1 = unknown
-		.tm_isdst = -1
-	};
-	time_t time = mktime(&t);
+	struct tm t    = {// Year - 1900
+	                  .tm_year  = epoch->year - 1900,
+                   // Month, where 0 = jan. libublox starts indexing by 1
+	                  .tm_mon   = epoch->month - 1,
+                   // Day of the month
+	                  .tm_mday  = epoch->day,
+	                  .tm_hour  = epoch->hour,
+	                  .tm_min   = epoch->minute,
+	                  .tm_sec   = (int)round(epoch->second),
+                   // Is DST on? 1 = yes, 0 = no, -1 = unknown
+	                  .tm_isdst = -1};
+	time_t    time = mktime(&t);
 	/* Temporary solution to get UTC time as mktime converts
-	* considering time provided is a local time
-	*/
-# ifdef	__USE_MISC
-	time =  time + localtime(&time)->tm_gmtoff;
-# else
-	time =  time + localtime(&time)->__tm_gmtoff;
-# endif
+	 * considering time provided is a local time
+	 */
+#ifdef __USE_MISC
+	time = time + localtime(&time)->tm_gmtoff;
+#else
+	time = time + localtime(&time)->__tm_gmtoff;
+#endif
 	return time;
 }
 
@@ -155,40 +159,44 @@ static time_t gnss_get_utc_time(EPOCH_t *epoch)
  * @param session gps device data of the session
  * @param msg msg received from the receiver
  */
-static void gnss_parse_ubx_nav_timels(struct gps_device_t *session, PARSER_MSG_t *msg)
+static void gnss_parse_ubx_nav_timels(struct gps_device_t* session, PARSER_MSG_t* msg)
 {
 	UBX_NAV_TIMELS_V0_GROUP0_t nav_timels_msg;
-	if (msg->size == UBX_NAV_TIMELS_V0_SIZE) {
+	if (msg->size == UBX_NAV_TIMELS_V0_SIZE)
+	{
 		memcpy(&nav_timels_msg, &msg->data[UBX_HEAD_SIZE], sizeof(nav_timels_msg));
 
 		session->context->leap_seconds =
-			FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_CURRLSVALID) ?
-			nav_timels_msg.currLs :
-			0;
+		    FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_CURRLSVALID) ? nav_timels_msg.currLs : 0;
 		session->context->lsset = FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_CURRLSVALID);
 
 		if (FLAG(nav_timels_msg.valid, UBX_NAV_TIMELS_V0_VALID_TIMETOLSEVENTVALID))
 		{
 			session->context->timeToLsEvent = nav_timels_msg.timeToLsEvent;
-			session->context->lsChange = nav_timels_msg.lsChange;
+			session->context->lsChange      = nav_timels_msg.lsChange;
 
-			if ((0 != session->context->lsChange) &&
-				(0 < session->context->timeToLsEvent) &&
-				((60 * 60 * 23) > session->context->timeToLsEvent)) {
-				if (1 == session->context->lsChange) {
+			if ((0 != session->context->lsChange) && (0 < session->context->timeToLsEvent)
+			    && ((60 * 60 * 23) > session->context->timeToLsEvent))
+			{
+				if (1 == session->context->lsChange)
+				{
 					session->context->leap_notify = LEAP_ADDSECOND;
-				} else if (-1 == session->context->lsChange) {
+				}
+				else if (-1 == session->context->lsChange)
+				{
 					session->context->leap_notify = LEAP_DELSECOND;
 				}
-			} else {
+			}
+			else
+			{
 				session->context->leap_notify = LEAP_NOWARNING;
 			}
 			return;
 		}
 	}
 	session->context->timeToLsEvent = 0;
-	session->context->lsChange = 0;
-	session->context->leap_notify = LEAP_NOWARNING;
+	session->context->lsChange      = 0;
+	session->context->leap_notify   = LEAP_NOWARNING;
 };
 
 /**
@@ -197,8 +205,10 @@ static void gnss_parse_ubx_nav_timels(struct gps_device_t *session, PARSER_MSG_t
  * @param session gps device data of the session
  * @param msg msg received from the receiver
  */
-static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *msg) {
-	if (msg->size == (int) UBX_TIM_TP_V0_SIZE) {
+static void gnss_parse_ubx_tim_tp(struct gps_device_t* session, PARSER_MSG_t* msg)
+{
+	if (msg->size == (int)UBX_TIM_TP_V0_SIZE)
+	{
 		UBX_TIM_TP_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
 
@@ -209,57 +219,65 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 		}
 
 		log_trace("UBX-TIM-TP: towMS %lu, towSubMs %lu, qErr %ld, week %ld, flags %x; refInfo %x",
-			gr0.towMs,
-			gr0.towSubMS,
-			gr0.qErr,
-			gr0.week,
-			gr0.flags,
-			gr0.refInfo
-		);
+		          gr0.towMs,
+		          gr0.towSubMS,
+		          gr0.qErr,
+		          gr0.week,
+		          gr0.flags,
+		          gr0.refInfo);
 
 		int offset = 0;
-		if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_GNSS) {
-			switch(UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo)) {
-				case UBX_TIM_TP_V0_REFINFO_GPS:
-					offset = GPS_EPOCH_TO_TAI;
-					break;
-				case UBX_TIM_TP_V0_REFINFO_BDS:
-					offset = BDS_EPOCH_TO_TAI;
-					break;
-				case UBX_TIM_TP_V0_REFINFO_GAL:
-					offset = GAL_EPOCH_TO_TAI;
-					break;
-				case UBX_TIM_TP_V0_REFINFO_GLO:
-					if (session->context->lsset) {
-						offset = GLO_EPOCH_TO_TAI + session->context->leap_seconds;
-					} else {
-						log_warn("Cannot compute TAI time from GLONASS without leap second information. Waiting for leap second data");
-						return;
-					}
-					break;
-				default:
-					log_error("Unhandled Constellations %d", UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo));
+		if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_GNSS)
+		{
+			switch (UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo))
+			{
+			case UBX_TIM_TP_V0_REFINFO_GPS:
+				offset = GPS_EPOCH_TO_TAI;
+				break;
+			case UBX_TIM_TP_V0_REFINFO_BDS:
+				offset = BDS_EPOCH_TO_TAI;
+				break;
+			case UBX_TIM_TP_V0_REFINFO_GAL:
+				offset = GAL_EPOCH_TO_TAI;
+				break;
+			case UBX_TIM_TP_V0_REFINFO_GLO:
+				if (session->context->lsset)
+				{
+					offset = GLO_EPOCH_TO_TAI + session->context->leap_seconds;
+				}
+				else
+				{
+					log_warn("Cannot compute TAI time from GLONASS without leap second information. Waiting for leap "
+					         "second data");
 					return;
+				}
+				break;
+			default:
+				log_error("Unhandled Constellations %d", UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo));
+				return;
 			}
-		} else if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_UTC) {
-			if (session->context->lsset) {
+		}
+		else if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_UTC)
+		{
+			if (session->context->lsset)
+			{
 				offset = GPS_EPOCH_TO_TAI + session->context->leap_seconds;
-			} else {
-				log_warn("Cannot compute TAI time from UTC without leap second information. Waiting for leap second data");
+			}
+			else
+			{
+				log_warn("Cannot compute TAI time from UTC without leap second information. Waiting for leap second "
+				         "data");
 				return;
 			}
 		}
 
-		session->tai_time = (int) round(
-			((double) gr0.towMs / 1000)
-			+ ((double) gr0.week * SEC_IN_WEEK)
-			+ offset
-			- 1 // UBX-TIM-TP gives time at next pulse
+		session->tai_time = (int)round(((double)gr0.towMs / 1000) + ((double)gr0.week * SEC_IN_WEEK) + offset - 1 // UBX-TIM-TP
+		                                                                                                          // gives time at next pulse
 		);
 		/* Update quantization error and store quantization of last epoch */
 		session->context->qErr_last_epoch = session->context->qErr;
-		session->context->qErr = gr0.qErr;
-		session->tai_time_set = true;
+		session->context->qErr            = gr0.qErr;
+		session->tai_time_set             = true;
 		return;
 	}
 }
@@ -271,23 +289,26 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
  * @param msg msg received from the receiver
  * @return enum survey_in_state
  */
-static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, PARSER_MSG_t *msg) {
-	if (msg->size == (int) UBX_TIM_SVIN_V0_SIZE) {
+static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t* session, PARSER_MSG_t* msg)
+{
+	if (msg->size == (int)UBX_TIM_SVIN_V0_SIZE)
+	{
 		UBX_TIM_SVIN_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
-		if (gr0.active || !gr0.valid) {
-			log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
-				gr0.dur,
-				gr0.meanX,
-				gr0.meanY,
-				gr0.meanZ,
-				gr0.meanV,
-				gr0.obs,
-				gr0.valid,
-				gr0.active
-			);
+		if (gr0.active || !gr0.valid)
+		{
+			log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active "
+			          "%d",
+			          gr0.dur,
+			          gr0.meanX,
+			          gr0.meanY,
+			          gr0.meanZ,
+			          gr0.meanV,
+			          gr0.obs,
+			          gr0.valid,
+			          gr0.active);
 		}
-		session->survey_in_position_error = sqrt(gr0.meanV)/1000;
+		session->survey_in_position_error = sqrt(gr0.meanV) / 1000;
 		if (!gr0.active && gr0.dur >= SVIN_MIN_DUR)
 			return gr0.valid ? SURVEY_IN_COMPLETED : SURVEY_IN_KO;
 		else if (gr0.dur < SVIN_MAX_DUR)
@@ -304,18 +325,20 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, 
  * @param session gps device data of the session
  * @param msg msg received from the receiver
  */
-static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *msg)
+static void gnss_get_antenna_data(struct gps_device_t* session, PARSER_MSG_t* msg)
 {
-	if (msg->size > (UBX_FRAME_SIZE + 4)) {
-		if (msg->size >= (int) UBX_MON_RF_V0_MIN_SIZE) {
-			int offs = UBX_HEAD_SIZE;
+	if (msg->size > (UBX_FRAME_SIZE + 4))
+	{
+		if (msg->size >= (int)UBX_MON_RF_V0_MIN_SIZE)
+		{
+			int                    offs = UBX_HEAD_SIZE;
 			UBX_MON_RF_V0_GROUP0_t gr0;
 			memcpy(&gr0, &msg->data[offs], sizeof(gr0));
 			offs += sizeof(gr0);
 
 			// Reset antenna status and power
 			session->antenna_status = 0x5; // Undefined value according to spec
-			session->antenna_power = 0x5; // Undefined value according to spec
+			session->antenna_power  = 0x5; // Undefined value according to spec
 
 			UBX_MON_RF_V0_GROUP1_t gr1;
 			while (offs <= (msg->size - 2 - (int)sizeof(gr1)))
@@ -334,29 +357,29 @@ static void gnss_get_antenna_data(struct gps_device_t *session, PARSER_MSG_t *ms
 	}
 }
 
-static void log_gnss_data(struct gps_device_t *session)
+static void log_gnss_data(struct gps_device_t* session)
 {
-	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, survey in error: %0.2f, antenna status: %d, valid %d,"
-		" time %lld, leapm_seconds %d, leap_notify %d, lsChange %d, "
-		"timeToLsChange %d, lsSet: %s, QErr(n) %d, qErr(n-1) %d, pos_accuracy %d m, time_accuracy %d ns",
-		fix_log[session->fix],
-		session->fix,
-		session->fixOk ? "True" : "False",
-		session->satellites_count,
-		session->survey_in_position_error,
-		session->antenna_status,
-		session->valid,
-		session->last_fix_utc_time.tv_sec,
-		session->context->leap_seconds,
-		session->context->leap_notify,
-		session->context->lsChange,
-		session->context->timeToLsEvent,
-		session->context->lsset ? "True" : "False",
-		session->context->qErr,
-		session->context->qErr_last_epoch,
-		session->position_accuracy,
-		session->time_accuracy
-	);
+	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, survey in error: %0.2f, antenna status: %d, "
+	          "valid %d,"
+	          " time %lld, leapm_seconds %d, leap_notify %d, lsChange %d, "
+	          "timeToLsChange %d, lsSet: %s, QErr(n) %d, qErr(n-1) %d, pos_accuracy %d m, time_accuracy %d ns",
+	          fix_log[session->fix],
+	          session->fix,
+	          session->fixOk ? "True" : "False",
+	          session->satellites_count,
+	          session->survey_in_position_error,
+	          session->antenna_status,
+	          session->valid,
+	          session->last_fix_utc_time.tv_sec,
+	          session->context->leap_seconds,
+	          session->context->leap_notify,
+	          session->context->lsChange,
+	          session->context->timeToLsEvent,
+	          session->context->lsset ? "True" : "False",
+	          session->context->qErr,
+	          session->context->qErr_last_epoch,
+	          session->position_accuracy,
+	          session->time_accuracy);
 }
 
 /**
@@ -366,20 +389,20 @@ static void log_gnss_data(struct gps_device_t *session)
  * @param td
  * Copied from GPSD
  */
-static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
+static void ntp_latch(struct gps_device_t* device, struct timedelta_t* td)
 {
+	/* this should be an invariant of the way this function is called */
+	if (0 >= device->last_fix_utc_time.tv_sec)
+	{
+		return;
+	}
 
-    /* this should be an invariant of the way this function is called */
-    if (0 >= device->last_fix_utc_time.tv_sec) {
-        return;
-    }
+	(void)clock_gettime(CLOCK_REALTIME, &td->clock);
+	/* structure copy of time from GPS */
+	td->real = device->last_fix_utc_time;
 
-    (void)clock_gettime(CLOCK_REALTIME, &td->clock);
-    /* structure copy of time from GPS */
-    td->real = device->last_fix_utc_time;
-
-    /* thread-safe update */
-    pps_thread_fixin(&device->pps_thread, td);
+	/* thread-safe update */
+	pps_thread_fixin(&device->pps_thread, td);
 }
 
 /**
@@ -389,9 +412,11 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
  * @param rx pointer to serial communication handler
  * @return boolean indicating connection has been done or not
  */
-static bool gnss_connect(RX_t *rx) {
+static bool gnss_connect(RX_t* rx)
+{
 	int tries = 0;
-	while (tries < GNSS_CONNECT_MAX_TRY) {
+	while (tries < GNSS_CONNECT_MAX_TRY)
+	{
 		if (rxOpen(rx))
 			return true;
 		else
@@ -430,7 +455,7 @@ static bool set_preferred_time_scale(UBLOXCFG_KEYVAL_t* keyValuePairs, size_t le
 	log_info("Using custom value for \"%s\": %s", parameter_name, preferred_constellation);
 
 	UBLOXCFG_KEYVAL_t* pair = keyValuePairs + length;
-	while (pair --> keyValuePairs)
+	while (pair-- > keyValuePairs)
 	{
 		if (pair->id == UBLOXCFG_CFG_TP_TIMEGRID_TP1_ID)
 		{
@@ -473,7 +498,7 @@ static bool set_cable_delay(UBLOXCFG_KEYVAL_t* keyValuePairs, size_t length, con
 	log_info("Using custom value for \"%s\": %li", parameter_name, value);
 
 	UBLOXCFG_KEYVAL_t* pair = keyValuePairs + length;
-	while (pair --> keyValuePairs)
+	while (pair-- > keyValuePairs)
 	{
 		if (pair->id == UBLOXCFG_CFG_TP_ANT_CABLEDELAY_ID)
 		{
@@ -496,8 +521,8 @@ static bool gnss_set_configuration(RX_t* rx, const struct config* config, int ma
 	int                tries               = 0;
 
 	// Get configuration
-	int nAllKvCfg;
-	UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg, major, minor);
+	int                nAllKvCfg;
+	UBLOXCFG_KEYVAL_t* allKvCfg = get_default_value_from_config(&nAllKvCfg, major, minor);
 
 	set_preferred_time_scale(allKvCfg, nAllKvCfg, config);
 	set_cable_delay(allKvCfg, nAllKvCfg, config);
@@ -509,14 +534,17 @@ static bool gnss_set_configuration(RX_t* rx, const struct config* config, int ma
 	else
 		log_info("Receiver not configured to desired configuration, starting reconfiguration");
 
-	while (!receiver_configured) {
+	while (!receiver_configured)
+	{
 		log_info("Configuring receiver with ART parameters...\n");
 		bool res = rxSetConfig(rx, allKvCfg, nAllKvCfg, true, true, true);
 
-		if (res) {
+		if (res)
+		{
 			log_info("Successfully reconfigured GNSS receiver");
 			log_debug("Performing hardware reset");
-			if (!rxReset(rx, RX_RESET_HARD)) {
+			if (!rxReset(rx, RX_RESET_HARD))
+			{
 				free(allKvCfg);
 				return false;
 			}
@@ -545,7 +573,7 @@ static bool gnss_set_configuration(RX_t* rx, const struct config* config, int ma
  * @param fd_clock file pointer to PHC
  * @return struct gnss*
  */
-struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, struct gps_device_t *session, int fd_clock)
+struct gnss* gnss_init(const struct config* config, char* gnss_device_tty, struct gps_device_t* session, int fd_clock)
 {
 	struct gnss* gnss;
 	int          ret  = -1;
@@ -553,34 +581,37 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	args.autobaud     = true;
 	args.detect       = true;
 
-	if (strchr(gnss_device_tty, '@')) {
+	if (strchr(gnss_device_tty, '@'))
+	{
 		args.autobaud = false;
 	}
 
-	if (session == NULL) {
+	if (session == NULL)
+	{
 		log_error("No gps session provided");
 		return NULL;
 	}
 
-	gnss = (struct gnss *) malloc(sizeof(struct gnss));
-	if (gnss == NULL) {
+	gnss = (struct gnss*)malloc(sizeof(struct gnss));
+	if (gnss == NULL)
+	{
 		log_error("could not allocate memory for gnss");
 		return NULL;
 	}
 
 	gnss->fd_clock = fd_clock;
-	gnss->session = session;
+	gnss->session  = session;
 	gnss_reset_session_navigation_data(gnss->session);
 	/* Init Antenna Status and Power to undefined values according to UBX Protocol */
-	gnss->session->antenna_status = ANT_STATUS_UNDEFINED;
-	gnss->session->antenna_power = ANT_POWER_UNDEFINED;
-	gnss->rx = rxInit(gnss_device_tty, &args);
-	gnss->action = GNSS_ACTION_NONE;
+	gnss->session->antenna_status           = ANT_STATUS_UNDEFINED;
+	gnss->session->antenna_power            = ANT_POWER_UNDEFINED;
+	gnss->rx                                = rxInit(gnss_device_tty, &args);
+	gnss->action                            = GNSS_ACTION_NONE;
 	/* Init Survey In Error to undefined values */
-	gnss->session->survey_in_position_error =-1.0;
+	gnss->session->survey_in_position_error = -1.0;
 	/* Init receiver version values */
-	gnss->receiver_version_minor = -1;
-	gnss->receiver_version_major = -1;
+	gnss->receiver_version_minor            = -1;
+	gnss->receiver_version_major            = -1;
 	if (gnss->rx == NULL)
 		goto err_rxInit;
 
@@ -589,9 +620,12 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 
 	/* Fetch receiver version and save it in gnss structure*/
 	char verStr[100];
-    if (rxGetVerStr(gnss->rx, verStr, sizeof(verStr))) {
+	if (rxGetVerStr(gnss->rx, verStr, sizeof(verStr)))
+	{
 		if (parse_receiver_version(verStr, &gnss->receiver_version_major, &gnss->receiver_version_minor))
-			log_debug("Receiver version successfully detected ! Major is %d, Minor is %d ", gnss->receiver_version_major, gnss->receiver_version_minor);
+			log_debug("Receiver version successfully detected ! Major is %d, Minor is %d ",
+			          gnss->receiver_version_major,
+			          gnss->receiver_version_minor);
 		else
 			log_warn("Receiver version parsing failed");
 	}
@@ -607,16 +641,15 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	gnss->session->survey_completed = false;
 
 	/* Check wether receiver's survey in should be bypassed or not */
-	gnss->session->bypass_survey = config_get_bool_default(
-		config,
-		"gnss-bypass-survey",
-		false);
-	if (gnss->session->bypass_survey) {
+	gnss->session->bypass_survey = config_get_bool_default(config, "gnss-bypass-survey", false);
+	if (gnss->session->bypass_survey)
+	{
 		log_warn("GNSS Survey In will be bypassed, true timing performance might not be reached");
 		log_warn("Please note that performance may be degraded and holdover might not reached specified limits");
 	}
 
-	if (!rxReset(gnss->rx, RX_RESET_GNSS_START)) {
+	if (!rxReset(gnss->rx, RX_RESET_GNSS_START))
+	{
 		log_error("Could not start GNSS receiver");
 		goto err_gnss_connect;
 	}
@@ -625,14 +658,10 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	pthread_cond_init(&gnss->cond_time, NULL);
 	pthread_cond_init(&gnss->cond_data, NULL);
 
-	ret = pthread_create(
-		&gnss->thread,
-		NULL,
-		gnss_thread,
-		gnss
-	);
+	ret = pthread_create(&gnss->thread, NULL, gnss_thread, gnss);
 
-	if (ret != 0) {
+	if (ret != 0)
+	{
 		rxClose(gnss->rx);
 		goto err_gnss_connect;
 	}
@@ -654,7 +683,7 @@ err_rxInit:
  * @param gnss thread structure
  * @return time_t
  */
-static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
+static time_t gnss_get_next_fix_tai_time(struct gnss* gnss)
 {
 	time_t time;
 	pthread_mutex_lock(&gnss->mutex_data);
@@ -662,7 +691,6 @@ static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
 	time = gnss->session->tai_time;
 	pthread_mutex_unlock(&gnss->mutex_data);
 	return time;
-
 }
 
 /**
@@ -672,9 +700,10 @@ static time_t gnss_get_next_fix_tai_time(struct gnss * gnss)
  * @param valid Output Flags indicating GNSS data are valid (Fix >= 2D + FixOk)
  * @param qErr Output Quantization error from last Epoch
  */
-int gnss_get_epoch_data(struct gnss *gnss, bool *valid, bool *survey, int32_t *qErr)
+int gnss_get_epoch_data(struct gnss* gnss, bool* valid, bool* survey, int32_t* qErr)
 {
-	if (!gnss) {
+	if (!gnss)
+	{
 		return -1;
 	}
 
@@ -697,9 +726,10 @@ int gnss_get_epoch_data(struct gnss *gnss, bool *valid, bool *survey, int32_t *q
  * @param valid Output Flags indicating GNSS data are valid (Fix >= 2D + FixOk)
  * @param fixUtc Output Last fix time. Useful in case of fix loss
  */
-int gnss_get_fix_info(struct gnss *gnss, bool *valid, struct timespec *fixUtc)
+int gnss_get_fix_info(struct gnss* gnss, bool* valid, struct timespec* fixUtc)
 {
-	if (!gnss) {
+	if (!gnss)
+	{
 		return -1;
 	}
 
@@ -720,37 +750,45 @@ int gnss_get_fix_info(struct gnss *gnss, bool *valid, struct timespec *fixUtc)
  * @return true
  * @return false
  */
-static bool gnss_check_ptp_clock_time(struct gnss *gnss)
+static bool gnss_check_ptp_clock_time(struct gnss* gnss)
 {
 	struct timespec ts;
-	bool valid = false;
-	time_t gnss_time;
-	int ret;
-	if (gnss->fd_clock < 0) {
+	bool            valid = false;
+	time_t          gnss_time;
+	int             ret;
+	if (gnss->fd_clock < 0)
+	{
 		log_warn("Bad clock file descriptor");
 		return -1;
 	}
 	if (gnss_get_epoch_data(gnss, &valid, NULL, NULL))
 		return -1;
-	if (valid) {
+	if (valid)
+	{
 		gnss_time = gnss_get_next_fix_tai_time(gnss);
-		ret = clock_gettime(FD_TO_CLOCKID(gnss->fd_clock), &ts);
-		if (ret == 0) {
+		ret       = clock_gettime(FD_TO_CLOCKID(gnss->fd_clock), &ts);
+		if (ret == 0)
+		{
 			log_debug("GNSS tai time is %ld", gnss_time);
 			log_debug("Time set on PHC is %ld", ts.tv_sec);
-			if (ts.tv_sec == gnss_time) {
+			if (ts.tv_sec == gnss_time)
+			{
 				log_info("PHC time is set to GNSS one");
 				return true;
-			} else {
+			}
+			else
+			{
 				log_error("GNSS time is not the same as PTP clock time");
 			}
-		} else
+		}
+		else
 			log_error("Could get not PHC time");
-	} else {
+	}
+	else
+	{
 		log_error("GNSS get valid is false");
 	}
 	return false;
-
 }
 
 /**
@@ -759,66 +797,85 @@ static bool gnss_check_ptp_clock_time(struct gnss *gnss)
  * @param gnss
  * @return int: 0 on success, -1 on error
  */
-int gnss_set_ptp_clock_time(struct gnss *gnss)
+int gnss_set_ptp_clock_time(struct gnss* gnss)
 {
-	clockid_t clkid;
+	clockid_t       clkid;
 	struct timespec ts;
-	time_t gnss_time;
-	int ret;
-	bool valid = false;
-	bool clock_set = false;
-	bool clock_valid = false;
+	time_t          gnss_time;
+	int             ret;
+	bool            valid       = false;
+	bool            clock_set   = false;
+	bool            clock_valid = false;
 
-	if (!gnss) {
+	if (!gnss)
+	{
 		return -1;
 	}
 
-	if (gnss->fd_clock < 0) {
+	if (gnss->fd_clock < 0)
+	{
 		log_warn("Bad clock file descriptor");
 		return -1;
 	}
 	clkid = FD_TO_CLOCKID(gnss->fd_clock);
 
-	while(!clock_valid && loop) {
+	while (!clock_valid && loop)
+	{
 		if (gnss_get_epoch_data(gnss, &valid, NULL, NULL))
 			return -1;
 
-		if (valid) {
+		if (valid)
+		{
 			/* Set clock time according to gnss data */
-			if (!clock_set) {
+			if (!clock_set)
+			{
 				/* Configure PHC time */
 				/* Wait to get next gnss TAI time */
 				gnss_time = gnss_get_next_fix_tai_time(gnss);
 				/* Then get clock time to preserve nanoseconds */
-				ret = clock_gettime(clkid, &ts);
-				if (ret == 0) {
-					if (ts.tv_sec == gnss_time) {
+				ret       = clock_gettime(clkid, &ts);
+				if (ret == 0)
+				{
+					if (ts.tv_sec == gnss_time)
+					{
 						log_info("PTP Clock time already set");
 						clock_set = true;
-					} else {
+					}
+					else
+					{
 						ts.tv_sec = gnss_time;
-						ret = clock_settime(clkid, &ts);
-						if (ret == 0) {
+						ret       = clock_settime(clkid, &ts);
+						if (ret == 0)
+						{
 							clock_set = true;
 							log_debug("PTP Clock Set");
 							sleep(4);
 						}
 					}
-				} else {
+				}
+				else
+				{
 					log_warn("Could not get PTP clock time");
 					return -1;
 				}
-			/* PHC time has been set, check time is correctly set */
-			} else {
-				if (gnss_check_ptp_clock_time(gnss)) {
+				/* PHC time has been set, check time is correctly set */
+			}
+			else
+			{
+				if (gnss_check_ptp_clock_time(gnss))
+				{
 					log_debug("PHC time correctly set");
 					clock_valid = true;
-				} else {
+				}
+				else
+				{
 					log_warn("PHC time is not valid, resetting it");
 					clock_set = false;
 				}
 			}
-		} else {
+		}
+		else
+		{
 			sleep(2);
 		}
 	}
@@ -842,14 +899,14 @@ static bool reset_serial(RX_t* rx)
  * @param p_data
  * @return void*
  */
-static void * gnss_thread(void * p_data)
+static void* gnss_thread(void* p_data)
 {
-	EPOCH_t coll;
-	EPOCH_t epoch;
-	struct gnss *gnss = (struct gnss*) p_data;
-	struct gps_device_t * session;
-	enum gnss_action action = GNSS_ACTION_NONE;
-	bool stop;
+	EPOCH_t              coll;
+	EPOCH_t              epoch;
+	struct gnss*         gnss = (struct gnss*)p_data;
+	struct gps_device_t* session;
+	enum gnss_action     action = GNSS_ACTION_NONE;
+	bool                 stop;
 
 	epochInit(&coll);
 
@@ -859,22 +916,24 @@ static void * gnss_thread(void * p_data)
 
 	while (!stop)
 	{
-		PARSER_MSG_t *msg = rxGetNextMessageTimeout(gnss->rx, GNSS_TIMEOUT_MS);
+		PARSER_MSG_t* msg = rxGetNextMessageTimeout(gnss->rx, GNSS_TIMEOUT_MS);
 		if (msg != NULL)
 		{
 			pthread_mutex_lock(&gnss->mutex_data);
 			session = gnss->session;
 			// Epoch collect is used to fetch navigation data such as time and leap seconds
-			if(epochCollect(&coll, msg, &epoch))
+			if (epochCollect(&coll, msg, &epoch))
 			{
 				// if epoch has no fix there will be no Nav solution and 0 satellites
 				session->satellites_count = gnss_get_satellites(&epoch);
-				if (epoch.haveFix) {
+				if (epoch.haveFix)
+				{
 					session->last_fix_utc_time.tv_sec = gnss_get_utc_time(&epoch);
-					session->fix = epoch.fix;
-					session->fixOk = epoch.fixOk && session->satellites_count > NUM_SAT_MIN;
-					session->valid = session->fix >= EPOCH_FIX_TIME && session->fixOk;
-					if (!session->valid) {
+					session->fix                      = epoch.fix;
+					session->fixOk                    = epoch.fixOk && session->satellites_count > NUM_SAT_MIN;
+					session->valid                    = session->fix >= EPOCH_FIX_TIME && session->fixOk;
+					if (!session->valid)
+					{
 						if (session->fix < EPOCH_FIX_TIME)
 							log_trace("Fix is to low: %d", session->fix);
 						if (!session->fixOk)
@@ -883,8 +942,10 @@ static void * gnss_thread(void * p_data)
 					struct timedelta_t td;
 					ntp_latch(session, &td);
 					log_gnss_data(session);
-				} else {
-					session->fix = NO_FIX;
+				}
+				else
+				{
+					session->fix   = NO_FIX;
 					session->fixOk = false;
 				}
 				if (epoch.havePos)
@@ -901,17 +962,21 @@ static void * gnss_thread(void * p_data)
 				if (session->tai_time_set)
 					pthread_cond_signal(&gnss->cond_time);
 				else
-					log_warn("Could not tai time from gnss, please check GNSS Configuration if this message keeps appearing more than 25 minutes");
-
-			} else {
+					log_warn("Could not tai time from gnss, please check GNSS Configuration if this message keeps "
+					         "appearing more than 25 minutes");
+			}
+			else
+			{
 				// Analyze msg to parse UBX-MON-RF to get antenna status
 				uint8_t clsId = UBX_CLSID(msg->data);
 				uint8_t msgId = UBX_MSGID(msg->data);
-				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID) {
+				if (clsId == UBX_MON_CLSID && msgId == UBX_MON_RF_MSGID)
+				{
 					gnss_get_antenna_data(session, msg);
 					log_trace("GNSS: Antenna status: 0x%x", session->antenna_status);
 					log_trace("GNSS: Power status: 0x%x", session->antenna_power);
-					if (session->antenna_power == UBX_MON_RF_V0_ANTPOWER_OFF) {
+					if (session->antenna_power == UBX_MON_RF_V0_ANTPOWER_OFF)
+					{
 						/* Antenna power is off, hence this is the only message we will get on the serial
 						 * We need to signal main thread that we do not have fix nor satellite count
 						 * Reset data because we cannot assume either of these
@@ -919,15 +984,19 @@ static void * gnss_thread(void * p_data)
 						gnss_reset_session_navigation_data(gnss->session);
 						pthread_cond_signal(&gnss->cond_data);
 					}
-				// Parse UBX-NAV-TIMELS messages there because library does not do it
-				} else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
+					// Parse UBX-NAV-TIMELS messages there because library does not do it
+				}
+				else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
 					gnss_parse_ubx_nav_timels(session, msg);
 				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_TP_MSGID)
 					gnss_parse_ubx_tim_tp(session, msg);
-				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID) {
+				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID)
+				{
 					enum SurveyInState surveyInState = gnss_parse_ubx_tim_svin(session, msg);
-					if (!session->survey_completed && !gnss->session->bypass_survey) {
-						switch (surveyInState) {
+					if (!session->survey_completed && !gnss->session->bypass_survey)
+					{
+						switch (surveyInState)
+						{
 						case SURVEY_IN_COMPLETED:
 							session->survey_completed = true;
 							break;
@@ -936,15 +1005,19 @@ static void * gnss_thread(void * p_data)
 							break;
 						case SURVEY_IN_KO:
 						default:
-							log_error("Survey In did not complete in time. GNSS conditions are not stable enough for optimal timing performance");
-							log_error("Please check your antenna setup (antenna on roof is way more precise) to pass survey in.");
+							log_error("Survey In did not complete in time. GNSS conditions are not stable enough for "
+							          "optimal timing performance");
+							log_error("Please check your antenna setup (antenna on roof is way more precise) to pass "
+							          "survey in.");
 							break;
 						}
 					}
 				}
 			}
 			pthread_mutex_unlock(&gnss->mutex_data);
-		} else {
+		}
+		else
+		{
 			log_warn("UART GNSS Timeout !");
 			pthread_mutex_lock(&gnss->mutex_data);
 			/* Reset data because we cannot assume either of these */
@@ -956,59 +1029,70 @@ static void * gnss_thread(void * p_data)
 		}
 
 		/* this thread is the only writer to gnss->session, it's safe read the same values without mutex_data locked */
-		if (gnss->gnss_info) {
-			struct gnss_state *gnss_info = gnss->gnss_info;
+		if (gnss->gnss_info)
+		{
+			struct gnss_state* gnss_info = gnss->gnss_info;
 			pthread_mutex_lock(&gnss_info->lock);
-			gnss_info->antenna_power = gnss->session->antenna_power;
-			gnss_info->antenna_status = gnss->session->antenna_status;
-			gnss_info->fix = gnss->session->fix;
-			gnss_info->fixOk = gnss->session->fixOk;
-			gnss_info->leap_seconds = gnss->session->context->leap_seconds;
-			gnss_info->lsChange = gnss->session->context->lsChange;
-			gnss_info->satellites_count = gnss->session->satellites_count;
+			gnss_info->antenna_power            = gnss->session->antenna_power;
+			gnss_info->antenna_status           = gnss->session->antenna_status;
+			gnss_info->fix                      = gnss->session->fix;
+			gnss_info->fixOk                    = gnss->session->fixOk;
+			gnss_info->leap_seconds             = gnss->session->context->leap_seconds;
+			gnss_info->lsChange                 = gnss->session->context->lsChange;
+			gnss_info->satellites_count         = gnss->session->satellites_count;
 			gnss_info->survey_in_position_error = gnss->session->survey_in_position_error;
-			gnss_info->time_accuracy = gnss->session->time_accuracy;
-			gnss_info->position_accuracy = gnss->session->position_accuracy;
+			gnss_info->time_accuracy            = gnss->session->time_accuracy;
+			gnss_info->position_accuracy        = gnss->session->position_accuracy;
 			pthread_mutex_unlock(&gnss_info->lock);
 		}
 
 		pthread_mutex_lock(&gnss->mutex_data);
-		stop = gnss->stop;
-		action = gnss->action;
+		stop         = gnss->stop;
+		action       = gnss->action;
 		gnss->action = GNSS_ACTION_NONE;
 		pthread_mutex_unlock(&gnss->mutex_data);
 
-		if (action == GNSS_ACTION_START) {
+		if (action == GNSS_ACTION_START)
+		{
 			log_debug("Performing GNSS START");
 			if (!rxReset(gnss->rx, RX_RESET_GNSS_START))
 				log_error("Could not start GNSS Receiver");
 			else
 				log_info("GNSS START performed");
-		} else if (action == GNSS_ACTION_STOP) {
+		}
+		else if (action == GNSS_ACTION_STOP)
+		{
 			log_debug("Performing GNSS STOP");
 			if (!rxReset(gnss->rx, RX_RESET_GNSS_STOP))
 				log_error("Could not stop GNSS Receiver");
 			else
 				log_info("GNSS STOP performed");
-		} else if (action == GNSS_ACTION_SOFT) {
+		}
+		else if (action == GNSS_ACTION_SOFT)
+		{
 			log_debug("Performing GNSS SOFT RESET");
 			if (!rxReset(gnss->rx, RX_RESET_SOFT))
 				log_error("Could not soft reset GNSS Receiver");
 			else
 				log_info("GNSS SOFT RESET performed");
-		} else if (action == GNSS_ACTION_HARD) {
+		}
+		else if (action == GNSS_ACTION_HARD)
+		{
 			log_debug("Performing GNSS HARD RESET");
 			if (!rxReset(gnss->rx, RX_RESET_HARD))
 				log_error("Could not hard reset GNSS Receiver");
 			else
 				log_info("GNSS HARD RESET performed");
-		} else if (action == GNSS_ACTION_COLD) {
+		}
+		else if (action == GNSS_ACTION_COLD)
+		{
 			log_debug("Performing GNSS COLD RESET");
 			if (!rxReset(gnss->rx, RX_RESET_COLD))
 				log_error("Could not cold reset GNSS Receiver");
 			else
 				log_info("GNSS COLD RESET performed");
-		} else if (action == GNSS_ACTION_RESET_SERIAL)
+		}
+		else if (action == GNSS_ACTION_RESET_SERIAL)
 		{
 			reset_serial(gnss->rx);
 		}
@@ -1028,7 +1112,7 @@ static void * gnss_thread(void * p_data)
  *
  * @param gnss
  */
-void gnss_stop(struct gnss *gnss)
+void gnss_stop(struct gnss* gnss)
 {
 	if (!gnss)
 		return;
@@ -1041,12 +1125,14 @@ void gnss_stop(struct gnss *gnss)
 	return;
 }
 
-void gnss_set_action(struct gnss *gnss, enum gnss_action action)
+void gnss_set_action(struct gnss* gnss, enum gnss_action action)
 {
 	if (!gnss)
 		return;
 
-	if (action != GNSS_ACTION_START && action != GNSS_ACTION_STOP && action != GNSS_ACTION_SOFT && action != GNSS_ACTION_HARD && action != GNSS_ACTION_COLD) {
+	if (action != GNSS_ACTION_START && action != GNSS_ACTION_STOP && action != GNSS_ACTION_SOFT
+	    && action != GNSS_ACTION_HARD && action != GNSS_ACTION_COLD)
+	{
 		log_error("Unknown action %d", action);
 		return;
 	}
