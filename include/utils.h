@@ -9,21 +9,21 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
+#include <dirent.h>
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
-
-#include <dirent.h>
 
 #define NS_IN_SECOND            1000000000l
 #define DUMMY_TEMPERATURE_VALUE -3000.0
 
 #ifndef container_of
-# define container_of(ptr, type, member)                        \
-    ({                                                          \
-        const typeof(((type*)0)->member)* __mptr = (ptr);       \
-        (type*)((uintptr_t)__mptr - offsetof(type, member));    \
-    })
+#	define container_of(ptr, type, member) \
+		({ \
+			const typeof(((type*)0)->member)* __mptr = (ptr); \
+			(type*)((uintptr_t)__mptr - offsetof(type, member)); \
+		})
 #endif /* ut_container_of */
 
 void   file_cleanup(FILE** f);
