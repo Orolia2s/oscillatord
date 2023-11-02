@@ -1,0 +1,128 @@
+﻿---
+Language: Cpp
+Standard: Latest
+
+# ----- Indentation -----
+TabWidth: 4
+UseTab: ForIndentation
+IndentAccessModifiers: false
+IndentCaseLabels: false
+IndentExternBlock: true
+IndentPPDirectives: AfterHash
+IndentWidth: 4
+IndentWrappedFunctionNames: false
+PPIndentWidth: 4
+
+# ----- Line length -----
+ColumnLimit: 120
+PenaltyBreakAssignment: 20
+PenaltyBreakBeforeFirstCallParameter: 40
+PenaltyBreakComment: 25
+PenaltyBreakFirstLessLess: 2
+PenaltyBreakString: 35
+PenaltyExcessCharacter: 1
+PenaltyReturnTypeOnItsOwnLine: 15
+ReflowComments: true
+
+# ----- Macros -----
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
+#    Enabled: true
+#    AcrossEmptyLines: true
+#    AcrossComments: true
+AlignEscapedNewlines: DontAlign
+ForEachMacros: ['array_foreach', 'array_enumerate']
+
+# ----- Align -----
+AlignAfterOpenBracket: 'Align'
+AlignArrayOfStructures: 'Right'
+AlignConsecutiveAssignments: AcrossComments
+#    Enabled: true
+#    AcrossEmptyLines: true
+#    AcrossComments: true
+#    AlignCompound: true
+#    PadOperators: true
+AlignConsecutiveBitFields: AcrossEmptyLinesAndComments
+AlignConsecutiveDeclarations: AcrossEmptyLinesAndComments
+#    Enabled: true
+#    AcrossEmptyLines: true
+#    AcrossComments: true
+AlignOperands: Align
+AlignTrailingComments: true
+#    OverEmptyLines: 2
+
+# ----- Misc -----
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+BinPackArguments: false
+BinPackParameters: false
+BitFieldColonSpacing: Before
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Allman
+BreakBeforeTernaryOperators: false
+BreakConstructorInitializers: AfterColon
+BreakInheritanceList: AfterColon
+BreakStringLiterals: true
+ContinuationIndentWidth: 4
+DerivePointerAlignment: false
+FixNamespaceComments: false
+# InsertNewlineAtEOF: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+NamespaceIndentation: None
+PointerAlignment: Left
+QualifierAlignment: Left
+# QualifierOrder: ['static', 'inline', 'volatile', 'const', 'type']
+ReferenceAlignment: Pointer
+
+SeparateDefinitionBlocks: Always
+SortUsingDeclarations: 'true'
+SpaceAfterCStyleCast: 'false'
+SpaceAfterLogicalNot: 'false'
+SpaceAfterTemplateKeyword: 'false'
+SpaceBeforeAssignmentOperators: 'true'
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: false
+SpaceBeforeInheritanceColon: false
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: 'true'
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: 'false'
+SpacesBeforeTrailingComments: '1'
+SpacesInAngles: 'false'
+SpacesInCStyleCastParentheses: 'false'
+SpacesInContainerLiterals: 'false'
+SpacesInParentheses: 'false'
+SpacesInSquareBrackets: 'false'
+
+# ----- Includes -----
+SortIncludes: 'true'
+IncludeBlocks: Regroup
+IncludeIsMainRegex: '$'
+IncludeCategories:
+# Standard C++ headers
+  - Regex:           '^<[a-z_]+>$'
+    Priority:        9
+# Standard C headers
+  - Regex:           '^<(assert|complex|w?ctype|errno|float|inttypes|limits|locale|(tg)?math|signal|string|threads|time|[uw]char|.*std.*|iso646)\.h>$'
+    Priority:        8
+# Linux network headers
+  - Regex:           '^<(sys|arpa|netinet)/.*>$'
+    Priority:        7
+# Other headers that are outside the current repository
+  - Regex:           '^<'
+    Priority:        6
+# Public headers from the current repository
+  - Regex:           '^"[a-z0-9]+/'
+    Priority:        5
+# Private headers
+  - Regex:           '^"'
+    Priority:        1
+...
