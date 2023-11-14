@@ -378,23 +378,6 @@ static void ntp_latch(struct gps_device_t *device, struct timedelta_t *td)
     pps_thread_fixin(&device->pps_thread, td);
 }
 
-static bool gnss_set_time_scale(RX_t *rx, uint8_t time_scale) {
-	const UBLOXCFG_KEYVAL_t tp_timegrid_tp1 = UBLOXCFG_KEYVAL_ANY(CFG_TP_TIMEGRID_TP1, time_scale);
-	return rxSetConfig(rx, &tp_timegrid_tp1, 1, true, false, false);
-}
-
-/**
- * @brief Set Antenna cable delay of the GNSS Receiver.
- *
- * @param rx pointer to serial communication handler
- * @param delay signed number of nanoseconds delay
- * @return boolean indicating value was set
- */
-static bool gnss_set_cable_delay(RX_t *rx, int16_t delay) {
-	const UBLOXCFG_KEYVAL_t tp_ant_cabledelay = UBLOXCFG_KEYVAL_ANY(CFG_TP_ANT_CABLEDELAY, delay);
-	return rxSetConfig(rx, &tp_ant_cabledelay, 1, true, false, false);
-}
-
 /**
  * @brief Connect to serial device of the GNSS Receiver.
  * Try to connect a maximum of GNSS_CONNECT_MAX_TRY time
@@ -414,26 +397,117 @@ static bool gnss_connect(RX_t *rx) {
 	return false;
 }
 
+static bool set_preferred_time_scale(UBLOXCFG_KEYVAL_t* keyValuePairs, size_t length, const struct config* config)
+{
+	const char* parameter_name          = "gnss-preferred-time-scale";
+	const char* preferred_constellation = config_get(config, parameter_name);
+	bool        config_set              = true;
+	uint8_t     value;
+
+	if (preferred_constellation == NULL)
+		return false;
+	else if (strncmp(preferred_constellation, "GPS", 3) == 0)
+		value = UBLOXCFG_CFG_TP_TIMEGRID_TP1_GPS;
+	else if (strncmp(preferred_constellation, "GAL", 3) == 0)
+		value = UBLOXCFG_CFG_TP_TIMEGRID_TP1_GAL;
+	else if (strncmp(preferred_constellation, "GLO", 3) == 0)
+		value = UBLOXCFG_CFG_TP_TIMEGRID_TP1_GLO;
+	else if (strncmp(preferred_constellation, "BDS", 3) == 0)
+		value = UBLOXCFG_CFG_TP_TIMEGRID_TP1_BDS;
+	else if (strncmp(preferred_constellation, "UTC", 3) == 0)
+		value = UBLOXCFG_CFG_TP_TIMEGRID_TP1_UTC;
+	else
+		config_set = false;
+
+	if (!config_set)
+	{
+		log_error("Your configuration sets the parameter \"%s\" to \"%s\", which is not part of the possible values "
+		          "(GPS, GAL, GLO, BDS, UTC)",
+		          parameter_name,
+		          preferred_constellation);
+		return false;
+	}
+	log_info("Using custom value for \"%s\": %s", parameter_name, preferred_constellation);
+
+	UBLOXCFG_KEYVAL_t* pair = keyValuePairs + length;
+	while (pair --> keyValuePairs)
+	{
+		if (pair->id == UBLOXCFG_CFG_TP_TIMEGRID_TP1_ID)
+		{
+			pair->val.E1 = value;
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool set_cable_delay(UBLOXCFG_KEYVAL_t* keyValuePairs, size_t length, const struct config* config)
+{
+	const char* parameter_name = "gnss-cable-delay";
+	const char* string         = config_get(config, parameter_name);
+
+	if (string == NULL)
+		return false;
+
+	errno = 0;
+	char* end;
+	long  value = strtol(string, &end, 0);
+
+	if (!errno)
+	{
+		if (value <= 0 || value > INT16_MAX)
+			errno = ERANGE;
+		else if (end == string)
+			errno = EINVAL;
+	}
+	if (errno)
+	{
+		log_error("Your configuration sets the parameter \"%s\" to \"%s\", which could not be parsed into an integer "
+		          "in the range [1, %hi]: %s",
+		          parameter_name,
+		          string,
+		          INT16_MAX,
+		          strerror(errno));
+		return false;
+	}
+	log_info("Using custom value for \"%s\": %li", parameter_name, value);
+
+	UBLOXCFG_KEYVAL_t* pair = keyValuePairs + length;
+	while (pair --> keyValuePairs)
+	{
+		if (pair->id == UBLOXCFG_CFG_TP_ANT_CABLEDELAY_ID)
+		{
+			pair->val.I2 = (int16_t)value;
+			return true;
+		}
+	}
+	return false;
+}
+
 /**
  * @brief Send configuration from f9_defvalsets.h to GNSS receiver
  *
  * @param rx pointer to serial communication handler
  * @return boolean indicating receiver has correctly been reset to configuration
  */
-static bool gnss_set_default_configuration(RX_t *rx, int major, int minor) {
-	bool receiver_configured = false;
-	int tries = 0;
+static bool gnss_set_configuration(RX_t* rx, const struct config* config, int major, int minor)
+{
+	bool               receiver_configured = false;
+	int                tries               = 0;
 
 	// Get configuration
 	int nAllKvCfg;
 	UBLOXCFG_KEYVAL_t *allKvCfg = get_default_value_from_config(&nAllKvCfg, major, minor);
 
+	set_preferred_time_scale(allKvCfg, nAllKvCfg, config);
+	set_cable_delay(allKvCfg, nAllKvCfg, config);
+
 	/* Check if receiver is already configured */
 	receiver_configured = check_gnss_config_in_ram(rx, allKvCfg, nAllKvCfg);
 	if (receiver_configured)
-		log_info("Receiver already configured to default configuration");
+		log_info("Receiver already configured to desired configuration");
 	else
-		log_info("Receiver not configured to default configuration, starting reconfiguration");
+		log_info("Receiver not configured to desired configuration, starting reconfiguration");
 
 	while (!receiver_configured) {
 		log_info("Configuring receiver with ART parameters...\n");
@@ -452,8 +526,9 @@ static bool gnss_set_default_configuration(RX_t *rx, int major, int minor) {
 
 		if (tries < GNSS_RECONFIGURE_MAX_TRY)
 			tries++;
-		else {
-			log_error("Could not reconfigure GNSS receiver from default config\n");
+		else
+		{
+			log_error("Could not configure GNSS receiver\n");
 			free(allKvCfg);
 			return false;
 		}
@@ -472,16 +547,11 @@ static bool gnss_set_default_configuration(RX_t *rx, int major, int minor) {
  */
 struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, struct gps_device_t *session, int fd_clock)
 {
-	struct gnss *gnss;
-	const char * preferred_constellation;
-	bool do_reconfiguration;
-	bool config_set = false;
-	int16_t cable_delay = 0;
-
-	int ret = -1;
-	RX_ARGS_t args = RX_ARGS_DEFAULT();
-	args.autobaud = true;
-	args.detect = true;
+	struct gnss* gnss;
+	int          ret  = -1;
+	RX_ARGS_t    args = RX_ARGS_DEFAULT();
+	args.autobaud     = true;
+	args.detect       = true;
 
 	if (strchr(gnss_device_tty, '@')) {
 		args.autobaud = false;
@@ -528,63 +598,10 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	else
 		log_warn("Receiver version get command failed");
 
-	/* Check if GNSS receiver should reset to default configuration */
-	do_reconfiguration = config_get_bool_default(
-		config,
-		"gnss-receiver-reconfigure",
-		false);
-
-	/* Set configuration depending on the version*/
-	if (do_reconfiguration && !gnss_set_default_configuration(gnss->rx, gnss->receiver_version_major, gnss->receiver_version_minor))
-				goto err_gnss_connect;
+	if (!gnss_set_configuration(gnss->rx, config, gnss->receiver_version_major, gnss->receiver_version_minor))
+		goto err_gnss_connect;
 
 	gnss->stop = false;
-
-	/** Set preferred time scale */
-	preferred_constellation = config_get(config, "gnss-preferred-time-scale");
-	if (preferred_constellation == NULL) {
-		log_info("No preferred timescale, assuming GNSS receiver is correctly set");
-	} else {
-		if (strlen(preferred_constellation) != 3)
-			log_warn("Unknown preferred time scale, assuming GNSS receiver is correctly set");
-		else if (strncmp(preferred_constellation, "GPS", 3) == 0)
-			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_GPS);
-		else if (strncmp(preferred_constellation, "GAL", 3) == 0)
-			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_GAL);
-		else if (strncmp(preferred_constellation, "GLO", 3) == 0)
-			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_GLO);
-		else if (strncmp(preferred_constellation, "BDS", 3) == 0)
-			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_BDS);
-		else if (strncmp(preferred_constellation, "UTC", 3) == 0)
-			config_set = gnss_set_time_scale(gnss->rx, UBLOXCFG_CFG_TP_TIMEGRID_TP1_UTC);
-
-		if (config_set) {
-			log_info("Preferred time scale set to %s", preferred_constellation);
-		} else {
-			log_warn("Preferred time scale has not been set, assuming GNSS receiver is correctly set");
-		}
-	}
-
-	/* Add cable delay compensation value */
-	ret = config_get_int16_t(config, "gnss-cable-delay", &cable_delay);
-
-	if (!ret) {
-		if (!gnss_set_cable_delay(gnss->rx, cable_delay)) {
-			log_warn("Cannot set cable delay compensation");
-		}
-	} else {
-		switch(ret) {
-		case -ERANGE:
-			log_warn("gnss-cable-delay value is out of range");
-			break;
-		case -EINVAL:
-			log_warn("gnss-cable-delay value is invalid - not a number");
-			break;
-		default:
-			log_warn("Error parsing gnss-cable-delay value");
-			break;
-		}
-	}
 
 	/* Initialize receiver's survey in flag */
 	gnss->session->survey_completed = false;
