@@ -401,7 +401,6 @@ static bool set_preferred_time_scale(UBLOXCFG_KEYVAL_t* keyValuePairs, size_t le
 {
 	const char* parameter_name          = "gnss-preferred-time-scale";
 	const char* preferred_constellation = config_get(config, parameter_name);
-	bool        config_set              = true;
 	uint8_t     value;
 
 	if (preferred_constellation == NULL)
@@ -417,9 +416,6 @@ static bool set_preferred_time_scale(UBLOXCFG_KEYVAL_t* keyValuePairs, size_t le
 	else if (strncmp(preferred_constellation, "UTC", 3) == 0)
 		value = UBLOXCFG_CFG_TP_TIMEGRID_TP1_UTC;
 	else
-		config_set = false;
-
-	if (!config_set)
 	{
 		log_error("Your configuration sets the parameter \"%s\" to \"%s\", which is not part of the possible values "
 		          "(GPS, GAL, GLO, BDS, UTC)",
