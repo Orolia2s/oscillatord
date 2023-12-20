@@ -54,6 +54,10 @@ struct monitoring {
 	int lsChange;
 	int8_t antenna_power;
 	int8_t antenna_status;
+	int lat;
+	int lon;
+	int height;
+	int hMSL;
 	int sockfd;
 	bool fixOk;
 	bool stop;

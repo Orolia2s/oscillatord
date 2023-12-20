@@ -616,6 +616,10 @@ int main(int argc, char *argv[])
 				pthread_mutex_lock(&gnss->mutex_data);
 				monitoring->antenna_power = gnss->session->antenna_power;
 				monitoring->antenna_status = gnss->session->antenna_status;
+				monitoring->lat = gnss->session->lat;
+				monitoring->lon = gnss->session->lon;
+				monitoring->height = gnss->session->height;
+				monitoring->hMSL = gnss->session->hMSL;
 				monitoring->fix = gnss->session->fix;
 				monitoring->fixOk = gnss->session->fixOk;
 				monitoring->leap_seconds = gnss->session->context->leap_seconds;

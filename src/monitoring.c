@@ -581,6 +581,14 @@ static void json_add_gnss_data(struct json_object *resp, struct monitoring *moni
 		json_object_new_int(monitoring->antenna_power));
 	json_object_object_add(gnss, "antenna_status",
 		json_object_new_int(monitoring->antenna_status));
+	json_object_object_add(gnss, "latitude",
+		json_object_new_int(monitoring->lat));
+	json_object_object_add(gnss, "longitude",
+		json_object_new_int(monitoring->lon));
+	json_object_object_add(gnss, "height",
+		json_object_new_int(monitoring->height));
+	json_object_object_add(gnss, "hMSL",
+		json_object_new_int(monitoring->hMSL));
 	json_object_object_add(gnss, "lsChange",
 		json_object_new_int(monitoring->lsChange));
 	json_object_object_add(gnss, "leap_seconds",
@@ -721,6 +729,12 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 
 	monitoring->antenna_power = -1;
 	monitoring->antenna_status = -1;
+	
+	monitoring->lat = 2;
+	monitoring->lon = 2;
+	monitoring->height = 10;
+	monitoring->hMSL = -2;
+
 	monitoring->leap_seconds = -1;
 	monitoring->phase_error = 0;
 	monitoring->fix = -1;

@@ -80,6 +80,7 @@ enum gnss_action {
 	GNSS_ACTION_RESET_SERIAL
 };
 
+
 struct gps_context_t {
 	int valid;                          /* member validity flags */
 #define LEAP_SECOND_VALID       0x01    /* we have or don't need correction */
@@ -149,6 +150,11 @@ struct gps_device_t {
 	bool fixOk;
 	int8_t antenna_status;
 	int8_t antenna_power;
+	/** Position**/
+	int lat;
+	int lon;
+	int height;
+	int hMSL;
 	/** General indicator that GNSS data are valid */
 	bool valid;
 	/** Indicate TAI time as been set from a constellation time of UTC */
@@ -163,6 +169,8 @@ struct gps_device_t {
 	bool survey_completed;
 	/** Survey in error in meter from meanV field from UBX-TIM-SVIN msg */
 	float survey_in_position_error;
+	/** Position of the antenna **/
+
 };
 
 /**
@@ -183,6 +191,7 @@ struct gnss {
 	int receiver_version_major;
 	int receiver_version_minor;
 };
+
 
 struct gnss* gnss_init(const struct config *config, char *gnss_device_tty, struct gps_device_t *session, int fd_clock);
 int gnss_get_epoch_data(struct gnss *gnss, bool *valid, bool *survey, int32_t *qErr);
