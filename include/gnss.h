@@ -145,6 +145,10 @@ struct gnss_state
 	int             lsChange;
 	int8_t          antenna_power;
 	int8_t          antenna_status;
+	int             lat;
+	int             lon;
+	int             height;
+	int             hMSL;
 	bool            fixOk;
 	pthread_mutex_t lock;
 };
@@ -172,6 +176,11 @@ struct gps_device_t
 	bool                         fixOk;
 	int8_t                       antenna_status;
 	int8_t                       antenna_power;
+	/** Position of the antenna */
+	int                          lat;
+	int                          lon;
+	int                          height;
+	int                          hMSL;
 	/** General indicator that GNSS data are valid */
 	bool                         valid;
 	/** Indicate TAI time as been set from a constellation time of UTC */

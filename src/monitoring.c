@@ -550,6 +550,10 @@ static void json_add_gnss_data(struct json_object* resp, struct monitoring* moni
 	json_object_object_add(gnss, "satellites_count", json_object_new_int(monitoring->gnss_info.satellites_count));
 	json_object_object_add(gnss, "survey_in_position_error", json_object_new_int(monitoring->gnss_info.survey_in_position_error));
 	json_object_object_add(gnss, "time_accuracy", json_object_new_int(monitoring->gnss_info.time_accuracy));
+	json_object_object_add(gnss, "latitude", json_object_new_int(monitoring->gnss_info.lat));
+	json_object_object_add(gnss, "longitude", json_object_new_int(monitoring->gnss_info.lon));
+	json_object_object_add(gnss, "height", json_object_new_int(monitoring->gnss_info.height));
+	json_object_object_add(gnss, "hMSL", json_object_new_int(monitoring->gnss_info.hMSL));
 
 	json_object_object_add(resp, "gnss", gnss);
 }
@@ -719,6 +723,10 @@ struct monitoring* monitoring_init(const struct config* config, struct devices_p
 	monitoring->gnss_info.satellites_count         = -1;
 	monitoring->gnss_info.survey_in_position_error = -1.0;
 	monitoring->gnss_info.time_accuracy            = -1;
+	monitoring->gnss_info.lat                      = 2;
+	monitoring->gnss_info.lon                      = 2;
+	monitoring->gnss_info.height                   = 10;
+	monitoring->gnss_info.hMSL                     = -2;
 	pthread_mutex_init(&monitoring->gnss_info.lock, NULL);
 
 	pthread_mutex_init(&monitoring->mutex, NULL);

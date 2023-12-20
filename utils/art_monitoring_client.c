@@ -264,6 +264,14 @@ int main(int argc, char *argv[]) {
 		int fix = json_object_get_int(layer_2);
 		json_object_object_get_ex(layer_1, "antenna_status", &layer_2);
 		int antenna_status = json_object_get_int(layer_2);
+		json_object_object_get_ex(layer_1, "latitude", &layer_2);
+		int latitude = json_object_get_int(layer_2);
+		json_object_object_get_ex(layer_1, "longitude", &layer_2);
+		int longitude = json_object_get_int(layer_2);
+		json_object_object_get_ex(layer_1, "height", &layer_2);
+		int height = json_object_get_int(layer_2);
+		json_object_object_get_ex(layer_1, "hMSL", &layer_2);
+		int hMSL = json_object_get_int(layer_2);
 		json_object_object_get_ex(layer_1, "antenna_power", &layer_2);
 		int antenna_power = json_object_get_int(layer_2);
 		json_object_object_get_ex(layer_1, "lsChange", &layer_2);
@@ -278,6 +286,10 @@ int main(int argc, char *argv[]) {
 		log_info("\t- fix: %u", fix);
 		log_info("\t- fixOk: %s", fixOk ? "True" : "False");
 		log_info("\t- antenna_status: %u", antenna_status);
+		log_info("\t- latitude: %u", latitude);
+		log_info("\t- longitude: %u", longitude);
+		log_info("\t- height: %u", height);
+		log_info("\t- hMSL: %u", hMSL);		
 		log_info("\t- antenna_power: %u", antenna_power);
 		log_info("\t- survey_in_position_error: %0.2f m", survey_in_position_error);
 		log_info("\t- lsChange: %u", lsChange);

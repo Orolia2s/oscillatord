@@ -200,6 +200,30 @@ static void gnss_parse_ubx_nav_timels(struct gps_device_t* session, PARSER_MSG_t
 };
 
 /**
+ * @brief Parse UBX-NAV-PVT msg to get antenna position
+ *
+ * @param session gps device data of the session
+ * @param msg msg received from the receiver
+ */
+static void gnss_parse_ubx_nav_pvt(struct gps_device_t *session, PARSER_MSG_t *msg) {
+	if (msg->size == (int) UBX_NAV_PVT_V1_SIZE) {
+		UBX_NAV_PVT_V1_GROUP0_t gr0;
+		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
+		log_debug("UBX-NAV-PVT: lon %lu, lat %lu, height %lu, hMSL %lu",
+			gr0.lon,
+			gr0.lat,
+			gr0.height,
+			gr0.hMSL	
+		);
+		session->lon = gr0.lon; // / UBX_NAV_PVT_V1_LON_SCALE;
+		session->lat = gr0.lat; // / UBX_NAV_PVT_V1_LAT_SCALE;
+		session->height = gr0.height; ///UBX_NAV_PVT_V1_HEIGHT_SCALE ;
+		session->hMSL = gr0.hMSL;// / UBX_NAV_PVT_V1_HEIGHT_SCALE ;
+	}
+	return;
+}
+
+/**
  * @brief Parse UBX-TIM-TP msg to get time from a constellation or UTC time and compute TAR
  *
  * @param session gps device data of the session
@@ -361,7 +385,7 @@ static void log_gnss_data(struct gps_device_t* session)
 	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, survey in error: %0.2f, antenna status: %d, "
 	          "valid %d,"
 	          " time %lld, leapm_seconds %d, leap_notify %d, lsChange %d, "
-	          "timeToLsChange %d, lsSet: %s, QErr(n) %d, qErr(n-1) %d, pos_accuracy %d m, time_accuracy %d ns",
+	          "timeToLsChange %d, lsSet: %s, QErr(n) %d, qErr(n-1) %d, pos_accuracy %d m, time_accuracy %d ns, latitude %d, longitude %d, height %d, hMSL %d",
 	          fix_log[session->fix],
 	          session->fix,
 	          session->fixOk ? "True" : "False",
@@ -378,7 +402,12 @@ static void log_gnss_data(struct gps_device_t* session)
 	          session->context->qErr,
 	          session->context->qErr_last_epoch,
 	          session->position_accuracy,
-	          session->time_accuracy);
+	          session->time_accuracy,
+	          session->lat,
+	          session->lon,
+	          session->height,
+	          session->hMSL
+	);
 }
 
 /**
@@ -987,6 +1016,12 @@ static void* gnss_thread(void* p_data)
 				}
 				else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_TIMELS_MSGID)
 					gnss_parse_ubx_nav_timels(session, msg);
+				else if (clsId == UBX_NAV_CLSID && msgId == UBX_NAV_PVT_MSGID )
+				{
+					
+					gnss_parse_ubx_nav_pvt(session,msg);
+
+				}
 				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_TP_MSGID)
 					gnss_parse_ubx_tim_tp(session, msg);
 				else if (clsId == UBX_TIM_CLSID && msgId == UBX_TIM_SVIN_MSGID)
@@ -1042,6 +1077,10 @@ static void* gnss_thread(void* p_data)
 			gnss_info->survey_in_position_error = gnss->session->survey_in_position_error;
 			gnss_info->time_accuracy            = gnss->session->time_accuracy;
 			gnss_info->position_accuracy        = gnss->session->position_accuracy;
+			gnss_info->lat                      = gnss->session->lat;
+			gnss_info->lon                      = gnss->session->lon;
+			gnss_info->height                   = gnss->session->height;
+			gnss_info->hMSL                     = gnss->session->hMSL;
 			pthread_mutex_unlock(&gnss_info->lock);
 		}
 
