@@ -19,6 +19,7 @@
 #define MAX_SERIALNUM_LENGTH 11
 #define DIGITAL_TUNING_MAX 20000000LL
 #define DEFAULT_PHASELIMIT 100000 // Phase limit is 100us
+#define NO_GNSS_FIX_TIMEOUT 3 // seconds after last gnss Fix befor holdover
 #define BIT(nr)			(1UL << (nr))
 
 #define ATTR_FW_SERIAL    		BIT(0)
@@ -492,7 +493,7 @@ static int sa5x_oscillator_latch(struct sa5x_oscillator *sa5x, struct sa5x_attri
 static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscillator_ctrl *ctrl)
 {
 	struct sa5x_oscillator *sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
-	bool adjust_tau = false, latch = false;
+	bool adjust_tau = false, latch = false, holdover = false;
 	struct sa5x_attributes a = {};
 	struct timespec ts;
 	int cmd_len;
@@ -535,10 +536,15 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 		log_error("SA5x: Couldn't make latch command");
 	}
 
-	if (a.ppsindetected == 0 && sa5x->gnss_fix_status) {
+	if ((a.ppsindetected == 0 || a.alarms & BIT(17)) && sa5x->gnss_fix_status) {
 		log_debug("SA5x reports loss of PPS while GNSS fix is OK");
 	}
-	if (!sa5x->gnss_fix_status || latch || !a.disciplinelocked) {
+	if (a.ppsindetected && !sa5x->gnss_fix_status) {
+		log_debug("SA5x has PPS while no GNSS fix read");
+	}
+	holdover = (!sa5x->gnss_fix_status && (ts.tv_sec - sa5x->gnss_last_fix.tv_sec) >= NO_GNSS_FIX_TIMEOUT);
+	holdover |= (a.ppsindetected == 0 || a.alarms & BIT(17));
+	if (holdover || latch || !a.disciplinelocked) {
 		// we are out of GNSS sync, have to restart disciplining
 		// or change state to UNCALIBRATED if we are in HOLDOVER more than 24h
 		adjust_tau = (sa5x->disciplining_phase != 0) ||
@@ -629,7 +635,7 @@ static int sa5x_oscillator_push_gnss_info(struct oscillator *oscillator, bool fi
 {
 	struct sa5x_oscillator *sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
 	sa5x->gnss_fix_status = fixOk;
-	if (last_fix_utc_time)
+	if (fixOk && last_fix_utc_time)
 		sa5x->gnss_last_fix = *last_fix_utc_time;
 	return 0;
 }
