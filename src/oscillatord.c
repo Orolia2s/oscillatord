@@ -598,8 +598,8 @@ int main(int argc, char *argv[])
 			} else if (ret < 0)
 				error(EXIT_FAILURE, -ret, "oscillator_get_temp");
 			if (phase_error_supported) {
-				bool fixOk;
-				struct timespec lastFix;
+				bool fixOk = false;
+				struct timespec lastFix = {};
 				gnss_get_fix_info(gnss, &fixOk, &lastFix);
 				oscillator_push_gnss_info(oscillator, fixOk, &lastFix);
 			}
