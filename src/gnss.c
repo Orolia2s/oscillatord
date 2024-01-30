@@ -275,16 +275,18 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, 
 	if (msg->size == (int) UBX_TIM_SVIN_V0_SIZE) {
 		UBX_TIM_SVIN_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
-		log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
-			gr0.dur,
-			gr0.meanX,
-			gr0.meanY,
-			gr0.meanZ,
-			gr0.meanV,
-			gr0.obs,
-			gr0.valid,
-			gr0.active
-		);
+		if (gr0.active || !gr0.valid) {
+			log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
+				gr0.dur,
+				gr0.meanX,
+				gr0.meanY,
+				gr0.meanZ,
+				gr0.meanV,
+				gr0.obs,
+				gr0.valid,
+				gr0.active
+			);
+		}
 		session->survey_in_position_error = sqrt(gr0.meanV)/1000;
 		if (!gr0.active && gr0.dur >= SVIN_MIN_DUR)
 			return gr0.valid ? SURVEY_IN_COMPLETED : SURVEY_IN_KO;
