@@ -651,6 +651,14 @@ int main(int argc, char *argv[])
 				log_info("Monitoring: GNSS Cold requested");
 				gnss_set_action(gnss, GNSS_ACTION_COLD);
 				break;
+			case REQUEST_POWER_ANTENNA_OFF:
+				log_info("Monitoring: Antenna Power OFF requested");
+				gnss_set_action(gnss, GNSS_ACTION_POWER_ANTENNA_OFF);
+				break;
+			case REQUEST_POWER_ANTENNA_ON:
+				log_info("Monitoring: Antenna Power ON requested");
+				gnss_set_action(gnss, GNSS_ACTION_POWER_ANTENNA_ON);
+				break;
 			case REQUEST_SAVE_EEPROM:
 				log_info("Monitoring: Saving EEPROM data");
 				pthread_create(

@@ -420,6 +420,16 @@ json_handle_request(struct monitoring* monitoring, int request_type, enum monito
 		json_object_object_add(resp, "Action requested", json_object_new_string("GNSS cold"));
 		*mon_request = REQUEST_GNSS_COLD;
 		break;
+	case REQUEST_POWER_ANTENNA_OFF:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("Antenna OFF"));
+		*mon_request = REQUEST_POWER_ANTENNA_OFF;
+		break;
+	case REQUEST_POWER_ANTENNA_ON:
+		json_object_object_add(resp, "Action requested",
+			json_object_new_string("Antenna On"));
+		*mon_request = REQUEST_POWER_ANTENNA_ON;
+		break;
 	case REQUEST_READ_EEPROM:
 	{
 		struct disciplining_parameters dsc_params;

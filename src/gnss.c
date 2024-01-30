@@ -1133,7 +1133,27 @@ static void* gnss_thread(void* p_data)
 		else if (action == GNSS_ACTION_RESET_SERIAL)
 		{
 			reset_serial(gnss->rx);
+		} else if (action == GNSS_ACTION_POWER_ANTENNA_OFF)
+		{
+			const UBLOXCFG_KEYVAL_t antenna_power = UBLOXCFG_KEYVAL_ANY(CFG_HW_ANT_CFG_PWRDOWN_POL,false);
+			if(rxSetConfig(gnss->rx, &antenna_power, 1, true, false, false))			
+			{const UBLOXCFG_KEYVAL_t antenna_power2 = UBLOXCFG_KEYVAL_ANY(CFG_HW_ANT_CFG_SHORTDET_POL,false);
+			rxSetConfig(gnss->rx, &antenna_power2, 1, true, false, false);
+			}
+			log_info("Power down Antenna");
 		}
+		else if (action == GNSS_ACTION_POWER_ANTENNA_ON)
+		{
+			const UBLOXCFG_KEYVAL_t antenna_power = UBLOXCFG_KEYVAL_ANY(CFG_HW_ANT_CFG_PWRDOWN_POL,true);
+			if(rxSetConfig(gnss->rx, &antenna_power, 1, true, false, false))
+			{
+			const UBLOXCFG_KEYVAL_t antenna_power2 = UBLOXCFG_KEYVAL_ANY(CFG_HW_ANT_CFG_SHORTDET_POL,true);
+			rxSetConfig(gnss->rx, &antenna_power2, 1, true, false, false);
+			}
+			log_info("Power up Antenna");
+		}
+
+
 	}
 
 	log_debug("Closing gnss session");
@@ -1169,7 +1189,8 @@ void gnss_set_action(struct gnss* gnss, enum gnss_action action)
 		return;
 
 	if (action != GNSS_ACTION_START && action != GNSS_ACTION_STOP && action != GNSS_ACTION_SOFT
-	    && action != GNSS_ACTION_HARD && action != GNSS_ACTION_COLD)
+	    && action != GNSS_ACTION_HARD && action != GNSS_ACTION_COLD
+	    && action != GNSS_ACTION_POWER_ANTENNA_ON && action != GNSS_ACTION_POWER_ANTENNA_OFF)
 	{
 		log_error("Unknown action %d", action);
 		return;
