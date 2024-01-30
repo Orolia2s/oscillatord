@@ -32,6 +32,8 @@ static void print_help(void)
 	printf("\t- calibration: request a calibration of the algorithm\n");
 	printf("\t- gnss_start: start gnss receiver\n");
 	printf("\t- gnss_stop: stop gnss receiver.\n");
+	printf("\t- antenna_on: power antenna on.\n");
+	printf("\t- antenna_off: power antenna off.\n");
 	printf("\t- read_eeprom: read disciplining data from EEPROM.\n");
 	printf("\t- save_eeprom: save minipod's disciplining data in EEPROM.\n");
 	printf("\t- fake_holdover_start: start fake holdover\n");
@@ -99,6 +101,10 @@ int main(int argc, char *argv[]) {
 			request = REQUEST_GNSS_HARD;
 		else if (strcmp(optarg, "gnss_cold") == 0)
 			request = REQUEST_GNSS_COLD;
+		else if (strcmp(optarg, "antenna_on") == 0)
+			request = REQUEST_POWER_ANTENNA_ON;
+		else if (strcmp(optarg, "antenna_off") == 0)
+			request = REQUEST_POWER_ANTENNA_OFF;
 		else if (strcmp(optarg, "read_eeprom") == 0)
 			request = REQUEST_READ_EEPROM;
 		else if (strcmp(optarg, "save_eeprom") == 0)

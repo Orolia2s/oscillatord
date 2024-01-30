@@ -647,7 +647,9 @@ int main(int argc, char *argv[])
 			}
 			monitoring->osc_attributes = osc_attr;
 			monitoring->ctrl_values = ctrl_values;
+			
 			switch(monitoring->request) {
+				
 			case REQUEST_CALIBRATION:
 				log_info("Monitoring: Calibration requested");
 				input.calibration_requested = true;
@@ -671,6 +673,14 @@ int main(int argc, char *argv[])
 			case REQUEST_GNSS_COLD:
 				log_info("Monitoring: GNSS Cold requested");
 				gnss_set_action(gnss, GNSS_ACTION_COLD);
+				break;
+			case REQUEST_POWER_ANTENNA_OFF:
+				log_info("Monitoring: Antenna Power OFF requested");
+				gnss_set_action(gnss, GNSS_ACTION_POWER_ANTENNA_OFF);
+				break;
+			case REQUEST_POWER_ANTENNA_ON:
+				log_info("Monitoring: Antenna Power ON requested");
+				gnss_set_action(gnss, GNSS_ACTION_POWER_ANTENNA_ON);
 				break;
 			case REQUEST_SAVE_EEPROM:
 				log_info("Monitoring: Saving EEPROM data");
