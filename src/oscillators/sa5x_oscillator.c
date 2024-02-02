@@ -90,6 +90,7 @@ struct sa5x_oscillator {
 	struct sa5x_disciplining_status status;
 	struct timespec disciplining_start;
 	struct timespec gnss_last_fix;
+	struct timespec gnss_last_fix_utc;
 	struct timespec mac_last_latch;
 	bool gnss_fix_status;
 	bool latch_fixed;
@@ -635,8 +636,10 @@ static int sa5x_oscillator_push_gnss_info(struct oscillator *oscillator, bool fi
 {
 	struct sa5x_oscillator *sa5x = container_of(oscillator, struct sa5x_oscillator, oscillator);
 	sa5x->gnss_fix_status = fixOk;
-	if (fixOk && last_fix_utc_time)
-		sa5x->gnss_last_fix = *last_fix_utc_time;
+	if (fixOk && last_fix_utc_time) {
+		sa5x->gnss_last_fix_utc = *last_fix_utc_time;
+		clock_gettime(CLOCK_MONOTONIC, &sa5x->gnss_last_fix);
+	}
 	return 0;
 }
 
