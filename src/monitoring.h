@@ -33,6 +33,17 @@ enum monitoring_request {
 	REQUEST_RESET_UBLOX_SERIAL
 };
 
+struct gnss_state {
+	float survey_in_position_error;
+	int fix;
+	int satellites_count;
+	int leap_seconds;
+	int lsChange;
+	int8_t antenna_power;
+	int8_t antenna_status;
+	bool fixOk;
+};
+
 /**
  * @brief General structure for monitoring thread
  */
@@ -44,18 +55,10 @@ struct monitoring {
 	struct od_monitoring disciplining;
 	struct oscillator_ctrl ctrl_values;
 	struct oscillator_attributes osc_attributes;
+	struct gnss_state gnss_info;
 	const char *oscillator_model;
 	struct devices_path devices_path;
-	int64_t phase_error;
-	int fix;
-	int satellites_count;
-	float survey_in_position_error;
-	int leap_seconds;
-	int lsChange;
-	int8_t antenna_power;
-	int8_t antenna_status;
 	int sockfd;
-	bool fixOk;
 	bool stop;
 	bool disciplining_mode;
 	bool phase_error_supported;

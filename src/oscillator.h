@@ -75,6 +75,7 @@ struct oscillator_ctrl {
 };
 
 struct oscillator_attributes {
+	int64_t phase_error;
 	double temperature;
 	bool locked;
 };

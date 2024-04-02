@@ -498,7 +498,7 @@ static void json_add_clock_data(struct json_object *resp, struct monitoring *mon
 		json_object_new_string(cstring_from_clock_class(monitoring->disciplining.clock_class))
 	);
 	json_object_object_add(clock, "offset",
-		json_object_new_int(monitoring->phase_error));
+		json_object_new_int(monitoring->osc_attributes.phase_error));
 
 	json_object_object_add(resp, "clock", clock);
 
@@ -574,21 +574,21 @@ static void json_add_gnss_data(struct json_object *resp, struct monitoring *moni
 {
 	struct json_object *gnss = json_object_new_object();
 	json_object_object_add(gnss, "fix",
-		json_object_new_int(monitoring->fix));
+		json_object_new_int(monitoring->gnss_info.fix));
 	json_object_object_add(gnss, "fixOk",
-		json_object_new_boolean(monitoring->fixOk));
+		json_object_new_boolean(monitoring->gnss_info.fixOk));
 	json_object_object_add(gnss, "antenna_power",
-		json_object_new_int(monitoring->antenna_power));
+		json_object_new_int(monitoring->gnss_info.antenna_power));
 	json_object_object_add(gnss, "antenna_status",
-		json_object_new_int(monitoring->antenna_status));
+		json_object_new_int(monitoring->gnss_info.antenna_status));
 	json_object_object_add(gnss, "lsChange",
-		json_object_new_int(monitoring->lsChange));
+		json_object_new_int(monitoring->gnss_info.lsChange));
 	json_object_object_add(gnss, "leap_seconds",
-		json_object_new_int(monitoring->leap_seconds));
+		json_object_new_int(monitoring->gnss_info.leap_seconds));
 	json_object_object_add(gnss, "satellites_count",
-		json_object_new_int(monitoring->satellites_count));
+		json_object_new_int(monitoring->gnss_info.satellites_count));
 	json_object_object_add(gnss, "survey_in_position_error",
-		json_object_new_int(monitoring->survey_in_position_error));
+		json_object_new_int(monitoring->gnss_info.survey_in_position_error));
 
 	json_object_object_add(resp, "gnss", gnss);
 }
@@ -718,16 +718,16 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 	monitoring->ctrl_values.coarse_ctrl = -1;
 	monitoring->osc_attributes.locked = false;
 	monitoring->osc_attributes.temperature = -400.0;
+	monitoring->osc_attributes.phase_error = 0;
 
-	monitoring->antenna_power = -1;
-	monitoring->antenna_status = -1;
-	monitoring->leap_seconds = -1;
-	monitoring->phase_error = 0;
-	monitoring->fix = -1;
-	monitoring->fixOk = false;
-	monitoring->lsChange = -10;
-	monitoring->satellites_count = -1;
-	monitoring->survey_in_position_error = -1.0;
+	monitoring->gnss_info.antenna_power = -1;
+	monitoring->gnss_info.antenna_status = -1;
+	monitoring->gnss_info.leap_seconds = -1;
+	monitoring->gnss_info.fix = -1;
+	monitoring->gnss_info.fixOk = false;
+	monitoring->gnss_info.lsChange = -10;
+	monitoring->gnss_info.satellites_count = -1;
+	monitoring->gnss_info.survey_in_position_error = -1.0;
 	pthread_mutex_init(&monitoring->mutex, NULL);
 	pthread_cond_init(&monitoring->cond, NULL);
 
