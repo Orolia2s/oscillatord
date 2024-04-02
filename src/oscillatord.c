@@ -429,7 +429,7 @@ int main(int argc, char *argv[])
 	while(loop) {
 		if (disciplining_mode) {
 			/* Get Phase error and status*/
-			phasemeter_status = get_phase_error(phasemeter, &phase_error);
+			phasemeter_status = get_phase_error(phasemeter, &osc_attr.phase_error);
 
 			if (gnss_get_epoch_data(gnss, &input.valid, &input.survey_completed, &input.qErr) != 0) {
 				log_error("Error getting GNSS data, exiting");
@@ -477,8 +477,8 @@ int main(int argc, char *argv[])
 			input.temperature = osc_attr.temperature;
 			input.lock = osc_attr.locked;
 			input.phase_error = (struct timespec) {
-				.tv_sec = sign * phase_error / NS_IN_SECOND,
-				.tv_nsec = sign * phase_error % NS_IN_SECOND,
+				.tv_sec = sign * osc_attr.phase_error / NS_IN_SECOND,
+				.tv_nsec = sign * osc_attr.phase_error % NS_IN_SECOND,
 			};
 
 			if (fake_holdover_activated) {
@@ -611,39 +611,57 @@ int main(int argc, char *argv[])
 		}
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
-			pthread_mutex_lock(&monitoring->mutex);
+			enum monitoring_request request;
+			struct gnss_state gnss_info = {};
+			struct od_monitoring disciplining = {
+				.clock_class = CLOCK_CLASS_UNCALIBRATED,
+				.status = WARMUP,
+				.current_phase_convergence_count = -1,
+				.valid_phase_convergence_threshold = -1,
+				.convergence_progress = 0.00,
+				.ready_for_holdover = false,
+			};
 			if (gnss) {
 				pthread_mutex_lock(&gnss->mutex_data);
-				monitoring->antenna_power = gnss->session->antenna_power;
-				monitoring->antenna_status = gnss->session->antenna_status;
-				monitoring->fix = gnss->session->fix;
-				monitoring->fixOk = gnss->session->fixOk;
-				monitoring->leap_seconds = gnss->session->context->leap_seconds;
-				monitoring->lsChange = gnss->session->context->lsChange;
-				monitoring->satellites_count = gnss->session->satellites_count;
-				monitoring->survey_in_position_error = gnss->session->survey_in_position_error;
+				gnss_info.antenna_power = gnss->session->antenna_power;
+				gnss_info.antenna_status = gnss->session->antenna_status;
+				gnss_info.fix = gnss->session->fix;
+				gnss_info.fixOk = gnss->session->fixOk;
+				gnss_info.leap_seconds = gnss->session->context->leap_seconds;
+				gnss_info.lsChange = gnss->session->context->lsChange;
+				gnss_info.satellites_count = gnss->session->satellites_count;
+				gnss_info.survey_in_position_error = gnss->session->survey_in_position_error;
 				pthread_mutex_unlock(&gnss->mutex_data);
 			}
 			if (disciplining_mode) {
-				if(od_get_monitoring_data(od, &monitoring->disciplining) != 0) {
+				if(od_get_monitoring_data(od, &disciplining) != 0) {
 					log_warn("Could not get disciplining data");
-					monitoring->disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
-					monitoring->disciplining.status = INIT;
-					monitoring->disciplining.current_phase_convergence_count = -1;
-					monitoring->disciplining.valid_phase_convergence_threshold = -1;
-					monitoring->disciplining.convergence_progress = 0.0;
+					disciplining.clock_class = CLOCK_CLASS_UNCALIBRATED;
+					disciplining.status = INIT;
+					disciplining.current_phase_convergence_count = -1;
+					disciplining.valid_phase_convergence_threshold = -1;
+					disciplining.convergence_progress = 0.0;
 				}
-				monitoring->phase_error = sign * phase_error;
+				osc_attr.phase_error *= sign;
 			} else if (phase_error_supported) {
 				/* this actually means that oscillator has it's own hardware disciplining
 				 * algorithm and we are able to monitor it
 				 */
-				oscillator_get_phase_error(oscillator, &monitoring->phase_error);
-				oscillator_get_disciplining_status(oscillator, &monitoring->disciplining);
+				oscillator_get_phase_error(oscillator, &osc_attr.phase_error);
+				oscillator_get_disciplining_status(oscillator, &disciplining);
 			}
+			pthread_mutex_lock(&monitoring->mutex);
 			monitoring->osc_attributes = osc_attr;
 			monitoring->ctrl_values = ctrl_values;
-			switch(monitoring->request) {
+			monitoring->disciplining = disciplining;
+			request = monitoring->request;
+			monitoring->request = REQUEST_NONE;
+			if (gnss)
+				monitoring->gnss_info = gnss_info;
+
+			pthread_mutex_unlock(&monitoring->mutex);
+
+			switch(request) {
 			case REQUEST_CALIBRATION:
 				log_info("Monitoring: Calibration requested");
 				input.calibration_requested = true;
@@ -710,12 +728,7 @@ int main(int argc, char *argv[])
 			default:
 				break;
 			}
-			monitoring->request = REQUEST_NONE;
 
-			if (monitoring->request == REQUEST_CALIBRATION) {
-			}
-
-			pthread_mutex_unlock(&monitoring->mutex);
 		}
 	}
 
