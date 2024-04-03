@@ -565,7 +565,7 @@ static void json_add_oscillator_data(struct json_object *resp, struct monitoring
 }
 
 /**
- * @brief Add GNSS data to json response
+ * @brief Add GNSS data to json response. Must be called under gnss_info.lock locked
  *
  * @param resp
  * @param monitoring
@@ -627,9 +627,12 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
 
 	json_add_clock_data(json_resp, monitoring);
 	json_add_oscillator_data(json_resp, monitoring);
-	json_add_gnss_data(json_resp, monitoring);
 
 	pthread_mutex_unlock(&monitoring->mutex);
+
+	pthread_mutex_lock(&monitoring->gnss_info.lock);
+	json_add_gnss_data(json_resp, monitoring);
+	pthread_mutex_unlock(&monitoring->gnss_info.lock);
 
 	const char *resp = json_object_to_json_string(json_resp);
 	json_object_object_del(json_resp, "disciplining");
@@ -728,6 +731,8 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 	monitoring->gnss_info.lsChange = -10;
 	monitoring->gnss_info.satellites_count = -1;
 	monitoring->gnss_info.survey_in_position_error = -1.0;
+	pthread_mutex_init(&monitoring->gnss_info.lock, NULL);
+
 	pthread_mutex_init(&monitoring->mutex, NULL);
 	pthread_cond_init(&monitoring->cond, NULL);
 

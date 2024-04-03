@@ -943,6 +943,22 @@ static void * gnss_thread(void * p_data)
 			pthread_mutex_unlock(&gnss->mutex_data);
 			usleep(5 * 1000);
 		}
+
+		/* this thread is the only writer to gnss->session, it's safe read the same values without mutex_data locked */
+		if (gnss->gnss_info) {
+			struct gnss_state *gnss_info = gnss->gnss_info;
+			pthread_mutex_lock(&gnss_info->lock);
+			gnss_info->antenna_power = gnss->session->antenna_power;
+			gnss_info->antenna_status = gnss->session->antenna_status;
+			gnss_info->fix = gnss->session->fix;
+			gnss_info->fixOk = gnss->session->fixOk;
+			gnss_info->leap_seconds = gnss->session->context->leap_seconds;
+			gnss_info->lsChange = gnss->session->context->lsChange;
+			gnss_info->satellites_count = gnss->session->satellites_count;
+			gnss_info->survey_in_position_error = gnss->session->survey_in_position_error;
+			pthread_mutex_unlock(&gnss_info->lock);
+		}
+
 		pthread_mutex_lock(&gnss->mutex_data);
 		stop = gnss->stop;
 		action = gnss->action;

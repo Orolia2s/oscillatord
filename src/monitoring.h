@@ -33,17 +33,6 @@ enum monitoring_request {
 	REQUEST_RESET_UBLOX_SERIAL
 };
 
-struct gnss_state {
-	float survey_in_position_error;
-	int fix;
-	int satellites_count;
-	int leap_seconds;
-	int lsChange;
-	int8_t antenna_power;
-	int8_t antenna_status;
-	bool fixOk;
-};
-
 /**
  * @brief General structure for monitoring thread
  */
