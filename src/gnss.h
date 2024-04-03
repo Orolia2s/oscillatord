@@ -125,6 +125,23 @@ struct gps_context_t {
 		const char *buf, const size_t len);
 };
 
+
+/**
+ * @struct gnss_state
+ * @brief Structure containing data with the latest gnss values
+ */
+struct gnss_state {
+	float survey_in_position_error;
+	int fix;
+	int satellites_count;
+	int leap_seconds;
+	int lsChange;
+	int8_t antenna_power;
+	int8_t antenna_status;
+	bool fixOk;
+	pthread_mutex_t lock;
+};
+
 /**
  * @struct gps_device_t
  * @brief Structure containing data about the gnss device
@@ -180,6 +197,7 @@ struct gnss {
 	bool stop;
 	int receiver_version_major;
 	int receiver_version_minor;
+	struct gnss_state *gnss_info;
 };
 
 struct gnss* gnss_init(const struct config *config, char *gnss_device_tty, struct gps_device_t *session, int fd_clock);

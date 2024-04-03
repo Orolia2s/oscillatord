@@ -333,6 +333,9 @@ int main(int argc, char *argv[])
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 		return -EINVAL;
 	}
+	if (monitoring) {
+		gnss->gnss_info = &monitoring->gnss_info;
+	}
 
 	if (disciplining_mode) {
 		/* Get disciplining parameters files exposed by driver */
@@ -612,7 +615,6 @@ int main(int argc, char *argv[])
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
 			enum monitoring_request request;
-			struct gnss_state gnss_info = {};
 			struct od_monitoring disciplining = {
 				.clock_class = CLOCK_CLASS_UNCALIBRATED,
 				.status = WARMUP,
@@ -621,18 +623,6 @@ int main(int argc, char *argv[])
 				.convergence_progress = 0.00,
 				.ready_for_holdover = false,
 			};
-			if (gnss) {
-				pthread_mutex_lock(&gnss->mutex_data);
-				gnss_info.antenna_power = gnss->session->antenna_power;
-				gnss_info.antenna_status = gnss->session->antenna_status;
-				gnss_info.fix = gnss->session->fix;
-				gnss_info.fixOk = gnss->session->fixOk;
-				gnss_info.leap_seconds = gnss->session->context->leap_seconds;
-				gnss_info.lsChange = gnss->session->context->lsChange;
-				gnss_info.satellites_count = gnss->session->satellites_count;
-				gnss_info.survey_in_position_error = gnss->session->survey_in_position_error;
-				pthread_mutex_unlock(&gnss->mutex_data);
-			}
 			if (disciplining_mode) {
 				if(od_get_monitoring_data(od, &disciplining) != 0) {
 					log_warn("Could not get disciplining data");
@@ -650,15 +640,13 @@ int main(int argc, char *argv[])
 				oscillator_get_phase_error(oscillator, &osc_attr.phase_error);
 				oscillator_get_disciplining_status(oscillator, &disciplining);
 			}
+
 			pthread_mutex_lock(&monitoring->mutex);
 			monitoring->osc_attributes = osc_attr;
 			monitoring->ctrl_values = ctrl_values;
 			monitoring->disciplining = disciplining;
 			request = monitoring->request;
 			monitoring->request = REQUEST_NONE;
-			if (gnss)
-				monitoring->gnss_info = gnss_info;
-
 			pthread_mutex_unlock(&monitoring->mutex);
 
 			switch(request) {
