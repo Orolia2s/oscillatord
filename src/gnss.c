@@ -338,7 +338,7 @@ static void log_gnss_data(struct gps_device_t *session)
 {
 	log_debug("GNSS data: Fix %s (%d), Fix ok: %s, satellites num %d, survey in error: %0.2f, antenna status: %d, valid %d,"
 		" time %lld, leapm_seconds %d, leap_notify %d, lsChange %d, "
-		"timeToLsChange %d, lsSet: %s, QErr(n) %d, qErr(n-1) %d",
+		"timeToLsChange %d, lsSet: %s, QErr(n) %d, qErr(n-1) %d, pos_accuracy %d m, time_accuracy %d ns",
 		fix_log[session->fix],
 		session->fix,
 		session->fixOk ? "True" : "False",
@@ -353,7 +353,9 @@ static void log_gnss_data(struct gps_device_t *session)
 		session->context->timeToLsEvent,
 		session->context->lsset ? "True" : "False",
 		session->context->qErr,
-		session->context->qErr_last_epoch
+		session->context->qErr_last_epoch,
+		session->position_accuracy,
+		session->time_accuracy
 	);
 }
 
@@ -885,6 +887,15 @@ static void * gnss_thread(void * p_data)
 					session->fix = NO_FIX;
 					session->fixOk = false;
 				}
+				if (epoch.havePos)
+					session->position_accuracy = (int64_t)epoch.posAcc;
+				else
+					session->position_accuracy = -1;
+				if (epoch.haveTime)
+					session->time_accuracy = (int64_t)(epoch.timeAcc / UBX_NAV_PVT_V1_TACC_SCALE);
+				else
+					session->time_accuracy = -1;
+
 				pthread_cond_signal(&gnss->cond_data);
 
 				if (session->tai_time_set)

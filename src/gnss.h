@@ -131,6 +131,8 @@ struct gps_context_t {
  * @brief Structure containing data with the latest gnss values
  */
 struct gnss_state {
+	int64_t position_accuracy; // in meters
+	int64_t time_accuracy; // in nanoseconds
 	float survey_in_position_error;
 	int fix;
 	int satellites_count;
@@ -178,6 +180,8 @@ struct gps_device_t {
 	bool survey_completed;
 	/** Survey in error in meter from meanV field from UBX-TIM-SVIN msg */
 	float survey_in_position_error;
+	int64_t position_accuracy; // in meters
+	int64_t time_accuracy; // in nanoseconds
 };
 
 /**
