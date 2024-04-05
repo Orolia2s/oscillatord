@@ -589,6 +589,8 @@ static void json_add_gnss_data(struct json_object *resp, struct monitoring *moni
 		json_object_new_int(monitoring->gnss_info.satellites_count));
 	json_object_object_add(gnss, "survey_in_position_error",
 		json_object_new_int(monitoring->gnss_info.survey_in_position_error));
+	json_object_object_add(gnss, "time_accuracy",
+		json_object_new_int(monitoring->gnss_info.time_accuracy));
 
 	json_object_object_add(resp, "gnss", gnss);
 }

@@ -967,6 +967,8 @@ static void * gnss_thread(void * p_data)
 			gnss_info->lsChange = gnss->session->context->lsChange;
 			gnss_info->satellites_count = gnss->session->satellites_count;
 			gnss_info->survey_in_position_error = gnss->session->survey_in_position_error;
+			gnss_info->time_accuracy = gnss->session->time_accuracy;
+			gnss_info->position_accuracy = gnss->session->position_accuracy;
 			pthread_mutex_unlock(&gnss_info->lock);
 		}
 
