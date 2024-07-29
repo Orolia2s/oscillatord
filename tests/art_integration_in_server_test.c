@@ -183,7 +183,7 @@ static void prepare_config_file_for_oscillatord(struct devices_path* devices_pat
 }
 
 int main(int argc, char* argv[]) {
-    struct devices_path devices_path;
+    struct devices_path devices_path = {0};
     struct config       config;
     char*               sysfs_path = NULL;
     char                ocp_name[100];
