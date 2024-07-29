@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "utils.h"
 
@@ -55,13 +56,27 @@ double compute_temp(uint32_t reg)
 /* find device path in /dev from symlink in sysfs */
 void find_dev_path(const char *dirname, struct dirent *dir, char *dev_path)
 {
+    struct stat p_statbuf;
     char dev_repository[1024];   /* should always be big enough */
-    snprintf(dev_repository, 1024, "%s/%s", dirname, dir->d_name );
-    char dev_name[100];
-    char * token = strtok(realpath(dev_repository, NULL), "/");
-    while(token != NULL) {
-        strncpy(dev_name, token, sizeof(dev_name));
-        token = strtok(NULL, "/");
+    char dev_name[100] = {};
+    char *dev_realpath;
+
+    snprintf(dev_repository, 1024, "%s/%s", dirname, dir->d_name);
+    /* should be fine because callers provides real files only */
+    lstat(dev_repository, &p_statbuf);
+    if (S_ISLNK(p_statbuf.st_mode) == 1) {
+        dev_realpath = realpath(dev_repository, NULL);
+        char * token = strtok(dev_realpath, "/");
+        while(token != NULL) {
+            strncpy(dev_name, token, sizeof(dev_name));
+            token = strtok(NULL, "/");
+        }
+        free(dev_realpath);
+    } else {
+        /* this is real file, read it's content to get the device */
+        FILE *fp = fopen(dev_repository, "r");
+        fread(dev_name, 1, sizeof(dev_name), fp);
+        fclose(fp);
     }
     sprintf(dev_path, "%s/%s", "/dev", dev_name );
 }

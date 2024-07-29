@@ -52,4 +52,7 @@ void config_cleanup(struct config *config);
 
 void config_dump(const struct config *config, char *buf, size_t buf_len);
 int config_save(struct config *config, const char *path);
+
+/* discovers devices from sysfs path */
+int config_discover_devices(const struct config *config, struct devices_path *devices_path);
 #endif /* CONFIG_H_ */
