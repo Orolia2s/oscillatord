@@ -211,3 +211,87 @@ int config_save(struct config *config, const char *path)
 	fwrite("\n", 1, 1, f);
 	return 0;
 }
+
+static int fill_tty_devices(const char *sysfs_path, struct dirent *entry, struct devices_path *dp)
+{
+	char filedir[FILENAME_MAX];
+	struct dirent *entry_tty;
+	DIR *tty_dir;
+	int ret = 0;
+
+	snprintf(filedir, FILENAME_MAX, "%s/%s", sysfs_path, entry->d_name);
+	tty_dir = opendir(filedir);
+	if (tty_dir == NULL) {
+		return ret;
+	}
+
+	while ((entry_tty = readdir(tty_dir)) != NULL && ret < 2) {
+		if (strcmp(entry_tty->d_name, "ttyGNSS") == 0) {
+			find_dev_path(filedir, entry_tty, dp->gnss_path);
+			log_debug("ttyGPS detected: %s", dp->gnss_path);
+			ret++;
+		} else if (strcmp(entry_tty->d_name, "ttyMAC") == 0) {
+			find_dev_path(filedir, entry_tty, dp->mac_path);
+			log_debug("ttyMAC detected: %s", dp->mac_path);
+			ret++;
+		}
+	}
+	closedir(tty_dir);
+	return ret;
+}
+
+int config_discover_devices(
+	const struct config *config,
+	struct devices_path *devices_path
+) {
+	const char *sysfs_path;
+	DIR * ocp_dir;
+	int ret = 0;
+
+	sysfs_path = config_get(config, "sysfs-path");
+	if (sysfs_path == NULL) {
+		log_error("No sysfs-path provided in oscillatord config file !");
+		return -EINVAL;
+	}
+	log_info("Scanning sysfs path %s", sysfs_path);
+
+	ocp_dir = opendir(sysfs_path);
+	struct dirent * entry = readdir(ocp_dir);
+	while (entry != NULL) {
+		if (strcmp(entry->d_name, "mro50") == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->mro_path);
+			log_debug("mro50 device detected: %s", devices_path->mro_path);
+		} else if (strcmp(entry->d_name, "ptp") == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->ptp_path);
+			log_debug("ptp clock device detected: %s", devices_path->ptp_path);
+		} else if (strcmp(entry->d_name, "pps") == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->pps_path);
+			log_debug("pps device detected: %s", devices_path->pps_path);
+		} else if (strcmp(entry->d_name, "ttyGNSS") == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->gnss_path);
+			log_debug("ttyGPS detected: %s", devices_path->gnss_path);
+		} else if (strcmp(entry->d_name, "ttyMAC") == 0) {
+			find_dev_path(sysfs_path, entry, devices_path->mac_path);
+			log_debug("ttyMAC detected: %s", devices_path->mac_path);
+		} else if (strlen(entry->d_name) == 3 && entry->d_type == DT_DIR &&
+				   strcmp(entry->d_name, "tty") == 0) {
+			ret = fill_tty_devices(sysfs_path, entry, devices_path);
+			if (ret != 2) {
+				log_error("Not all tty devices detected, exiting");
+				ret = -EINVAL;
+				break;
+			}
+			ret = 0;
+		} else if (strcmp(entry->d_name, "disciplining_config") == 0) {
+			find_file((char *) sysfs_path, "disciplining_config", devices_path->disciplining_config_path);
+			log_debug("disciplining_config detected: %s", devices_path->disciplining_config_path);
+		} else if (strcmp(entry->d_name, "temperature_table") == 0) {
+			find_file((char *) sysfs_path, "temperature_table", devices_path->temperature_table_path);
+			log_debug("temperature_table detected: %s", devices_path->temperature_table_path);
+		}
+
+		entry = readdir(ocp_dir);
+	}
+	closedir(ocp_dir);
+	return ret;
+}
