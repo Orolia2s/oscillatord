@@ -16,8 +16,9 @@
 int main(int argc, char *argv[])
 {
 	char ocp_path[256] = {0};
-    bool ocp_path_valid;
     bool found_eeprom = false;
+    struct config config = {};
+    struct devices_path devices_path = {};
 
 	/* Set log level */
 	log_set_level(1);
@@ -25,15 +26,38 @@ int main(int argc, char *argv[])
     snprintf(ocp_path, sizeof(ocp_path) - 1, "%s", argv[1]);
 
 	log_info("\t-ocp path is: \"%s\", checking...",ocp_path);
-	if (access(ocp_path, F_OK) != -1)
+	if (access(ocp_path, F_OK) == -1)
 	{
-		ocp_path_valid = true;
-        log_info("\t\tocp dir path exists !");
+        log_error("\t\tocp path doesn't exists !");
+        return -1;
     }
-	else
-	{
-		ocp_path_valid = false;
-        log_info("\t\tocp path doesn't exists !");
+
+    log_info("\t\tocp dir path exists !");
+
+    config_set(&config, "sys_path", ocp_path);
+
+    config_discover_devices(&config, &devices_path);
+
+    if (strlen(devices_path.mro_path) > 0) {
+        log_info("\t-mro50 device detected: %s", devices_path.mro_path);
+    }
+    if (strlen(devices_path.ptp_path) > 0)    {
+        log_info("\t-ptp clock device detected: %s", devices_path.ptp_path);
+    }
+    if (strlen(devices_path.pps_path) > 0) {
+        log_info("\t-pps device detected: %s", devices_path.pps_path);
+    }
+    if (strlen(devices_path.gnss_path) > 0) {
+        log_info("\t-ttyGPS detected: %s", devices_path.gnss_path);
+    }
+    if (strlen(devices_path.mac_path) > 0) {
+        log_info("\t-ttyMAC detected: %s", devices_path.mac_path);
+    }
+    if (strlen(devices_path.disciplining_config_path) > 0) {
+        log_info("\t-disciplining_config detected: %s", devices_path.disciplining_config_path);
+    }
+    if (strlen(devices_path.temperature_table_path) > 0) {
+        log_info("\t-temperature_table detected: %s", devices_path.temperature_table_path);
     }
 
     DIR * ocp_dir = opendir(ocp_path);
@@ -45,75 +69,28 @@ int main(int argc, char *argv[])
     else
     {
         char eeprom_path[256];
-        char mro_path[256];
-        char ptp_path[256];
-        char pps_path[256];
-        char gnss_path[256];
-        char mac_path[256];
-        char disciplining_config_path[256];
-        char temperature_table_path[256];
+        log_info("\t-sysfs path %s", ocp_path);
 
-        if (ocp_path_valid)
+        struct dirent * entry = readdir(ocp_dir);
+        while (entry != NULL)
         {
-            log_info("\t-sysfs path %s", ocp_path);
-
-            struct dirent * entry = readdir(ocp_dir);
-            while (entry != NULL)
+            if (strncmp(entry->d_name, "i2c", 4) == 0)
             {
-                if (strncmp(entry->d_name, "i2c", 4) == 0)
+                log_info("I2C device detected");
+                char pathname[PATH_MAX];   /* should always be big enough */
+                sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
+                found_eeprom = find_file(realpath(pathname, NULL), "eeprom", eeprom_path);
+                if (found_eeprom)
                 {
-                    log_info("I2C device detected");
-                    char pathname[PATH_MAX];   /* should always be big enough */
-                    sprintf( pathname, "%s/%s", ocp_path, entry->d_name);
-                    found_eeprom = find_file(realpath(pathname, NULL), "eeprom", eeprom_path);
-                    if (found_eeprom)
-                    {
-                        log_info("\t- Found EEPROM file: %s", eeprom_path);
-                    }
-                    else
-                    {
-                        log_warn("\t- Could not find EEPROM file");
-                    }
+                    log_info("\t- Found EEPROM file: %s", eeprom_path);
                 }
-                if (strcmp(entry->d_name, "mro50") == 0)
+                else
                 {
-                    find_dev_path(ocp_path, entry, mro_path);
-                    log_info("\t-mro50 device detected: %s", mro_path);
-                } else if (strcmp(entry->d_name, "ptp") == 0)
-                {
-                    find_dev_path(ocp_path, entry, ptp_path);
-                    log_info("\t-ptp clock device detected: %s", ptp_path);
-                } else if (strcmp(entry->d_name, "pps") == 0)
-                {
-                    find_dev_path(ocp_path, entry, pps_path);
-                    log_info("\t-pps device detected: %s", pps_path);
-                } else if (strcmp(entry->d_name, "ttyGNSS") == 0)
-                {
-                    find_dev_path(ocp_path, entry, gnss_path);
-                    log_info("\t-ttyGPS detected: %s", gnss_path);
+                    log_warn("\t- Could not find EEPROM file");
                 }
-                else if (strcmp(entry->d_name, "ttyMAC") == 0)
-                {
-                    find_dev_path(ocp_path, entry, mac_path);
-                    log_info("\t-ttyMAC detected: %s", mac_path);
-                }
-                else if (strcmp(entry->d_name, "disciplining_config") == 0)
-                {
-                    find_file((char *) ocp_path, "disciplining_config", disciplining_config_path);
-                    log_info("\t-disciplining_config detected: %s", disciplining_config_path);
-                }
-                else if (strcmp(entry->d_name, "temperature_table") == 0)
-                {
-                    find_file((char *) ocp_path, "temperature_table", temperature_table_path);
-                    log_info("\t-temperature_table detected: %s", temperature_table_path);
-                }
-
-                entry = readdir(ocp_dir);
             }
-        }
-        else
-        {
-            log_info("ocp dir Test Aborted");
+
+            entry = readdir(ocp_dir);
         }
     }
 }

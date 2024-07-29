@@ -33,67 +33,14 @@
 
 #include <linux/ptp_clock.h>
 
+#include "config.h"
 #include "log.h"
 #include "oscillator.h"
 #include "oscillator_factory.h"
-#include "utils.h"
 
 #define UPDATE_DISCIPLINING_PARAMETERS_SEC 3600
 
 struct oscillator *oscillator = NULL;
-
-static int get_devices_path_from_sysfs(const char* sysfs_path, struct devices_path *devices_path) 
-{
-
-	DIR * ocp_dir;
-
-	if (sysfs_path == NULL) {
-		log_error("No sysfs-path provided in oscillatord config file !");
-		return -EINVAL;
-	}
-	log_info("\t-sysfs path %s", sysfs_path);
-
-	ocp_dir = opendir(sysfs_path);
-	struct dirent * entry = readdir(ocp_dir);
-	while (entry != NULL) {
-		if (strcmp(entry->d_name, "mro50") == 0)
-		{
-			find_dev_path(sysfs_path, entry, devices_path->mro_path);
-			log_info("\t-mro50 device detected: %s", devices_path->mro_path);
-		} else if (strcmp(entry->d_name, "ptp") == 0)
-		{
-			find_dev_path(sysfs_path, entry, devices_path->ptp_path);
-			log_info("\t-ptp clock device detected: %s", devices_path->ptp_path);
-		} else if (strcmp(entry->d_name, "pps") == 0)
-		{
-			find_dev_path(sysfs_path, entry, devices_path->pps_path);
-			log_info("\t-pps device detected: %s", devices_path->pps_path);
-		} else if (strcmp(entry->d_name, "ttyGNSS") == 0)
-		{
-			find_dev_path(sysfs_path, entry, devices_path->gnss_path);
-			log_info("\t-ttyGPS detected: %s", devices_path->gnss_path);
-		}
-		else if (strcmp(entry->d_name, "ttyMAC") == 0)
-		{
-			find_dev_path(sysfs_path, entry, devices_path->mac_path);
-			log_info("\t-ttyMAC detected: %s", devices_path->mac_path);
-		}
-		else if (strcmp(entry->d_name, "disciplining_config") == 0)
-		{
-			find_file((char *) sysfs_path, "disciplining_config", devices_path->disciplining_config_path);
-			log_info("\t-disciplining_config detected: %s", devices_path->disciplining_config_path);
-		}
-		else if (strcmp(entry->d_name, "temperature_table") == 0)
-		{
-			find_file((char *) sysfs_path, "temperature_table", devices_path->temperature_table_path);
-			log_info("\t-temperature_table detected: %s", devices_path->temperature_table_path);
-		}
-
-		entry = readdir(ocp_dir);
-	}
-
-	return 0;
-}
 
 int main(int argc, char *argv[])
 {
@@ -158,7 +105,7 @@ int main(int argc, char *argv[])
 		}
 
 		log_info("Scan for paths:");
-		get_devices_path_from_sysfs(ocp_path, &devices_path);
+		config_discover_devices(&config, &devices_path);
 
 		oscillator = oscillator_factory_new(&config, &devices_path);
 		if (oscillator == NULL) {
