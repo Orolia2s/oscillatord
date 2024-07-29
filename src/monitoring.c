@@ -733,6 +733,7 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 	monitoring->gnss_info.lsChange = -10;
 	monitoring->gnss_info.satellites_count = -1;
 	monitoring->gnss_info.survey_in_position_error = -1.0;
+	monitoring->gnss_info.time_accuracy = -1;
 	pthread_mutex_init(&monitoring->gnss_info.lock, NULL);
 
 	pthread_mutex_init(&monitoring->mutex, NULL);
