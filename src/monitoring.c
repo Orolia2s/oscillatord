@@ -19,6 +19,11 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+
+#include <assert.h>
+#include <errno.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "eeprom_config.h"
@@ -91,51 +96,65 @@ static void * monitoring_thread(void * p_data);
 /**
  * @brief Create, bind and listen socket
  *
- * Will use TCP over IPv4
- * @param address address to bind to
- * @param portnum port to bind to
+ * Will use TCP over IP
+ * @param address address to listen from. It can be NULL to mean any address.
+ * @param port port to bind to, it can be a number or the name of a service
  * @return socket fd on success, -1 if error
  */
-static int listen_inet_socket(const char* address, unsigned short portnum) {
-	if (!address) {
-		log_error("Monitoring address (provided address is NULL)");
+static int        create_socket(const char* address, const char* port)
+{
+	int              status;
+	int              socket_fd;
+	const bool       reuse_address = true;
+	struct addrinfo* addresses     = NULL;
+	struct addrinfo* current;
+	struct addrinfo  hint = {
+		.ai_family = AF_UNSPEC,
+		.ai_protocol = IPPROTO_TCP,
+		.ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_CANONNAME
+	};
+
+	status = getaddrinfo(address, port, &hint, &addresses);
+	if (status == EAI_SYSTEM)
+	{
+		log_error("Unable to translate '%s:%s' into an Internet adrress: %s", address, port, strerror(errno));
+		return -1;
+	}
+	else if (status != 0)
+	{
+		log_error("Unable to translate '%s:%s' into an Internet adrress: %s", address, port, gai_strerror(status));
 		return -1;
 	}
 
-	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0) {
-		log_error("opening socket");
+	for (current = addresses; current; current = current->ai_next)
+	{
+		socket_fd = socket(current->ai_family, current->ai_socktype, current->ai_protocol);
+		if (socket_fd < 0)
+		{
+			log_warn("Couldn't open a socket for '%s': %s", current->ai_canonname, strerror(errno));
+			continue;
+		}
+
+		if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_address, sizeof(reuse_address)) < 0)
+			log_warn("Unable to configure the socket for '%s': %s", current->ai_canonname, strerror(errno));
+		else if (bind(socket_fd, current->ai_addr, current->ai_addrlen) < 0)
+			log_warn("Couldn't bind to '%s': %s", current->ai_canonname, strerror(errno));
+		else if (listen(socket_fd, N_BACKLOG) < 0)
+			log_warn("Couldn't listen for connections on '%s': %s", current->ai_canonname, strerror(errno));
+		else
+			break;
+
+		close(socket_fd);
+	}
+	freeaddrinfo(addresses);
+
+	if (current == NULL)
+	{
+		log_error("Could not bind / configure / listen to any address matching %s:%s", address, port);
 		return -1;
 	}
-
-	// This helps avoid spurious EADDRINUSE when the previous instance of this
-	// server died.
-	int opt = 1;
-	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-		log_error("setsockopt");
-		close(sockfd);
-		return -1;
-	}
-
-	struct sockaddr_in serv_addr;
-	memset(&serv_addr, 0, sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = inet_addr(address);
-	serv_addr.sin_port = htons(portnum);
-
-	if (bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-		log_error("on binding");
-		close(sockfd);
-		return -1;
-	}
-
-	if (listen(sockfd, N_BACKLOG) < 0) {
-		log_error("on listen");
-		close(sockfd);
-		return -1;
-	}
-
-	return sockfd;
+	log_info("Listening on %s", current->ai_canonname);
+	return socket_fd;
 }
 
 /**
@@ -145,31 +164,16 @@ static int listen_inet_socket(const char* address, unsigned short portnum) {
  */
 static void make_socket_non_blocking(int sockfd) {
 	int flags = fcntl(sockfd, F_GETFL, 0);
-	if (flags == -1) {
-		log_error("fcntl F_GETFL");
+	if (flags == -1)
+	{
+		log_error("Unable to get file status flags of socket: %s", strerror(errno));
 	}
 
-	if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		log_error("fcntl F_SETFL O_NONBLOCK");
+	if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
+	{
+		log_error("Unable to set file status flags of socker: %s", strerror(errno));
 	}
 	return;
-}
-
-/**
- * @brief Indicate a peer is connected
- *
- * @param sa socket address and port
- * @param salen socket name length
- */
-static void report_peer_connected(const struct sockaddr_in* sa, socklen_t salen) {
-	char hostbuf[NI_MAXHOST];
-	char portbuf[NI_MAXSERV];
-	if (getnameinfo((struct sockaddr*)sa, salen, hostbuf, NI_MAXHOST, portbuf,
-					NI_MAXSERV, 0) == 0) {
-		log_debug("peer (%s, %s) connected", hostbuf, portbuf);
-	} else {
-		log_debug("peer (unknown) connected");
-	}
 }
 
 /**
@@ -668,33 +672,30 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
  */
 struct monitoring* monitoring_init(const struct config *config, struct devices_path *devices_path)
 {
-	int port;
-	int ret;
-	struct monitoring *monitoring;
-
-	const char *address = config_get(config, "socket-address");
-	if (address == NULL) {
-		log_error("Monitoring: socket-address not defined in config %s", config->path);
-		return NULL;
-	}
-
-	port = config_get_unsigned_number(config, "socket-port");
-	if (port < 0) {
-		log_error(
-			"Monitoring: Error %d fetching socket-port from config %s",
-			port,
-			config->path
-		);
-		return NULL;
-	}
+	int                ret;
+	struct monitoring* monitoring;
+	const char*        address;
+	const char*        port;
 
 	if (devices_path == NULL) {
 		log_error("No struct devices path passed !");
 		return NULL;
 	}
 
-	monitoring = (struct monitoring *) malloc(sizeof(struct monitoring));
-	if (monitoring == NULL) {
+	address = config_get(config, "socket-address");
+	if (address == NULL)
+		log_warn("Monitoring: socket-address not defined in config %s, wildcard address will be used", config->path);
+
+	port = config_get(config, "socket-port");
+	if (port == NULL)
+	{
+		log_error("Monitoring: socket-port not found in config %s", config->path);
+		return NULL;
+	}
+
+	monitoring = (struct monitoring*)malloc(sizeof(struct monitoring));
+	if (monitoring == NULL)
+	{
 		log_error("Monitoring: Could not allocate memory for monitoring struct");
 		return NULL;
 	}
@@ -739,8 +740,9 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 	pthread_mutex_init(&monitoring->mutex, NULL);
 	pthread_cond_init(&monitoring->cond, NULL);
 
-	monitoring->sockfd = listen_inet_socket(address, port);
-	if (monitoring->sockfd == -1) {
+	monitoring->sockfd = create_socket(address, port);
+	if (monitoring->sockfd == -1)
+	{
 		log_error("Monitoring: Error creating monitoring socket");
 		free(monitoring);
 		return NULL;
