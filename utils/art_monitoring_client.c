@@ -19,14 +19,16 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <netdb.h>
+#include <errno.h>
 
 #include "log.h"
 #include "monitoring.h"
 
 static void print_help(void)
 {
-	printf("usage: art_monitoring_client [-h -r REQUEST_TYPE] -a ADDRESS -p PORT\n");
-	printf("- -a ADDRESS: Address socket should bind to\n");
+	printf("usage: art_monitoring_client [-h -r REQUEST_TYPE -a ADDRESS] -p PORT\n");
+	printf("- -a ADDRESS: Address socket should bind to. Defaults to local address\n");
 	printf("- -p PORT: Port socket should bind to\n");
 	printf("- -r REQUEST_TYPE: send a request to oscillatord. Accepted values are:\n");
 	printf("\t- calibration: request a calibration of the algorithm\n");
@@ -74,8 +76,8 @@ static struct json_object *json_send_and_receive(int sockfd, int request)
 int main(int argc, char *argv[]) {
 	int c;
 	int request = REQUEST_NONE;
-	int socket_port = -1;
-	char *socket_addr = NULL;
+	const char* socket_port = NULL;
+	const char* socket_addr = NULL;
 
 	while ((c = getopt(argc, argv, "a:p:r:h")) != -1)
 	switch (c)
@@ -84,7 +86,7 @@ int main(int argc, char *argv[]) {
 			socket_addr = optarg;
 			break;
 		case 'p':
-			socket_port = atoi(optarg);
+			socket_port = optarg;
 			break;
 		case 'r':
 		if (strcmp(optarg, "calibration") == 0)
@@ -127,49 +129,68 @@ int main(int argc, char *argv[]) {
 			fprintf (stderr,
 					"Unknown option character `\\x%x'.\n",
 					optopt);
-		return -1;
+		return EXIT_FAILURE;
 	default:
 		abort();
 	}
 
-	if (socket_addr == NULL || socket_port <= 0) {
-		log_error("Bad address / port");
+	if (socket_port == NULL) {
+		log_error("Bad port");
 		print_help();
-		return -1;
+		return EXIT_FAILURE;
 	}
 
-	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd == -1)
+	int              socket_fd;
+	int              status;
+	struct addrinfo* addresses;
+	struct addrinfo* current;
+	struct addrinfo  hint = {
+		.ai_family = AF_UNSPEC,
+		.ai_protocol = IPPROTO_TCP,
+	};
+
+	status = getaddrinfo(socket_addr, socket_port, &hint, &addresses);
+	if (status == EAI_SYSTEM)
 	{
-		log_error("Could not connect to socket !");
-		log_error("Try running with sudo");
-		log_error("FAIL");
-		return -1;
+		log_error("Unable to get an Internet address from '%s:%s': %s", socket_addr, socket_port, strerror(errno));
+		return EXIT_FAILURE;
+	}
+	else if (status != 0)
+	{
+		log_error("Unable to get an Internet address from '%s:%s': %s", socket_addr, socket_port, gai_strerror(status));
+		return EXIT_FAILURE;
 	}
 
-	struct sockaddr_in server_addr;
-	memset(&server_addr, 0, sizeof(server_addr));
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(socket_port);
-	server_addr.sin_addr.s_addr = inet_addr(socket_addr);
-
-	/* Initiate a connection to the server */
-	int ret = connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
-	if (ret == -1)
+	for (current = addresses; current; current = current->ai_next)
 	{
-		log_error("Could not connect to socket !");
-		log_error("FAIL");
-		return -1;
+		socket_fd = socket(current->ai_family, current->ai_socktype, current->ai_protocol);
+		if (socket_fd < 0)
+		{
+			log_warn("Couldn't open a socket for '%s:%s' (IPv%i): %s", socket_addr, socket_port, current->ai_family == AF_INET ? 4 : 6, strerror(errno));
+			continue;
+		}
+		if (connect(socket_fd, current->ai_addr, current->ai_addrlen) == 0)
+			break;
+		log_warn("Couldn't connect to '%s:%s' (IPv%i) : %s", socket_addr, socket_port, current->ai_family == AF_INET ? 4 : 6, strerror(errno));
+
+		close(socket_fd);
+	}
+	freeaddrinfo(addresses);
+
+	if (current == NULL)
+	{
+		log_error("Could not connect to %s:%s", socket_addr, socket_port);
+		return EXIT_FAILURE;
 	}
 
 	/* Request data through socket */
-	struct json_object *obj = json_send_and_receive(sockfd, request);
+	struct json_object *obj = json_send_and_receive(socket_fd, request);
 	struct json_object *layer_1;
 	struct json_object *layer_2;
 	struct json_object *layer_3;
 
 	log_info(json_object_to_json_string(obj));
-	
+
 	/* Disciplining */
 	json_object_object_get_ex(obj, "disciplining", &layer_1);
 	if (layer_1 != NULL) {
@@ -310,7 +331,7 @@ int main(int argc, char *argv[]) {
 				log_info("\t\t- %s: %s", temperature_range, json_object_get_string(mean_value));
 			}
 		}
-		
+
 	}
 
 	/* ACTION */
@@ -320,9 +341,9 @@ int main(int argc, char *argv[]) {
 
 	free(obj);
 
-	close(sockfd);
+	close(socket_fd);
 	log_info("PASSED !");
-	
 
-	return 0;
+
+	return EXIT_SUCCESS;
 }
