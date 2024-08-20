@@ -105,13 +105,13 @@ static int        create_socket(const char* address, const char* port)
 {
 	int              status;
 	int              socket_fd;
-	const bool       reuse_address = true;
+	const int        reuse_address = true;
 	struct addrinfo* addresses     = NULL;
 	struct addrinfo* current;
 	struct addrinfo  hint = {
 		.ai_family = AF_UNSPEC,
 		.ai_protocol = IPPROTO_TCP,
-		.ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_CANONNAME
+		.ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_ADDRCONFIG
 	};
 
 	status = getaddrinfo(address, port, &hint, &addresses);
@@ -129,18 +129,23 @@ static int        create_socket(const char* address, const char* port)
 	for (current = addresses; current; current = current->ai_next)
 	{
 		socket_fd = socket(current->ai_family, current->ai_socktype, current->ai_protocol);
+
 		if (socket_fd < 0)
 		{
-			log_warn("Couldn't open a socket for '%s': %s", current->ai_canonname, strerror(errno));
+			log_warn("Couldn't open a socket for IPv%c, %s, %s: %s",
+			         current->ai_family == AF_INET ? '4' : '6',
+			         current->ai_socktype == SOCK_STREAM ? "Stream" : "Datagram",
+			         current->ai_protocol == IPPROTO_TCP ? "TCP" : "UDP",
+			         strerror(errno));
 			continue;
 		}
 
 		if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_address, sizeof(reuse_address)) < 0)
-			log_warn("Unable to configure the socket for '%s': %s", current->ai_canonname, strerror(errno));
+			log_warn("Unable to configure socket: %s", strerror(errno));
 		else if (bind(socket_fd, current->ai_addr, current->ai_addrlen) < 0)
-			log_warn("Couldn't bind to '%s': %s", current->ai_canonname, strerror(errno));
+			log_warn("Couldn't bind socket to %s: %s", address, strerror(errno));
 		else if (listen(socket_fd, N_BACKLOG) < 0)
-			log_warn("Couldn't listen for connections on '%s': %s", current->ai_canonname, strerror(errno));
+			log_warn("Couldn't listen for connections on %s: %s", address, strerror(errno));
 		else
 			break;
 
@@ -153,7 +158,6 @@ static int        create_socket(const char* address, const char* port)
 		log_error("Could not bind / configure / listen to any address matching %s:%s", address, port);
 		return -1;
 	}
-	log_info("Listening on %s", current->ai_canonname);
 	return socket_fd;
 }
 
@@ -756,12 +760,9 @@ struct monitoring* monitoring_init(const struct config *config, struct devices_p
 		monitoring
 	);
 
-	log_info(
-		"Monitoring: INITIALIZATION: Successfully started monitoring thread, listening on %s:%d",
-		address,
-		port
-	);
-	if (ret != 0) {
+	log_info("Monitoring: INITIALIZATION: Successfully started monitoring thread, listening on %s:%s", address, port);
+	if (ret != 0)
+	{
 		log_error("Monitoring: Error creating monitoring thread: %d", ret);
 		close(monitoring->sockfd);
 		free(monitoring);
