@@ -111,7 +111,7 @@ static int        create_socket(const char* address, const char* port)
 	struct addrinfo  hint = {
 		.ai_family = AF_UNSPEC,
 		.ai_protocol = IPPROTO_TCP,
-		.ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_ADDRCONFIG
+		.ai_flags = AI_PASSIVE | AI_NUMERICHOST
 	};
 
 	status = getaddrinfo(address, port, &hint, &addresses);
