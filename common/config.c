@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <argz.h>
 #include <envz.h>
+#include <string.h>  // For strcpy()
 
 #include "config.h"
 #include "log.h"
@@ -245,8 +246,27 @@ int config_discover_devices(
 	struct devices_path *devices_path
 ) {
 	const char *sysfs_path;
+	const char *mro_path;
+	const char *gnss_path;
 	DIR * ocp_dir;
 	int ret = 0;
+
+
+	mro_path = config_get(config, "mro-path");
+	if (mro_path == NULL) {
+		log_error("No mro-path provided in oscillatord config file !");
+		return -EINVAL;
+	}
+	strcpy(mro_path->mac_path, mro_path);
+	log_debug("ttyMAC detected: %s", devices_path->mac_path);
+
+	gnss_path = config_get(config, "gnss-path");
+	if (gnss_path == NULL) {
+		log_error("No gnss-path provided in oscillatord config file !");
+		return -EINVAL;
+	}
+	strcpy(devices_path->mac_path, gnss_path);
+	log_debug("ttyGNSS detected: %s", devices_path->mac_path);
 
 	sysfs_path = config_get(config, "sysfs-path");
 	if (sysfs_path == NULL) {
@@ -267,21 +287,6 @@ int config_discover_devices(
 		} else if (strcmp(entry->d_name, "pps") == 0) {
 			find_dev_path(sysfs_path, entry, devices_path->pps_path);
 			log_debug("pps device detected: %s", devices_path->pps_path);
-		} else if (strcmp(entry->d_name, "ttyGNSS") == 0) {
-			find_dev_path(sysfs_path, entry, devices_path->gnss_path);
-			log_debug("ttyGPS detected: %s", devices_path->gnss_path);
-		} else if (strcmp(entry->d_name, "ttyMAC") == 0) {
-			find_dev_path(sysfs_path, entry, devices_path->mac_path);
-			log_debug("ttyMAC detected: %s", devices_path->mac_path);
-		} else if (strlen(entry->d_name) == 3 && entry->d_type == DT_DIR &&
-				   strcmp(entry->d_name, "tty") == 0) {
-			ret = fill_tty_devices(sysfs_path, entry, devices_path);
-			if (ret != 2) {
-				log_error("Not all tty devices detected, exiting");
-				ret = -EINVAL;
-				break;
-			}
-			ret = 0;
 		} else if (strcmp(entry->d_name, "disciplining_config") == 0) {
 			find_file((char *) sysfs_path, "disciplining_config", devices_path->disciplining_config_path);
 			log_debug("disciplining_config detected: %s", devices_path->disciplining_config_path);
