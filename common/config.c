@@ -213,34 +213,6 @@ int config_save(struct config *config, const char *path)
 	return 0;
 }
 
-static int fill_tty_devices(const char *sysfs_path, struct dirent *entry, struct devices_path *dp)
-{
-	char filedir[FILENAME_MAX];
-	struct dirent *entry_tty;
-	DIR *tty_dir;
-	int ret = 0;
-
-	snprintf(filedir, FILENAME_MAX, "%s/%s", sysfs_path, entry->d_name);
-	tty_dir = opendir(filedir);
-	if (tty_dir == NULL) {
-		return ret;
-	}
-
-	while ((entry_tty = readdir(tty_dir)) != NULL && ret < 2) {
-		if (strcmp(entry_tty->d_name, "ttyGNSS") == 0) {
-			find_dev_path(filedir, entry_tty, dp->gnss_path);
-			log_debug("ttyGPS detected: %s", dp->gnss_path);
-			ret++;
-		} else if (strcmp(entry_tty->d_name, "ttyMAC") == 0) {
-			find_dev_path(filedir, entry_tty, dp->mac_path);
-			log_debug("ttyMAC detected: %s", dp->mac_path);
-			ret++;
-		}
-	}
-	closedir(tty_dir);
-	return ret;
-}
-
 int config_discover_devices(
 	const struct config *config,
 	struct devices_path *devices_path
@@ -257,7 +229,7 @@ int config_discover_devices(
 		log_error("No mro-path provided in oscillatord config file !");
 		return -EINVAL;
 	}
-	strcpy(mro_path->mac_path, mro_path);
+	strcpy(devices_path->mac_path, mro_path);
 	log_debug("ttyMAC detected: %s", devices_path->mac_path);
 
 	gnss_path = config_get(config, "gnss-path");
@@ -265,8 +237,8 @@ int config_discover_devices(
 		log_error("No gnss-path provided in oscillatord config file !");
 		return -EINVAL;
 	}
-	strcpy(devices_path->mac_path, gnss_path);
-	log_debug("ttyGNSS detected: %s", devices_path->mac_path);
+	strcpy(devices_path->gnss_path, gnss_path);
+	log_debug("ttyGNSS detected: %s", devices_path->gnss_path);
 
 	sysfs_path = config_get(config, "sysfs-path");
 	if (sysfs_path == NULL) {
