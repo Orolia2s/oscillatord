@@ -195,7 +195,7 @@ static fd_status_t on_peer_connected(int sockfd, const struct sockaddr_in* peer_
 	// Initialize state to send back a '*' to the peer immediately.
 	peer_state_t* peerstate = &global_state[sockfd];
 	peerstate->state = WAIT_FOR_MSG;
-	memset(peerstate->recv_buf, 0, 1024);
+	memset(peerstate->recv_buf, 0, SENDBUF_SIZE);
 	peerstate->buf_ptr = 0;
 	peerstate->buf_end = 0;
 
@@ -210,6 +210,7 @@ static fd_status_t on_peer_connected(int sockfd, const struct sockaddr_in* peer_
  * @return fd_status_t
  */
 static fd_status_t on_peer_ready_recv(int sockfd) {
+	struct json_object *json;
 	assert(sockfd < MAXFDS);
 	peer_state_t* peerstate = &global_state[sockfd];
 
@@ -254,7 +255,9 @@ static fd_status_t on_peer_ready_recv(int sockfd) {
 			}
 			break;
 		case IN_MSG:
-			if (json_tokener_parse(peerstate->recv_buf)) {
+			json = json_tokener_parse(peerstate->recv_buf);
+			if (json) {
+				json_object_put(json);
 				peerstate->state = WAIT_FOR_MSG;
 				ready_to_send = true;
 			} else {
@@ -265,7 +268,9 @@ static fd_status_t on_peer_ready_recv(int sockfd) {
 		}
 	}
 
-	if (json_tokener_parse(peerstate->recv_buf)) {
+	json = json_tokener_parse(peerstate->recv_buf);
+	if (json) {
+		json_object_put(json);
 		peerstate->state = WAIT_FOR_MSG;
 		ready_to_send = true;
 	}
@@ -619,16 +624,28 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
 	assert(sockfd < MAXFDS);
 	peer_state_t* peerstate = &global_state[sockfd];
 
+	// json_tokener_parse will() return NULL if the JSON is invalid. Otherwise, it will call
+	// json_object_new_object() and put the reference count of the object to 1. The object
+	// must be freed by json_object_put() manually.
 	struct json_object *obj = json_tokener_parse(peerstate->recv_buf);
-	memset(peerstate->recv_buf, 0, 1024);
+	memset(peerstate->recv_buf, 0, SENDBUF_SIZE);
+	if (!obj) {
+		log_error("Monitoring: Error parsing request");
+		return fd_status_W;
+	}
 
 	json_object_object_get_ex(obj, "request", &json_req);
+	// According to the doc "No reference counts will be changed.
+	// There is no need to manually adjust reference counts through the json_object_put/json_object_get methods"
+
+	request_type = (enum monitoring_request) json_object_get_int(json_req);
+	// json request object is not used after this point, so we can free it
+	json_object_put(obj);
+
+	json_resp = json_object_new_object();
 
 	/* Notify main loop about the request */
 	pthread_mutex_lock(&monitoring->mutex);
-	request_type = (enum monitoring_request) json_object_get_int(json_req);
-
-	json_resp = json_object_new_object();
 
 	json_handle_request(monitoring, request_type, &monitoring->request, json_resp);
 
@@ -645,11 +662,11 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring * monitoring
 	pthread_mutex_unlock(&monitoring->gnss_info.lock);
 
 	const char *resp = json_object_to_json_string(json_resp);
-	json_object_object_del(json_resp, "disciplining");
-	json_object_object_del(json_resp, "gnss");
-	json_object_object_del(json_resp, "oscillator");
-	json_object_object_del(json_resp, "disciplining_parameters");
 	ret = send(sockfd, resp, strlen(resp), 0);
+	// json_resp and it's string representation are not used after this point
+	// so we can free them. All embedded objects are also freed because of transfer
+	// of ownership to the outer object with json_object_object_add().
+	json_object_put(json_resp);
 	if (ret == -1) {
 		log_error("Monitoring: Error sending response: %d", ret);
 		return fd_status_W;
