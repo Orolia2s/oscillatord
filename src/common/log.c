@@ -86,45 +86,6 @@ static void unlock(void)
 	}
 }
 
-const char* log_level_string(int level)
-{
-	return level_strings[level];
-}
-
-void log_set_lock(log_LockFn fn, void* udata)
-{
-	L.lock  = fn;
-	L.udata = udata;
-}
-
-void log_set_level(int level)
-{
-	L.level = level;
-}
-
-void log_set_quiet(bool enable)
-{
-	L.quiet = enable;
-}
-
-int log_add_callback(log_LogFn fn, void* udata, int level)
-{
-	for (int i = 0; i < MAX_CALLBACKS; i++)
-	{
-		if (!L.callbacks[i].fn)
-		{
-			L.callbacks[i] = (Callback){fn, udata, level};
-			return 0;
-		}
-	}
-	return -1;
-}
-
-int log_add_fp(FILE* fp, int level)
-{
-	return log_add_callback(file_callback, fp, level);
-}
-
 static void init_event(log_Event* ev, void* udata)
 {
 	if (!ev->time)
@@ -133,40 +94,6 @@ static void init_event(log_Event* ev, void* udata)
 		ev->time = localtime(&t);
 	}
 	ev->udata = udata;
-}
-
-void log_log(int level, const char* file, int line, const char* fmt, ...)
-{
-	log_Event ev = {
-	    .fmt   = fmt,
-	    .file  = file,
-	    .line  = line,
-	    .level = level,
-	};
-
-	lock();
-
-	if (!L.quiet && level >= L.level)
-	{
-		init_event(&ev, stderr);
-		va_start(ev.ap, fmt);
-		stdout_callback(&ev);
-		va_end(ev.ap);
-	}
-
-	for (int i = 0; i < MAX_CALLBACKS && L.callbacks[i].fn; i++)
-	{
-		Callback* cb = &L.callbacks[i];
-		if (level >= cb->level)
-		{
-			init_event(&ev, cb->udata);
-			va_start(ev.ap, fmt);
-			cb->fn(&ev);
-			va_end(ev.ap);
-		}
-	}
-
-	unlock();
 }
 
 void ppsthread_log(volatile struct pps_thread_t* pps_thread, int level, const char* fmt, ...)

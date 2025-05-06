@@ -12,12 +12,16 @@
             .hash = "ubloxcfg-1.16.0-OcThgPikIgCIZqOvr61kt6Ted8CGDYsTFX_cj3ukg41C",
         },
         .disciplining_minipod = .{
-            .url = "git+https://github.com/Orolia2s/disciplining-minipod?ref=zig#86b5920a685ec4982e815ed1d2de5e258d8ce85d",
-            .hash = "disciplining_minipod-3.8.3-sAGgeALiAQA4LDzRJ0wTKKgyyYB8n_7E26TIckPo7EkR",
+            .url = "git+https://github.com/Orolia2s/disciplining-minipod?ref=zig#c0247d62458b32d3b061ad39dd1116e7b96ef4c3",
+            .hash = "disciplining_minipod-3.8.3-sAGgeDbOAQDfMPOrEyaBnmecsZ4bEI0cGEU5AtD_-VUT",
         },
         .jsonc = .{
             .url = "git+https://github.com/allyourcodebase/json-c?ref=master#59f246c658b562d4c2a10c612c1a2bc6aeb55970",
             .hash = "jsonc-0.18.0-DbRvtkwcAAC4u29konOcuBB84MozeYQDn4JbI6haE7D5",
+        },
+        .logc = .{
+            .url = "git+https://github.com/rxi/log.c?ref=master#f9ea34994bd58ed342d2245cd4110bb5c6790153",
+            .hash = "N-V-__8AAJ8jAAAVkKD-RFvNLcnmi3SJZWigTFePQTb0sG-u",
         },
     },
     .paths = .{

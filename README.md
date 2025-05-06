@@ -11,50 +11,35 @@ For now only the following oscillators are supported:
 - Microsemi's SA3X
 - Microsemi's SA5X
 
-## Requirements
+## Requirement
 
-[Conan](https://conan.io/) ([PyPI reference](https://pypi.org/project/conan/))
-
-```
-pip install conan -U
-conan profile detect
-```
+[Zig](https://ziglang.org/download/)
 
 It will handle the following dependencies:
 
-* [json-c](https://github.com/json-c/json-c.git)
+* [json-c](https://github.com/json-c/json-c)
 * [pps-tools](https://github.com/redlab-i/pps-tools)
 * [disciplining-minipod](https://github.com/Orolia2s/disciplining-minipod)
 * [ubloxcfg](https://github.com/Orolia2s/ubloxcfg)
+* [log.c](https://github.com/rxi/log.c)
+
+## Build
+
+```shell
+zig build
+```
+
+## Run
+
+```shell
+zig build run
+```
 
 ## Installation
 
-```
-# Export homemade dependencies recipes
-git clone https://github.com/Orolia2s/disciplining-minipod.git --branch conan vendor/minipod
-git clone https://github.com/Orolia2s/ubloxcfg.git --branch conan vendor/ubloxcfg
-
-conan export vendor/minipod
-conan export vendor/ubloxcfg
-conan export vendor/pps-tools
-
-# To specify a profile, you can manually run:
-# conan install . --build=missing -pr=<...>
-
-make conan_build
-
+```shell
 sudo make install
 ```
-
-for the service to work, one must copy the [oscillatord_default.conf](./example_configurations/oscillatord_default.conf) file and rename it to `/etc/oscillatord.conf`
-
-For test purposes, it is easier to compile the executable and run it from a terminal:
-in project's root directory
-```
-make conan_build
-sudo ./oscillatord example_configurations/oscillatord_default.conf
-```
-
 
 ## Overview
 

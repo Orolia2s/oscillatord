@@ -4,10 +4,11 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSafe });
     const target = b.standardTargetOptions(.{});
 
-    const jsonc = b.dependency("jsonc", .{ .target = target });
+    const jsonc = b.dependency("jsonc", .{ .target = target, .optimize = optimize });
     const minipod = b.dependency("disciplining_minipod", .{ .target = target });
     const ubloxcfg = b.dependency("ubloxcfg", .{ .target = target });
     const pps = b.dependency("pps_tools", .{});
+    const logc = b.dependency("logc", .{});
 
     const deps = [_]*std.Build.Step.Compile{
         jsonc.artifact("json-c"),
@@ -15,10 +16,17 @@ pub fn build(b: *std.Build) void {
         ubloxcfg.artifact("ubloxcfg"),
     };
 
-    const lib = b.addStaticLibrary(.{
-        .name = "oscillatord",
+    const mod = b.addModule("oscillatord", .{
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
+    });
+    mod.addCMacro("PACKAGE_VERSION", "3.8.3");
+    mod.addCMacro("LOG_USE_COLOR", "1");
+
+    const lib = b.addStaticLibrary(.{
+        .name = "oscillator",
+        .root_module = mod,
     });
     lib.addCSourceFiles(.{
         .root = b.path("src"),
@@ -33,12 +41,12 @@ pub fn build(b: *std.Build) void {
             "oscillator.c",
             "gnss.c",
             "oscillator_factory.c",
+            "common/log.c",
             "common/config.c",
             "common/f9_defvalsets.c",
             "common/utils.c",
             "common/eeprom_config.c",
             "common/gnss-config.c",
-            "common/log.c",
             "oscillators/dummy_oscillator.c",
             "oscillators/sim_oscillator.c",
             "oscillators/sa3x_oscillator.c",
@@ -49,15 +57,15 @@ pub fn build(b: *std.Build) void {
     });
     lib.addIncludePath(b.path("include"));
     lib.addIncludePath(pps.path(""));
+    lib.addIncludePath(logc.path("src"));
     lib.installHeadersDirectory(b.path("include"), "", .{});
-    lib.linkLibC();
     b.installArtifact(lib);
 
-    const exe = b.addExecutable(.{ .name = "oscillatord", .target = target, .optimize = optimize });
+    const exe = b.addExecutable(.{ .name = "oscillatord", .root_module = mod });
     exe.addCSourceFile(.{ .file = b.path("oscillatord.c"), .flags = &CFLAGS });
+    exe.addCSourceFile(.{ .file = logc.path("src/log.c"), .flags = &CFLAGS });
     exe.addIncludePath(b.path("src"));
     exe.addIncludePath(b.path("include"));
-    exe.linkLibrary(lib);
     b.installArtifact(exe);
 
     for (deps) |dep| {
