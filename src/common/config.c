@@ -261,6 +261,11 @@ int config_discover_devices(const struct config* config, struct devices_path* de
 	log_info("Scanning sysfs path %s", sysfs_path);
 
 	ocp_dir              = opendir(sysfs_path);
+	if (ocp_dir == NULL)
+	{
+		log_fatal("Failed to open '%s': %s", sysfs_path, strerror(errno));
+		return -errno;
+	}
 	struct dirent* entry = readdir(ocp_dir);
 	while (entry != NULL)
 	{
