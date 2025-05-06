@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
 	ret = config_discover_devices(&config, &devices_path);
 	if (ret != 0) {
 		error(EXIT_FAILURE, -ret, "get_devices_path_from_sysfs");
-		return -EINVAL;
+		return ret;
 	}
 
 	/* Set log level according to configuration */

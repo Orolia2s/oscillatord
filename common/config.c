@@ -255,10 +255,17 @@ int config_discover_devices(
 	}
 	log_info("Scanning sysfs path %s", sysfs_path);
 
-	ocp_dir = opendir(sysfs_path);
-	struct dirent * entry = readdir(ocp_dir);
-	while (entry != NULL) {
-		if (strcmp(entry->d_name, "mro50") == 0) {
+	ocp_dir              = opendir(sysfs_path);
+	if (ocp_dir == NULL)
+	{
+		log_fatal("Failed to open '%s': %s", sysfs_path, strerror(errno));
+		return -errno;
+	}
+	struct dirent* entry = readdir(ocp_dir);
+	while (entry != NULL)
+	{
+		if (strcmp(entry->d_name, "mro50") == 0)
+		{
 			find_dev_path(sysfs_path, entry, devices_path->mro_path);
 			log_debug("mro50 device detected: %s", devices_path->mro_path);
 		} else if (strcmp(entry->d_name, "ptp") == 0) {
