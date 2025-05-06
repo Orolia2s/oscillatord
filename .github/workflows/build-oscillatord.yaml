@@ -15,7 +15,7 @@ jobs:
       uses: actions/checkout@v3
       with:
           repository: orolia2s/ubloxcfg
-          ref: 1.16
+          ref: 1.15
     - name: Compile Ublox configuration shared library
       run: make libubloxcfg.so
     - name: Install it
