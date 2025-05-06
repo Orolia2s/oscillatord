@@ -26,7 +26,7 @@ PP_section := $(Bold)
 
 ##@ General
 
-default: help ## When no target is specified, display the usage
+default: build ## When no target is specified, build the executable
 
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nThis Makefile allows one to build, run and test $(Name).\n\nUsage:\n  make $(PP_command)<target>$(EOC)\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  $(PP_command)%-15s$(EOC) %s\n", $$1, $$2 } /^##@/ { printf "\n$(PP_section)%s$(EOC):\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -46,6 +46,10 @@ info: ## Print the project's name, version, copyright notice and author
 
 .PHONY: default help raw_help version info
 
+##@ Build
+
+build: $(Executable) ## Compile oscillatord with zig
+
 ##@ Install
 
 install: $(SystemdServiceInstalled) $(Installed) $(ConfigInstalled) ## Install the binary, the config and systemd services
@@ -54,16 +58,9 @@ uninstall: ## Remove the binary, config and service files placed by install
 	$(RM) -v $(SystemdServiceInstalled) $(Installed) $(ConfigInstalled)
 
 check: ## List installed files if present
-	@ls $(wildcard $(SystemdServiceInstalled) $(Installed) $(ConfigInstalled))
+	-@ls -1 $(SystemdServiceInstalled) $(Installed) $(ConfigInstalled)
 
 .PHONY: install uninstall
-
-##@ Developping
-
-format: $(Sources) $(Headers) ## Apply clang-format on source files and headers
-	echo $^ | xargs -L1 $(ClangFormat) -i
-
-.PHONY: format
 
 # Non phony rules
 

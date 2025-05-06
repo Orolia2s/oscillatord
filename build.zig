@@ -59,18 +59,24 @@ pub fn build(b: *std.Build) void {
     lib.addIncludePath(pps.path(""));
     lib.addIncludePath(logc.path("src"));
     lib.installHeadersDirectory(b.path("include"), "", .{});
-    b.installArtifact(lib);
-
-    const exe = b.addExecutable(.{ .name = "oscillatord", .root_module = mod });
-    exe.addCSourceFile(.{ .file = b.path("oscillatord.c"), .flags = &CFLAGS });
-    exe.addCSourceFile(.{ .file = logc.path("src/log.c"), .flags = &CFLAGS });
-    exe.addIncludePath(b.path("src"));
-    exe.addIncludePath(b.path("include"));
-    b.installArtifact(exe);
-
     for (deps) |dep| {
         lib.linkLibrary(dep);
-        exe.linkLibrary(dep);
+    }
+    b.installArtifact(lib);
+
+    {
+        // Executable
+        const exe = b.addExecutable(.{ .name = "oscillatord", .root_module = mod });
+        exe.addCSourceFile(.{ .file = b.path("oscillatord.c"), .flags = &CFLAGS });
+        exe.addCSourceFile(.{ .file = logc.path("src/log.c"), .flags = &CFLAGS });
+        exe.addIncludePath(b.path("src"));
+        b.installArtifact(exe);
+
+        // Run
+        const run_step = b.step("run", "Run oscillatord with the default configuration");
+        const run = b.addRunArtifact(exe);
+        run.addFileArg(b.path("configuration/oscillatord_default.conf"));
+        run_step.dependOn(&run.step);
     }
 }
 

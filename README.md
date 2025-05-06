@@ -31,6 +31,7 @@ zig build
 
 ## Run
 
+Run oscillatord with the default configuration
 ```shell
 zig build run
 ```
