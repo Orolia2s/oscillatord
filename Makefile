@@ -68,7 +68,7 @@ $(ConfigInstalled): $(ConfigFile)
 	install --mode=644 $< $@
 
 $(Executable): $(shell find . -type f -name '*.[ch]') build.zig build.zig.zon
-	zig build
+	zig build --release=small --summary all
 
 $(Installed): $(Executable)
 	install $< $@
