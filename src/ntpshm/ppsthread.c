@@ -86,7 +86,7 @@
 #if defined(HAVE_SYS_TIMEPPS_H)
 // include unistd.h here as it is missing on older pps-tools releases.
 // 'close' is not defined otherwise.
-#	include <sys/timepps.h>
+#	include <timepps.h>
 
 #	include <unistd.h>
 #endif
