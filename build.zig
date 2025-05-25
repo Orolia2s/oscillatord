@@ -90,4 +90,5 @@ const CFLAGS = .{
     "-Wstrict-prototypes",
     "-Wpointer-arith",
     "-Wno-address-of-packed-member",
+    "-fno-sanitize=undefined",
 };
