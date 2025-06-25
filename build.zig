@@ -47,6 +47,7 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(b.path("src"));
     exe.addIncludePath(logc.path("src"));
     exe.linkLibrary(lib);
+    exe.root_module.addCMacro("LOG_USE_COLOR", "1");
     b.installArtifact(exe);
 
     for (deps) |dep| {
@@ -74,6 +75,7 @@ pub fn build(b: *std.Build) void {
             util_exe.linkLibrary(lib);
             util_exe.addIncludePath(b.path("src"));
             util_exe.addIncludePath(logc.path("src"));
+            util_exe.root_module.addCMacro("LOG_USE_COLOR", "1");
             for (deps) |dep| {
                 util_exe.linkLibrary(dep);
             }
