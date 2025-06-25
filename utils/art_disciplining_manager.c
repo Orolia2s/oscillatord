@@ -22,7 +22,7 @@
 #include "config.h"
 #include "eeprom_config.h"
 #include "eeprom.h"
-#include "log.h"
+#include "odlog.h"
 
 enum Mode {
     ART_EEPROM_MANAGER_NONE,

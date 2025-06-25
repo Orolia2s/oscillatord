@@ -18,7 +18,7 @@
 
 #include "eeprom.h"
 #include "eeprom_config.h"
-#include "log.h"
+#include "odlog.h"
 
 enum Mode {
     ART_TEMPERATURE_TABLE_NONE,
@@ -123,7 +123,7 @@ static int write_temperature_table_to_file(char *path, struct temperature_table 
     }
     for (int i = 0; i < MEAN_TEMPERATURE_ARRAY_MAX  ; i++) {
         char line[256];
-        sprintf(line, "%.2f,%.2f\n", 
+        sprintf(line, "%.2f,%.2f\n",
             MIN_TEMPERATURE + (float) i / STEPS_BY_DEGREE,
             (float) temp_table->mean_fine_over_temperature[i] / 10.0
         );

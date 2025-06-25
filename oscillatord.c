@@ -9,41 +9,41 @@
  * It is responsible for fetching oscillator and reference data and pass them
  * to a disciplining algorithm, and apply the decision of the algorithm regarding the oscillator.
  */
+#include "config.h"
+#include "eeprom_config.h"
+#include "gnss.h"
+#include "monitoring.h"
+#include "ntpshm.h"
+#include "odlog.h"
+#include "oscillator.h"
+#include "oscillator_factory.h"
+#include "phasemeter.h"
+#include "ppsthread.h"
+#include "utils.h"
+
+#include <dirent.h>
+#include <error.h>
+#include <fcntl.h>
+#include <linux/ptp_clock.h>
+#include <log.h>
+#include <oscillator-disciplining/oscillator-disciplining.h>
+
+#include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/timex.h>
 #include <sys/types.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <string.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <time.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <signal.h>
 #include <math.h>
-
-#include <error.h>
-
-#include <oscillator-disciplining/oscillator-disciplining.h>
-#include <linux/ptp_clock.h>
-
-#include "config.h"
-#include "eeprom_config.h"
-#include "gnss.h"
-#include "log.h"
-#include "monitoring.h"
-#include "ntpshm.h"
-#include "ppsthread.h"
-#include "oscillator.h"
-#include "oscillator_factory.h"
-#include "phasemeter.h"
-#include "utils.h"
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 int clock_adjtime(clockid_t, struct timex *);
 

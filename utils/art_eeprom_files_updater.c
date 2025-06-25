@@ -4,21 +4,21 @@
  * @brief Program to update disciplining_config and temperature table file exposed by ptp_ocp driver
  * @version 0.1
  * @date 2022-07-11
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
-#include <getopt.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
+#include "eeprom_config.h"
+#include "odlog.h"
 
+#include <getopt.h>
 #include <oscillator-disciplining/oscillator-disciplining.h>
 
-#include "log.h"
-#include "eeprom_config.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static void print_help(void)
 {

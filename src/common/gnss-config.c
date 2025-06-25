@@ -1,8 +1,9 @@
 #include "gnss-config.h"
 
 #include "f9_defvalsets.h"
-#include "log.h"
 
+#include <inttypes.h>
+#include <log.h>
 #include <ubloxcfg/ff_ubx.h>
 
 #include <stdio.h>

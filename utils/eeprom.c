@@ -1,9 +1,12 @@
+#include "eeprom.h"
+
+#include "odlog.h"
+
+#include <fcntl.h>
+
 #include <errno.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
-
-#include "eeprom.h"
 
 #define min(a,b) a < b ? a : b
 
