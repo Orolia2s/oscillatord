@@ -454,12 +454,11 @@ static void json_handle_request(struct monitoring *monitoring, int request_type,
 	case REQUEST_READ_EEPROM:
 	{
 		struct disciplining_parameters dsc_params;
-		int ret = write_disciplining_parameters_in_eeprom(
-			monitoring->devices_path.disciplining_config_path,
-			monitoring->devices_path.temperature_table_path,
-			&dsc_params
-		);
-		if (ret != 0) {
+		int ret = read_disciplining_parameters_from_eeprom(monitoring->devices_path.disciplining_config_path,
+		                                                   monitoring->devices_path.temperature_table_path,
+		                                                   &dsc_params);
+		if (ret != 0)
+		{
 			log_error("Monitoring: Could not get disciplining parameters");
 		} else {
 			json_add_disciplining_disciplining_parameters(resp, &dsc_params);
