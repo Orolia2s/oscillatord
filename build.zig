@@ -44,9 +44,12 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
     exe.addCSourceFile(.{ .file = b.path("oscillatord.c"), .flags = &CFLAGS });
     exe.addCSourceFile(.{ .file = logc.path("src/log.c"), .flags = &CFLAGS });
+    exe.addCSourceFiles(.{ .root = b.path("src"), .files = &SOURCES, .flags = &CFLAGS });
+    exe.addIncludePath(b.path("include"));
     exe.addIncludePath(b.path("src"));
     exe.addIncludePath(logc.path("src"));
-    exe.linkLibrary(lib);
+    exe.addIncludePath(pps.path(""));
+    exe.root_module.addCMacro("PACKAGE_VERSION", "3.8.3");
     exe.root_module.addCMacro("LOG_USE_COLOR", "1");
     b.installArtifact(exe);
 

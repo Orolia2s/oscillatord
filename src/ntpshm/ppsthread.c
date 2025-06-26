@@ -50,9 +50,8 @@
  * SPDX-License-Identifier: BSD-2-clause
  */
 
-#include "log.h"
-
 #include <linux/limits.h>
+#include <log.h>
 #include <pthread.h> /* pacifies OpenBSD's compiler */
 
 #include <sys/socket.h>

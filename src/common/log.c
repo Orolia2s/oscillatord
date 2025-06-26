@@ -60,6 +60,9 @@ static void stdout_callback(log_Event* ev)
 	fflush(ev->udata);
 }
 
+void pps_log_set_level(int level) {
+  L.level = level;
+}
 
 static void lock(void)
 {

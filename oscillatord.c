@@ -237,6 +237,7 @@ int main(int argc, char *argv[])
 	/* Set log level according to configuration */
 	log_level = config_get_unsigned_number(&config, "debug");
 	log_set_level(log_level >= 0 ? log_level : 0);
+	pps_log_set_level(log_level >= 0 ? log_level : 0);
 	log_info("Starting Oscillatord %s", PREPRO_STRINGIZE(PACKAGE_VERSION));
 
 	/* Start Monitoring Thread */

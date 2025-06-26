@@ -71,3 +71,5 @@ static inline void print_disciplining_parameters(struct disciplining_parameters*
 	print_disciplining_config(&dsc_params->dsc_config, level);
 	print_temperature_table(dsc_params->temp_table.mean_fine_over_temperature, level);
 }
+
+void pps_log_set_level(int level);
