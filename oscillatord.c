@@ -189,7 +189,6 @@ int main(int argc, char *argv[])
 	char err_msg[OD_ERR_MSG_LEN];
 	struct oscillator_attributes osc_attr = { 0 };
 	int64_t phase_error;
-	int phasemeter_status;
 	int ret;
 	int sign = 0;
 	int log_level;
@@ -323,7 +322,8 @@ int main(int argc, char *argv[])
 		time(&start_save_epprom_parameters);
 
 		/* Start Phasemeter Thread */
-		phasemeter = phasemeter_init(fd_clock);
+		phasemeter = phasemeter_init(fd_clock, PPS_GNSS);
+		phasemeter_thread_start(&phasemeter);
 
 		/* Wait for all thread to get at least one piece of data */
 		sleep(2);
@@ -343,9 +343,7 @@ int main(int argc, char *argv[])
 		/* Check if program is still supposed to be running or has been requested to terminate */
 		if(loop) {
 			/* Apply initial phase jump before setting PTP clock time */
-			do {
-				phasemeter_status = get_phase_error(phasemeter, &phase_error);
-			} while (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS);
+			phase_error = phasemeter_get_reference_phase_offset(&phasemeter);
 			log_debug("Initial phase error to apply is %" PRIi64, phase_error);
 			log_info("Applying initial phase jump before setting PTP clock time");
 			ret = apply_phase_offset(
@@ -389,7 +387,7 @@ int main(int argc, char *argv[])
 	while(loop) {
 		if (disciplining_mode) {
 			/* Get Phase error and status*/
-			phasemeter_status = get_phase_error(phasemeter, &osc_attr.phase_error);
+			osc_attr.phase_error = phasemeter_get_reference_phase_offset(&phasemeter);
 
 			if (gnss_get_epoch_data(gnss, &input.valid, &input.survey_completed, &input.qErr) != 0) {
 				log_error("Error getting GNSS data, exiting");
@@ -421,9 +419,6 @@ int main(int argc, char *argv[])
 				ignore_next_irq = false;
 				continue;
 			}
-
-			/* Fills in input structure with current phasemeter status */
-			input.phasemeter_status = phasemeter_status;
 
 			if (output.action == ADJUST_FINE && output.setpoint != ctrl_values.fine_ctrl) {
 				log_error("Could not apply output to mro50");
@@ -491,7 +486,7 @@ int main(int argc, char *argv[])
 				if (calib_params == NULL)
 					error(EXIT_FAILURE, -ENOMEM, "od_get_calibration_parameters");
 
-				struct calibration_results *results = oscillator_calibrate(oscillator, phasemeter, gnss, calib_params, sign);
+				struct calibration_results *results = oscillator_calibrate(oscillator, &phasemeter, gnss, calib_params, sign);
 				if (results != NULL)
 					od_calibrate(od, calib_params, results);
 				else {
@@ -685,7 +680,7 @@ int main(int argc, char *argv[])
 
 	if (disciplining_mode) {
 		pthread_join(save_dsc_params_thread, NULL);
-		phasemeter_stop(&phasemeter);
+		phasemeter_thread_stop(&phasemeter);
 		ret = od_get_disciplining_parameters(od, &dsc_params);
 		if (ret != 0) {
 			log_error("Could not get discipling parameters from disciplining algorithm");
