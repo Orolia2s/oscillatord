@@ -25,21 +25,23 @@ struct ART_timestamp
 
 struct ART_phasemeter
 {
-	pthread_t            thread;
-	pthread_mutex_t      mutex;
-	struct ART_timestamp last_timestamp[PPS_count];
-	int64_t              phase_offset[PPS_MAC];
-	bool                 ready[PPS_MAC];
-	pthread_cond_t       new_offset[PPS_MAC];
-	int                  file_descriptor;
-	_Atomic(bool)        stop;
+	pthread_t             thread;
+	pthread_mutex_t       mutex;
+	struct ART_timestamp  last_timestamp[PPS_count];
+	int64_t               phase_offset[PPS_MAC];
+	bool                  ready[PPS_MAC];
+	pthread_cond_t        new_offset[PPS_MAC];
+	int                   file_descriptor;
+	enum ART_phase_source current_reference;
+	_Atomic(bool)         stop;
 };
 
-#define phasemeter_init(FD) \
+#define phasemeter_init(FD, REFERENCE) \
 	(struct ART_phasemeter){ \
-	    .file_descriptor = FD, \
-	    .mutex           = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP, \
-	    .next_second     = {[0 ... PPS_count] = PTHREAD_COND_INITIALIZER}, \
+	    .file_descriptor   = FD, \
+	    .mutex             = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP, \
+	    .next_second       = {[0 ... PPS_count] = PTHREAD_COND_INITIALIZER}, \
+	    .current_reference = REFERENCE, \
 	};
 
 bool        phasemeter_thread_start(struct ART_phasemeter* self);
