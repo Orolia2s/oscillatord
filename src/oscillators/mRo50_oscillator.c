@@ -557,23 +557,29 @@ static int mRo50_oscillator_apply_output(struct oscillator* oscillator, struct o
 }
 
 static struct calibration_results* mRo50_oscillator_calibrate(struct oscillator*             oscillator,
-                                                              struct phasemeter*             phasemeter,
+                                                              struct ART_phasemeter*         phasemeter,
                                                               struct gnss*                   gnss,
                                                               struct calibration_parameters* calib_params,
-                                                              int                            phase_sign)
+                                                              int)
 {
 	struct od_output adj_fine = {
 	    .action   = ADJUST_FINE,
 	    .setpoint = 0,
 	};
 	int                         ret;
-	int64_t                     phase_error;
+	enum ART_phase_source       reference;
 
 	struct calibration_results* results = malloc(sizeof(struct calibration_results));
 	if (results == NULL)
 	{
 		log_error("Could not allocate memory to create calibration_results");
 		return NULL;
+	}
+
+	{ // Use the same reference throughout the whole calibration
+		pthread_mutex_lock(&phasemeter->mutex);
+		reference = phasemeter->current_reference;
+		pthread_mutex_unlock(&phasemeter->mutex);
 	}
 
 	results->length         = calib_params->length;
@@ -618,35 +624,25 @@ static struct calibration_results* mRo50_oscillator_calibrate(struct oscillator*
 		{
 			if (!loop)
 				goto clean_calibration;
-			int phasemeter_status = get_phase_error(phasemeter, &phase_error);
-			if (phasemeter_status != PHASEMETER_BOTH_TIMESTAMPS)
+			float offset = phasemeter_get_phase_offset(phasemeter, reference);
+
+			if (reference == PPS_GNSS)
 			{
-				log_error("Could not get phase error during calibration, aborting");
-				free(results->measures);
-				results->measures = NULL;
-				free(results);
-				results = NULL;
-				return NULL;
-			}
-			/* Get qErr in ps*/
-			int32_t qErr;
-			if (gnss_get_epoch_data(gnss, NULL, NULL, &qErr) != 0)
-			{
-				log_error("Could not get gnss data");
-				free(results->measures);
-				results->measures = NULL;
-				free(results);
-				results = NULL;
-				return NULL;
+				int32_t qErr_ps;
+				if (gnss_get_epoch_data(gnss, NULL, NULL, &qErr_ps) != 0)
+				{
+					log_error("Could not get gnss data");
+					free(results->measures);
+					results->measures = NULL;
+					free(results);
+					results = NULL;
+					return NULL;
+				}
+				offset += (float)qErr_ps / 1000;
 			}
 
-			*(results->measures + i * results->nb_calibration + j) = phase_error + (float)qErr / 1000;
-			log_debug("ctrl_point %d measure[%d]: phase error = %lld, qErr = %d, result = %f",
-			          adj_fine.setpoint,
-			          j,
-			          phase_error,
-			          qErr,
-			          phase_error + (float)qErr / 1000);
+			results->measures[i * results->nb_calibration + j] = offset;
+			log_debug("ctrl_point %d measure[%d]: phase offset = %g ns", adj_fine.setpoint, j, offset);
 			sleep(1);
 		}
 	}

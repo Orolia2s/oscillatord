@@ -65,7 +65,7 @@ int oscillator_apply_output(struct oscillator* oscillator, struct od_output* out
 }
 
 struct calibration_results* oscillator_calibrate(struct oscillator*             oscillator,
-                                                 struct phasemeter*             phasemeter,
+                                                 struct ART_phasemeter*         phasemeter,
                                                  struct gnss*                   gnss,
                                                  struct calibration_parameters* calib_params,
                                                  int                            phase_sign)

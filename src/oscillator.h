@@ -31,7 +31,7 @@ typedef int (*oscillator_parse_attributes_cb)(struct oscillator* oscillator, str
 typedef int (*oscillator_apply_output_cb)(struct oscillator* oscillator, struct od_output* output);
 typedef void (*oscillator_destroy_cb)(struct oscillator** oscillator);
 typedef struct calibration_results* (*oscillator_calibrate_cb)(struct oscillator*             oscillator,
-                                                               struct phasemeter*             phasemeter,
+                                                               struct ART_phasemeter*         phasemeter,
                                                                struct gnss*                   gnss,
                                                                struct calibration_parameters* calib_params,
                                                                int                            phase_sign);
@@ -92,7 +92,7 @@ int oscillator_apply_output(struct oscillator* oscillator, struct od_output* out
 int oscillator_get_disciplining_status(struct oscillator* oscillator, void* data);
 int oscillator_push_gnss_info(struct oscillator* oscillator, bool fixOk, const struct timespec* last_fix_utc_time);
 struct calibration_results* oscillator_calibrate(struct oscillator*             oscillator,
-                                                 struct phasemeter*             phasemeter,
+                                                 struct ART_phasemeter*             phasemeter,
                                                  struct gnss*                   gnss,
                                                  struct calibration_parameters* calib_params,
                                                  int                            phase_sign);
