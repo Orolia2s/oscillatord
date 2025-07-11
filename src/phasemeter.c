@@ -63,6 +63,14 @@ int64_t phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_
 	pthread_mutex_unlock(&self->mutex);
 	return result;
 }
+int64_t phasemeter_get_reference_phase_offset(struct ART_phasemeter* self)
+{
+	enum ART_phase_source source;
+	pthread_mutex_lock(&self->mutex);
+	source = self->current_reference;
+	pthread_mutex_unlock(&self->mutex);
+	return phasemeter_get_phase_offset(self, source);
+}
 
 static inline int64_t _offset(struct ptp_clock_time mac, struct ptp_clock_time ext)
 {

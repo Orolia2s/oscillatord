@@ -39,12 +39,13 @@ struct ART_phasemeter
 #define phasemeter_init(FD, REFERENCE) \
 	(struct ART_phasemeter){ \
 	    .file_descriptor   = FD, \
-	    .mutex             = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP, \
-	    .next_second       = {[0 ... PPS_count] = PTHREAD_COND_INITIALIZER}, \
+	    .mutex             = PTHREAD_MUTEX_INITIALIZER, \
+	    .new_offset        = {[0 ... PPS_SMA4] = PTHREAD_COND_INITIALIZER}, \
 	    .current_reference = REFERENCE, \
 	};
 
 bool        phasemeter_thread_start(struct ART_phasemeter* self);
 void        phasemeter_thread_stop(struct ART_phasemeter* self);
 int64_t     phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_source source);
+int64_t     phasemeter_get_reference_phase_offset(struct ART_phasemeter* self);
 const char* phase_source_to_cstring(enum ART_phase_source source);
