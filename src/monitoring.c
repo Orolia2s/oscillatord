@@ -484,6 +484,9 @@ static void json_add_clock_data(struct json_object* resp, struct monitoring* mon
  */
 static void json_add_disciplining_data(struct json_object* resp, struct monitoring* monitoring)
 {
+	char fix_sized[64];
+	snprintf(fix_sized, sizeof(fix_sized), "%05.2f", monitoring->disciplining.convergence_progress);
+
 	struct json_object* disciplining = json_object_new_object();
 	json_object_object_add(disciplining,
 	                       "status",
@@ -494,10 +497,12 @@ static void json_add_disciplining_data(struct json_object* resp, struct monitori
 	json_object_object_add(disciplining,
 	                       "valid_phase_convergence_threshold",
 	                       json_object_new_int(monitoring->disciplining.valid_phase_convergence_threshold));
-	json_object_object_add(disciplining, "convergence_progress", json_object_new_double(monitoring->disciplining.convergence_progress));
+	json_object_object_add(disciplining,
+	                       "convergence_progress",
+	                       json_object_new_double_s(monitoring->disciplining.convergence_progress, fix_sized));
 	json_object_object_add(disciplining,
 	                       "ready_for_holdover",
-	                       json_object_new_string(monitoring->disciplining.ready_for_holdover ? "true" : "false"));
+	                       json_object_new_boolean(monitoring->disciplining.ready_for_holdover));
 	json_object_object_add(resp, "disciplining", disciplining);
 }
 
@@ -509,12 +514,15 @@ static void json_add_disciplining_data(struct json_object* resp, struct monitori
  */
 static void json_add_oscillator_data(struct json_object* resp, struct monitoring* monitoring)
 {
+	char fix_sized[64];
+	snprintf(fix_sized, sizeof(fix_sized), "%.2f", monitoring->osc_attributes.temperature);
+
 	struct json_object* oscillator = json_object_new_object();
 	json_object_object_add(oscillator, "model", json_object_new_string(monitoring->oscillator_model));
 	json_object_object_add(oscillator, "fine_ctrl", json_object_new_int(monitoring->ctrl_values.fine_ctrl));
 	json_object_object_add(oscillator, "coarse_ctrl", json_object_new_int(monitoring->ctrl_values.coarse_ctrl));
 	json_object_object_add(oscillator, "lock", json_object_new_boolean(monitoring->osc_attributes.locked));
-	json_object_object_add(oscillator, "temperature", json_object_new_double(monitoring->osc_attributes.temperature));
+	json_object_object_add(oscillator, "temperature", json_object_new_double_s(monitoring->osc_attributes.temperature, fix_sized));
 
 	json_object_object_add(resp, "oscillator", oscillator);
 }
@@ -778,7 +786,6 @@ static void* monitoring_thread(void* p_data)
 
 	while (!stop)
 	{
-		log_trace("Monitoring: Listening on socket...");
 		int nready = epoll_wait(epollfd, events, MAXFDS, SOCKET_TIMEOUT_MS);
 		for (int i = 0; i < nready; i++)
 		{
@@ -865,7 +872,7 @@ static void* monitoring_thread(void* p_data)
 					}
 					if (event.events == 0)
 					{
-						log_debug("socket %d closing", fd);
+						log_trace("socket %d closing", fd);
 						if (epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL) < 0)
 						{
 							log_error("epoll_ctl EPOLL_CTL_DEL");
@@ -897,7 +904,7 @@ static void* monitoring_thread(void* p_data)
 					}
 					if (event.events == 0)
 					{
-						log_debug("socket %d closing", fd);
+						log_trace("socket %d closing", fd);
 						if (epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL) < 0)
 						{
 							log_error("epoll_ctl EPOLL_CTL_DEL");
