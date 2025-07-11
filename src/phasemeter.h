@@ -1,40 +1,48 @@
-/**
- * @file phasemeter.h
- * @brief Header for part computing the phase error between the PHC and the GNSS receiver
- * @version 0.1
- * @date 2022-01-10
- *
- * @copyright Copyright (c) 2022
- *
- * A thread is created to listen to PHC's external timestamps events (One corresponds to the PPS of the PHC,
- * another one corresponds to the PPS of the GNSS receiver). It then computes the phase error between these two PPS.
- */
-#ifndef OSCILLATORD_PHASEMETER_H
-#define OSCILLATORD_PHASEMETER_H
+#pragma once
 
-#include <pthread.h>
+#include <linux/ptp_clock.h> // ptp_clock_time
+#include <pthread.h>         // pthread_*
 
-#include <stdbool.h>
-#include <stdint.h>
+#include <stdbool.h> // bool
+#include <stdint.h>  // int64_t
 
-/**
- * @struct phasemeter
- * @brief general structure for phasemeter thread
- *
- */
-struct phasemeter
-{
-	pthread_t       thread;
-	pthread_mutex_t mutex;
-	pthread_cond_t  cond;
-	int32_t         phase_error;
-	int             status;
-	int             fd;
-	bool            stop;
+enum ART_phase_source {
+	PPS_GNSS,
+	PPS_SMA1,
+	PPS_SMA2,
+	PPS_SMA3,
+	PPS_SMA4,
+	PPS_MAC,
+	PPS_count
 };
 
-struct phasemeter* phasemeter_init(int fd);
-void               phasemeter_stop(struct phasemeter* phasemeter);
-int                get_phase_error(struct phasemeter* phasemeter, int64_t* phase_error);
+struct ART_timestamp
+{
+	struct ptp_clock_time time;
+	enum ART_phase_source subject;
+	bool                  received;
+};
 
-#endif /* OSCILLATORD_PHASEMETER_H */
+struct ART_phasemeter
+{
+	pthread_t            thread;
+	pthread_mutex_t      mutex;
+	struct ART_timestamp last_timestamp[PPS_count];
+	int64_t              phase_offset[PPS_MAC];
+	bool                 ready[PPS_MAC];
+	pthread_cond_t       new_offset[PPS_MAC];
+	int                  file_descriptor;
+	_Atomic(bool)        stop;
+};
+
+#define phasemeter_init(FD) \
+	(struct ART_phasemeter){ \
+	    .file_descriptor = FD, \
+	    .mutex           = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP, \
+	    .next_second     = {[0 ... PPS_count] = PTHREAD_COND_INITIALIZER}, \
+	};
+
+bool        phasemeter_thread_start(struct ART_phasemeter* self);
+void        phasemeter_thread_stop(struct ART_phasemeter* self);
+int64_t     phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_source source);
+const char* phase_source_to_cstring(enum ART_phase_source source);

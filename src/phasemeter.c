@@ -1,326 +1,169 @@
-/**
- * @file phasemeter.c
- * @author your name (you@domain.com)
- * @brief Phasemeter computing phase difference between two PPS
- * @version 0.1
- * @date 2022-01-10
- *
- * @copyright Copyright (c) 2022
- * Both PPS's timestamps are received through a PTP clock event
- */
 #include "phasemeter.h"
 
-#include "log.h"
+#include <linux/ptp_clock.h> // ptp_extts_event
+#include <log.h>             // log_*
 
-#include <linux/ptp_clock.h>
-#include <oscillator-disciplining/oscillator-disciplining.h>
+#include <sys/ioctl.h> // ioctl
 
-#include <sys/ioctl.h>
-#include <sys/timex.h>
+#include <errno.h>  // errno
+#include <iso646.h> // and not
+#include <string.h> // strerror
+#include <unistd.h> // read
 
-#include <errno.h>
-#include <inttypes.h> // PRI*
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#define NS_PER_US 1000L
+#define US_PER_MS 1000
+#define NS_PER_MS NS_PER_US * US_PER_MS
+#define MS_PER_S 1000
+#define US_PER_S US_PER_MS * MS_PER_S
+#define NS_PER_S NS_PER_US * US_PER_S
 
-#define EXTTS_INDEX_ART_INTERNAL_PPS 5
-#define EXTTS_INDEX_GNSS_PPS         0
+#define ABS(x) ((x) < 0 ? -(x) : x)
 
-#define MILLISECONDS_500             500000000
+static void* phasemeter_thread(struct ART_phasemeter* self);
+static bool  phasemeter_read_timestamp(int file_descriptor, struct ART_timestamp* output);
+static bool  phasemeter_phase_source_switch(int file_descriptor, enum ART_phase_source source, bool on);
 
-struct external_timestamp
+bool         phasemeter_thread_start(struct ART_phasemeter* self)
 {
-	int64_t timestamp; // ns
-	int     index;
-};
+	if (not phasemeter_phase_source_switch(self->file_descriptor, PPS_GNSS, true))
+		return false;
+	if (not phasemeter_phase_source_switch(self->file_descriptor, PPS_MAC, true))
+		return false;
 
-/**
- * @brief Read an external timestamp
- *
- * @param fd handle of PHS
- * @param nsec pointer where timestamp will be stored
- * @return int index of external timestamp received on success, -1 on error
- */
-static int read_extts(int fd, int64_t* nsec)
-{
-	struct ptp_extts_event event = {0};
-
-	if (read(fd, &event, sizeof(event)) != sizeof(event))
+	int status = pthread_create(&self->thread, NULL, (void* (*)(void*))phasemeter_thread, self);
+	if (status != 0)
 	{
-		log_error("failed to read extts event");
-		return -1;
+		log_error("Unable to spawn phasemeter thread: %s", strerror(status));
+		return false;
 	}
-
-	if (event.t.sec < 0)
-	{
-		errno = -EINVAL;
-		log_error("EXTTS second field is supposed to be positive");
-		return -EINVAL;
-	}
-
-	/* Timestamp is passed as two unsigned 32 bits integers,
-	 * We hack the data structure to get a signed 32 bits
-	 */
-	*nsec = (int64_t)event.t.sec * 1000000000ULL + event.t.nsec;
-	log_trace("%s timestamp: %" PRIi64, event.index == 0 ? "GNSS     " : "Internal ", *nsec);
-
-	return event.index;
+	return true;
 }
 
-/**
- * @brief Activate an external timestamp
- *
- * @param fd PHC handler
- * @param extts_index Index of extts to enable
- * @return int 0 on success, -1 on failure
- */
-static int enable_extts(int fd, unsigned int extts_index)
+void phasemeter_thread_stop(struct ART_phasemeter* self)
 {
-	struct ptp_extts_request extts_request = {.index = extts_index, .flags = PTP_RISING_EDGE | PTP_ENABLE_FEATURE};
-
-	if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request) < 0)
-	{
-		log_error("PTP_EXTTS_REQUEST enable");
-		return -1;
-	}
-
-	return 0;
+	self->stop = true;
+	pthread_join(self->thread, NULL);
+	(void)phasemeter_phase_source_switch(self->file_descriptor, PPS_GNSS, false);
+	(void)phasemeter_phase_source_switch(self->file_descriptor, PPS_MAC, false);
 }
 
-/**
- * @brief Disable an external timestamp
- *
- * @param fd PHC handler
- * @param extts_index Index of extts to enable
- * @return int 0 on success, -1 on failure
- */
-static int disable_extts(int fd, unsigned int extts_index)
+int64_t phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_source source)
 {
-	struct ptp_extts_request extts_request = {.index = extts_index, .flags = 0};
+	int64_t result;
 
-	if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request) < 0)
+	if (source == PPS_MAC)
 	{
-		log_error("PTP_EXTTS_REQUEST disable");
-		return -1;
+		log_fatal("offsets are computed relatively to the MAC");
+		return 0;
 	}
-
-	return 0;
+	pthread_mutex_lock(&self->mutex);
+	while (not self->ready[source])
+		pthread_cond_wait(&self->new_offset[source], &self->mutex);
+	result = self->phase_offset[source];
+	pthread_mutex_unlock(&self->mutex);
+	return result;
 }
 
-/**
- * @brief Phasemeter thread routine
- *
- * @param p_data
- * @return void*
- */
-static void* phasemeter_thread(void* p_data)
+static inline int64_t _offset(struct ptp_clock_time mac, struct ptp_clock_time ext)
 {
-	int                       ret;
-	bool                      stop;
-	struct phasemeter*        phasemeter = (struct phasemeter*)p_data;
-	struct external_timestamp ts1;
-	struct external_timestamp ts2;
+	return (ext.sec - mac.sec) * NS_PER_S + ext.nsec - mac.nsec;
+}
 
-	stop = phasemeter->stop;
+static bool phasemeter_update_offset(struct ART_phasemeter* self, enum ART_phase_source source)
+{
+	if (not (self->last_timestamp[PPS_MAC].received and self->last_timestamp[source].received))
+		return false;
 
-	ret = enable_extts(phasemeter->fd, EXTTS_INDEX_ART_INTERNAL_PPS);
-	if (ret != 0)
+	int64_t offset = _offset(self->last_timestamp[PPS_MAC].time, self->last_timestamp[source].time);
+
+	if (ABS(offset) > 500 * NS_PER_MS)
 	{
-		log_error("Could not enable ART internal pps external events");
-		return NULL;
+		self->ready[source] = false;
 	}
-	ret = enable_extts(phasemeter->fd, EXTTS_INDEX_GNSS_PPS);
-	if (ret != 0)
+	else
 	{
-		log_error("Could not enable GNSS pps external events");
-		return NULL;
+		self->phase_offset[source] = offset;
+		self->ready[source] = true;
+		pthread_cond_broadcast(&self->new_offset[source]);
 	}
+	return true;
+}
 
-	/* Get first timestamp */
-	do
+static void* phasemeter_thread(struct ART_phasemeter* self)
+{
+	struct ART_timestamp  timestamp;
+
+	while (not self->stop)
 	{
-		ts1.index = read_extts(phasemeter->fd, &ts1.timestamp);
-		if (ts1.index < 0)
+		if (phasemeter_read_timestamp(self->file_descriptor, &timestamp))
 		{
-			log_warn("Could not read ptp clock external timestamp for phasemeter");
-		}
-	} while (ts1.index != EXTTS_INDEX_ART_INTERNAL_PPS && ts1.index != EXTTS_INDEX_GNSS_PPS);
+			pthread_mutex_lock(&self->mutex);
 
-	while (!stop)
-	{
-		/* Get Second timestamp */
-		do
-		{
-			ts2.index = read_extts(phasemeter->fd, &ts2.timestamp);
-			if (ts2.index < 0)
+			self->last_timestamp[timestamp.subject] = timestamp;
+			if (timestamp.subject == PPS_MAC)
 			{
-				log_warn("Could not read ptp clock external timestamp for phasemeter");
+				for (int source = PPS_GNSS; source < PPS_MAC; source++)
+					phasemeter_update_offset(self, source);
 			}
-		} while (ts2.index != EXTTS_INDEX_ART_INTERNAL_PPS && ts2.index != EXTTS_INDEX_GNSS_PPS);
-		log_debug("Phasemeter: %s, ts %" PRIi64, (ts1.index == EXTTS_INDEX_GNSS_PPS) ? "GNSS" : "INT ", ts1.timestamp);
-		log_debug("Phasemeter: %s, ts %" PRIi64, (ts2.index == EXTTS_INDEX_GNSS_PPS) ? "GNSS" : "INT ", ts2.timestamp);
-
-		/*
-		 * Did not received GNSS PPS external event
-		 * GNSS receiver PPS output can be deactivated if GNSS is not locked
-		 */
-		if (ts1.index == EXTTS_INDEX_ART_INTERNAL_PPS && ts1.index == ts2.index)
-		{
-			log_warn("Phasemeter: Did not receive GNSS pps event");
-			pthread_mutex_lock(&phasemeter->mutex);
-			phasemeter->status = PHASEMETER_NO_GNSS_TIMESTAMPS;
-			stop               = phasemeter->stop;
-			pthread_cond_signal(&phasemeter->cond);
-			pthread_mutex_unlock(&phasemeter->mutex);
-			/* Second timestamp become next first one */
-			memcpy(&ts1, &ts2, sizeof(struct external_timestamp));
-
-			/*
-			 * Did not received ART Internal PPS event
-			 * This case should not happen
-			 */
+			else
+				phasemeter_update_offset(self, timestamp.subject);
+			pthread_mutex_unlock(&self->mutex);
 		}
-		else if (ts1.index == EXTTS_INDEX_GNSS_PPS && ts1.index == ts2.index)
-		{
-			log_warn("Phasemeter: Did not receive ART internal pps event");
-			pthread_mutex_lock(&phasemeter->mutex);
-			phasemeter->status = PHASEMETER_NO_ART_INTERNAL_TIMESTAMPS;
-			stop               = phasemeter->stop;
-			pthread_cond_signal(&phasemeter->cond);
-			pthread_mutex_unlock(&phasemeter->mutex);
-			/* Second timestamp become next first one */
-			memcpy(&ts1, &ts2, sizeof(struct external_timestamp));
-
-			/*
-			 * One timestamp comes from GNSS receiver and the one comes from ART Internal PPS
-			 */
-		}
-		else
-		{
-			int64_t timestamp_diff = ts2.timestamp - ts1.timestamp;
-			timestamp_diff         = (ts1.index == EXTTS_INDEX_GNSS_PPS) ? -timestamp_diff : timestamp_diff;
-			/*
-			 * Phase error is superior to 500ms
-			 * Wait next timestamp
-			 */
-			if (timestamp_diff > MILLISECONDS_500 || timestamp_diff < -MILLISECONDS_500)
-			{
-				/* Second timestamp become next first one */
-				memcpy(&ts1, &ts2, sizeof(struct external_timestamp));
-				continue;
-			}
-			log_debug("Phasemeter: phase_error: %" PRIi64 "ns", timestamp_diff);
-			pthread_mutex_lock(&phasemeter->mutex);
-			phasemeter->status      = PHASEMETER_BOTH_TIMESTAMPS;
-			phasemeter->phase_error = timestamp_diff;
-			stop                    = phasemeter->stop;
-			pthread_cond_signal(&phasemeter->cond);
-			pthread_mutex_unlock(&phasemeter->mutex);
-			/* Get first timestamp */
-			do
-			{
-				ts1.index = read_extts(phasemeter->fd, &ts1.timestamp);
-				if (ts1.index < 0)
-				{
-					log_warn("Could not read ptp clock external timestamp for phasemeter");
-				}
-			} while (ts1.index != EXTTS_INDEX_ART_INTERNAL_PPS && ts1.index != EXTTS_INDEX_GNSS_PPS);
-		}
-	}
-
-	log_info("Closing phasemeter thread");
-	ret = disable_extts(phasemeter->fd, EXTTS_INDEX_ART_INTERNAL_PPS);
-	if (ret != 0)
-	{
-		log_error("Could not disable ART internal pps external events");
-	}
-	ret = disable_extts(phasemeter->fd, EXTTS_INDEX_GNSS_PPS);
-	if (ret != 0)
-	{
-		log_error("Could not disable GNSS pps external events");
 	}
 	return NULL;
 }
 
-/**
- * @brief Create phasemeter structure from PHC handler
- *
- * @param fd PHC handler
- * @return struct phasemeter*
- */
-struct phasemeter* phasemeter_init(int fd)
+static bool phasemeter_phase_source_switch(int file_descriptor, enum ART_phase_source source, bool on)
 {
-	int                ret;
+	struct ptp_extts_request request = {
+	    .index = source,
+	    .flags = (on ? PTP_RISING_EDGE | PTP_ENABLE_FEATURE : 0),
+	};
 
-	struct phasemeter* phasemeter = malloc(sizeof(struct phasemeter));
-	if (phasemeter == NULL)
+	if (ioctl(file_descriptor, PTP_EXTTS_REQUEST, &request) < 0)
 	{
-		log_error("Could not allocate memory for phasemeter thread");
-		return NULL;
+		log_error("Unable to %sable phase source '%s': %s",
+		          (on ? "en" : "dis"),
+		          phase_source_to_cstring(source),
+		          strerror(errno));
+		return false;
 	}
-	phasemeter->fd     = fd;
-	phasemeter->stop   = false;
-	phasemeter->status = PHASEMETER_INIT;
-
-	if (pthread_mutex_init(&phasemeter->mutex, NULL) != 0)
-	{
-		printf("\n mutex init failed\n");
-		free(phasemeter);
-		return NULL;
-	}
-	if (pthread_cond_init(&phasemeter->cond, NULL))
-	{
-		printf("\n Cond var init failed\n");
-		free(phasemeter);
-		return NULL;
-	}
-
-	ret = pthread_create(&phasemeter->thread, NULL, phasemeter_thread, phasemeter);
-	if (ret != 0)
-	{
-		log_error("Could not create phasemeter thread");
-		free(phasemeter);
-		return NULL;
-	}
-
-	return phasemeter;
+	return true;
 }
 
-/**
- * @brief Stop phasemeter thread
- *
- * @param phasemeter
- */
-void phasemeter_stop(struct phasemeter* phasemeter)
+static bool phasemeter_read_timestamp(int file_descriptor, struct ART_timestamp* output)
 {
-	if (phasemeter == NULL)
-		return;
-	pthread_mutex_lock(&phasemeter->mutex);
-	phasemeter->stop = true;
-	pthread_mutex_unlock(&phasemeter->mutex);
-	pthread_join(phasemeter->thread, NULL);
-	free(phasemeter);
-	phasemeter = NULL;
-	return;
+	struct ptp_extts_event event;
+	ssize_t                status;
+
+	output->received = false;
+	status           = read(file_descriptor, &event, sizeof(event));
+	if (status < 0)
+		log_error("Unable to read the phasemeter: %s", strerror(errno));
+	else if (status != sizeof(event))
+		log_error("Misread, USE A LOOP");
+	else if (event.t.sec < 0) // PTP clock value of 0 means: 1969‑12‑31 23:59:51 TAI
+		log_error("Found a negative number of seconds");
+	else if (event.index >= PPS_count)
+		log_error("Unknown PTP PPS index: %u", event.index);
+	else
+	{
+		output->time     = event.t;
+		output->subject  = event.index;
+		output->received = true;
+	}
+	return output->received;
 }
 
-/**
- * @brief Get phase error from the thread
- *
- * @param phasemeter thread structure data
- * @param phase_error pointer where phase error will be stored
- * @return int phasemeter status
- */
-int get_phase_error(struct phasemeter* phasemeter, int64_t* phase_error)
+const char* phase_source_to_cstring(enum ART_phase_source source)
 {
-	int status;
-	pthread_mutex_lock(&phasemeter->mutex);
-	pthread_cond_wait(&phasemeter->cond, &phasemeter->mutex);
-	*phase_error = phasemeter->phase_error;
-	status       = phasemeter->status;
-	pthread_mutex_unlock(&phasemeter->mutex);
-
-	return status;
+	switch (source) {
+	case PPS_GNSS: return "GNSS";
+	case PPS_SMA1: return "SMA1";
+	case PPS_SMA2: return "SMA2";
+	case PPS_SMA3: return "SMA3";
+	case PPS_SMA4: return "SMA4";
+	case PPS_MAC: return "MAC";
+	default: return NULL;
+	};
 }

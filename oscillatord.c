@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 {
 	struct config config;
 	struct gps_device_t session = {};
-	struct phasemeter *phasemeter = NULL;
+	struct ART_phasemeter phasemeter;
 	struct oscillator_ctrl ctrl_values;
 	struct gnss *gnss;
 	struct monitoring *monitoring = NULL;
@@ -324,9 +324,7 @@ int main(int argc, char *argv[])
 
 		/* Start Phasemeter Thread */
 		phasemeter = phasemeter_init(fd_clock);
-		if (phasemeter == NULL) {
-			return -EINVAL;
-		}
+
 		/* Wait for all thread to get at least one piece of data */
 		sleep(2);
 
@@ -687,7 +685,7 @@ int main(int argc, char *argv[])
 
 	if (disciplining_mode) {
 		pthread_join(save_dsc_params_thread, NULL);
-		phasemeter_stop(phasemeter);
+		phasemeter_stop(&phasemeter);
 		ret = od_get_disciplining_parameters(od, &dsc_params);
 		if (ret != 0) {
 			log_error("Could not get discipling parameters from disciplining algorithm");
