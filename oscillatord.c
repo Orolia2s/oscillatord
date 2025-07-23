@@ -284,9 +284,11 @@ int main(int argc, char *argv[])
 	pps_thread->context = &session;
 
 	/* Start GNSS Thread */
-	char flip_flip_path[5000];
-	snprintf(flip_flip_path, sizeof(flip_flip_path) - 1, "%s@115200", devices_path.gnss_path);
-	gnss = gnss_init(&config, flip_flip_path, &session, fd_clock);
+	{
+		char flip_flip_path[5000];
+		snprintf(flip_flip_path, sizeof(flip_flip_path) - 1, "%s@115200", devices_path.gnss_path);
+		gnss = gnss_init(&config, flip_flip_path, &session, fd_clock);
+	}
 	if (gnss == NULL) {
 		error(EXIT_FAILURE, errno, "Failed to listen to the receiver");
 		return -EINVAL;
@@ -543,7 +545,7 @@ int main(int argc, char *argv[])
 			/* Oscillator control values and temperature are needed for
 			 * the disciplining algorithm and monitoring, get both of them.
 			 * We don't really want to poll atomic clock instantly, so let's
-			 * sleep for a second.
+			 * sleep for a millisecond.
 			 */
 			usleep(1000);
 			ret = oscillator_parse_attributes(oscillator, &osc_attr);

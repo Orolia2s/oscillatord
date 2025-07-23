@@ -15,6 +15,7 @@ ConfigInstallPath         := /etc
 ConfigInstalled           := $(ConfigInstallPath)/oscillatord.conf
 
 ClangFormat ?= clang-format
+ZIG ?= zig
 
 # When rendering the help, pretty print certain words
 Cyan       := \033[36m
@@ -68,7 +69,7 @@ $(ConfigInstalled): $(ConfigFile)
 	install --mode=644 $< $@
 
 $(Executable): $(shell find . -type f -name '*.[ch]') build.zig build.zig.zon
-	zig build --release=small --summary all
+	$(ZIG) build --release=small --summary all
 
 $(Installed): $(Executable)
 	install $< $@
