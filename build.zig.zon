@@ -2,6 +2,8 @@
     .name = .oscillatord,
     .version = "3.8.3",
     .fingerprint = 0x78ed59d69ea71fce,
+    .minimum_zig_vesion = "0.14.1",
+
     .dependencies = .{
         .pps_tools = .{
             .url = "git+https://github.com/redlab-i/pps-tools?ref=master#e5083fe1481a34373dee2acfabb63001ee9c40e0",
