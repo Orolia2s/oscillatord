@@ -460,6 +460,10 @@ json_handle_request(struct monitoring* monitoring, int request_type, enum monito
 		json_object_object_add(resp, "Action requested", json_object_new_string("Ublox Serial reset"));
 		*mon_request = REQUEST_RESET_UBLOX_SERIAL;
 		break;
+	case REQUEST_CHANGE_REF:
+		json_object_object_add(resp, "Action requested", json_object_new_string("Change reference"));
+		*mon_request = REQUEST_CHANGE_REF;
+		break;
 	case REQUEST_NONE:
 	default:
 		json_object_object_add(resp, "Action requested", json_object_new_string("None"));
@@ -561,6 +565,7 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring* monitoring)
 	enum monitoring_request request_type = REQUEST_NONE;
 	struct json_object*     json_req;
 	struct json_object*     json_resp;
+	struct json_object*     json_ref;
 	int                     ret;
 
 	assert(sockfd < MAXFDS);
@@ -581,6 +586,17 @@ static fd_status_t on_peer_ready_send(int sockfd, struct monitoring* monitoring)
 	// There is no need to manually adjust reference counts through the json_object_put/json_object_get methods"
 
 	request_type = (enum monitoring_request) json_object_get_int(json_req);
+
+	if (request_type == REQUEST_CHANGE_REF)
+	{
+		pthread_mutex_lock(&monitoring->mutex);
+		if (json_object_object_get_ex(obj, "reference", &json_ref) && json_object_get_string_len(json_ref))
+			monitoring->desired_reference = phase_source_from_cstring(json_object_get_string(json_ref));
+		else
+			monitoring->desired_reference = PPS_count;
+		pthread_mutex_unlock(&monitoring->mutex);
+	}
+
 	// json request object is not used after this point, so we can free it
 	json_object_put(obj);
 
