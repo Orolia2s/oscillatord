@@ -13,6 +13,7 @@
 
 #include "config.h"
 #include "oscillator.h"
+#include "phasemeter.h"
 
 #include <oscillator-disciplining/oscillator-disciplining.h>
 #include <pthread.h>
@@ -32,7 +33,8 @@ enum monitoring_request
 	REQUEST_FAKE_HOLDOVER_STOP,
 	REQUEST_MRO_COARSE_INC,
 	REQUEST_MRO_COARSE_DEC,
-	REQUEST_RESET_UBLOX_SERIAL
+	REQUEST_RESET_UBLOX_SERIAL,
+	REQUEST_CHANGE_REF
 };
 
 /**
@@ -54,6 +56,7 @@ struct monitoring
 	bool                         stop;
 	bool                         disciplining_mode;
 	bool                         phase_error_supported;
+	enum ART_phase_source        desired_reference;
 };
 
 struct monitoring* monitoring_init(const struct config* config, struct devices_path* devices_path);

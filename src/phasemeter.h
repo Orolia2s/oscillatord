@@ -48,4 +48,6 @@ bool        phasemeter_thread_start(struct ART_phasemeter* self);
 void        phasemeter_thread_stop(struct ART_phasemeter* self);
 int64_t     phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_source source);
 int64_t     phasemeter_get_reference_phase_offset(struct ART_phasemeter* self);
+bool        phasemeter_set_reference(struct ART_phasemeter* self, enum ART_phase_source new_reference);
 const char* phase_source_to_cstring(enum ART_phase_source source);
+enum ART_phase_source phase_source_from_cstring(const char* string);
