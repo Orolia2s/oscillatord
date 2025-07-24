@@ -25,7 +25,7 @@ static bool  phasemeter_phase_source_switch(int file_descriptor, enum ART_phase_
 
 bool         phasemeter_thread_start(struct ART_phasemeter* self)
 {
-	if (not phasemeter_phase_source_switch(self->file_descriptor, PPS_GNSS, true))
+	if (not phasemeter_phase_source_switch(self->file_descriptor, self->current_reference, true))
 		return false;
 	if (not phasemeter_phase_source_switch(self->file_descriptor, PPS_MAC, true))
 		return false;
@@ -43,7 +43,7 @@ void phasemeter_thread_stop(struct ART_phasemeter* self)
 {
 	self->stop = true;
 	pthread_join(self->thread, NULL);
-	(void)phasemeter_phase_source_switch(self->file_descriptor, PPS_GNSS, false);
+	(void)phasemeter_phase_source_switch(self->file_descriptor, self->current_reference, false);
 	(void)phasemeter_phase_source_switch(self->file_descriptor, PPS_MAC, false);
 }
 
@@ -63,6 +63,7 @@ int64_t phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_
 	pthread_mutex_unlock(&self->mutex);
 	return result;
 }
+
 int64_t phasemeter_get_reference_phase_offset(struct ART_phasemeter* self)
 {
 	enum ART_phase_source source;
@@ -70,6 +71,33 @@ int64_t phasemeter_get_reference_phase_offset(struct ART_phasemeter* self)
 	source = self->current_reference;
 	pthread_mutex_unlock(&self->mutex);
 	return phasemeter_get_phase_offset(self, source);
+}
+
+bool phasemeter_set_reference(struct ART_phasemeter* self, enum ART_phase_source new_reference)
+{
+	if (new_reference >= PPS_MAC)
+	{
+		log_error("Refusing to switch to an invalid reference");
+		return false;
+	}
+
+	pthread_mutex_lock(&self->mutex);
+	if (new_reference != self->current_reference)
+	{
+		(void)phasemeter_phase_source_switch(self->file_descriptor, self->current_reference, false);
+		self->ready[self->current_reference] = false;                   // Those 2 lines
+		self->last_timestamp[self->current_reference].received = false; // Are not really useful
+		self->current_reference = new_reference;
+
+		if (not phasemeter_phase_source_switch(self->file_descriptor, new_reference, true))
+		{
+			log_error("Unable to enable phse measurements of the desired source");
+			pthread_mutex_unlock(&self->mutex);
+			return false;
+		}
+	}
+	pthread_mutex_unlock(&self->mutex);
+	return true;
 }
 
 static inline int64_t _offset(struct ptp_clock_time mac, struct ptp_clock_time ext)
@@ -174,4 +202,15 @@ const char* phase_source_to_cstring(enum ART_phase_source source)
 	case PPS_MAC: return "MAC";
 	default: return NULL;
 	};
+}
+
+enum ART_phase_source phase_source_from_cstring(const char* string)
+{
+	if (strcmp(string, "GNSS") == 0) return PPS_GNSS;
+	if (strcmp(string, "SMA1") == 0) return PPS_SMA1;
+	if (strcmp(string, "SMA2") == 0) return PPS_SMA2;
+	if (strcmp(string, "SMA3") == 0) return PPS_SMA3;
+	if (strcmp(string, "SMA4") == 0) return PPS_SMA4;
+	if (strcmp(string, "MAC") == 0) return PPS_MAC;
+	return PPS_count;
 }
