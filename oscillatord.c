@@ -569,6 +569,7 @@ int main(int argc, char *argv[])
 		if (monitoring_mode) {
 			/* Check for monitoring requests */
 			enum monitoring_request request;
+			enum ART_phase_source desired_reference;
 			struct od_monitoring disciplining = {
 				.clock_class = CLOCK_CLASS_UNCALIBRATED,
 				.status = WARMUP,
@@ -601,6 +602,7 @@ int main(int argc, char *argv[])
 			monitoring->disciplining = disciplining;
 			request = monitoring->request;
 			monitoring->request = REQUEST_NONE;
+			desired_reference = monitoring->desired_reference;
 			pthread_mutex_unlock(&monitoring->mutex);
 
 			switch(request) {
@@ -665,6 +667,12 @@ int main(int argc, char *argv[])
 				if (ret < 0) {
 					log_error("Could not apply output on oscillator !");
 				}
+				break;
+			case REQUEST_CHANGE_REF:
+				if (phasemeter_set_reference(&phasemeter, desired_reference))
+					log_info("Set PPS reference to %s", phase_source_to_cstring(desired_reference));
+				else
+					log_error("Did not set reference");
 				break;
 			case REQUEST_NONE:
 			default:
