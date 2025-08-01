@@ -64,7 +64,7 @@ struct mRo50_attributes {
 };
 
 // From datasheet we assume answers cannot be larger than 128 characters
-static char answer_str[128] = {0};
+static char answer_str[129] = {0};
 const size_t mro_answer_len = 128;
 
 static unsigned int mRo50_oscillator_index;
@@ -145,7 +145,7 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 		// poll call timed out - check the answer
 		if (!err)
 			break;
-		err = read(mRo50->serial_fd, &answer_str[rbytes], mro_answer_len - rbytes);
+		err = read(mRo50->serial_fd, answer_str + rbytes, mro_answer_len - rbytes);
 		if (err < 0) {
 			log_error("mRo50_oscillator_cmd rbyteserror: %d (%s)", errno, strerror(errno));
 			memset(answer_str, 0, rbytes);
@@ -164,7 +164,7 @@ static int mRo50_oscillator_cmd(struct mRo50_oscillator *mRo50, const char *cmd,
 		memset(answer_str, 0, rbytes);
 		return -1;
 	}
-	if (answer_str[rbytes -1] != '\n' || answer_str[rbytes - 2] != '\n') {
+	if (rbytes < 2 || answer_str[rbytes -1] != '\n' || answer_str[rbytes - 2] != '\n') {
 		log_warn("mRo50_oscillator_cmd answer does not contain LFLF: %s", answer_str);
 		memset(answer_str, 0, rbytes);
 		return -1;
@@ -203,7 +203,6 @@ static bool mRo50_reset(struct mRo50_oscillator *mRo50)
 	int err;
 
 	log_info("Resetting mRO50...");
-
 	time(&start_reset);
 	if (write(mRo50->serial_fd, CMD_RESET, strlen(CMD_RESET)) != strlen(CMD_RESET)) {
 		log_error("mRo50_oscillator_cmd send command error: %d (%s)", errno, strerror(errno));
@@ -213,22 +212,29 @@ static bool mRo50_reset(struct mRo50_oscillator *mRo50)
 	pfd.events = POLLIN;
 
 	while (1) {
+		/* Exit if reset takes longer than */
+		time(&current_time);
+		if (difftime(current_time, start_reset) >= (double) RESET_TIMEOUT) {
+			log_error("Reset Timeout !");
+			break;
+		}
+
 		err = poll(&pfd, 1, 50);
 		if (err == -1) {
 			log_warn("mRo50_oscillator_cmd poll error: %d (%s)", errno, strerror(errno));
-			memset(answer_str, 0, rbytes);
 			continue;
 		}
-		// poll call timed out - check the answer
-		if (!err)
+		if (!err) // poll timeout
 			continue;
-		err = read(mRo50->serial_fd, &answer_str[rbytes], mro_answer_len - rbytes);
+		err = read(mRo50->serial_fd, answer_str + rbytes, mro_answer_len - rbytes);
 		if (err < 0) {
 			log_error("mRo50_oscillator_cmd rbyteserror: %d (%s)", errno, strerror(errno));
-			memset(answer_str, 0, rbytes);
 			continue;
 		}
 		rbytes += err;
+		if (rbytes < 1)
+			continue;
+		answer_str[rbytes] = 0;
 		if (strstr(answer_str, "Start done>") != NULL) {
 			answer_str[rbytes - 1] = '\0';
 			log_debug("%s", answer_str);
@@ -236,8 +242,8 @@ static bool mRo50_reset(struct mRo50_oscillator *mRo50)
 			mRo_reset = true;
 			break;
 		}
-		if (answer_str[rbytes -1] == '\n' || answer_str[rbytes - 2] == '\n') {
-			if (strlen(answer_str) > 1) {
+		if (answer_str[rbytes - 1] == '\n') {
+			if (rbytes > 1) {
 				answer_str[rbytes - 1] = '\0';
 				log_debug("%s", answer_str);
 				if (answer_str[0] == '?') {
@@ -248,22 +254,12 @@ static bool mRo50_reset(struct mRo50_oscillator *mRo50)
 					}
 				}
 			}
-			memset(answer_str, 0, rbytes);
 			rbytes = 0;
 		}
 		if (rbytes == mro_answer_len) {
 			log_error("Buffer full !");
-			memset(answer_str, 0, rbytes);
 			rbytes = 0;
 		}
-
-		/* Exit if reset takes longer than */
-		time(&current_time);
-		if (difftime(current_time, start_reset) >= (double) RESET_TIMEOUT) {
-			log_error("Reset Timeout !");
-			break;
-		}
-
 	}
 	return mRo_reset;
 }
