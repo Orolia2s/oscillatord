@@ -24,7 +24,7 @@ pub fn build(b: *std.Build) void {
     mod.addCMacro("PACKAGE_VERSION", "3.8.3");
     mod.addCMacro("LOG_USE_COLOR", "1");
 
-    const lib = b.addStaticLibrary(.{
+    const lib = b.addLibrary(.{
         .name = "oscillator",
         .root_module = mod,
     });
@@ -40,7 +40,10 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(lib);
 
     // Executable
-    const exe = b.addExecutable(.{ .name = "oscillatord", .target = target, .optimize = optimize });
+    const exe = b.addExecutable(.{
+        .name = "oscillatord",
+        .root_module = b.createModule(.{ .target = target, .optimize = optimize }),
+    });
     exe.linkLibC();
     exe.addCSourceFile(.{ .file = b.path("oscillatord.c"), .flags = &CFLAGS });
     exe.addCSourceFile(.{ .file = logc.path("src/log.c"), .flags = &CFLAGS });
@@ -73,7 +76,10 @@ pub fn build(b: *std.Build) void {
         for (utils) |util| {
             var name = b.dupe(util);
             name.len -= 2;
-            const util_exe = b.addExecutable(.{ .name = name, .target = target, .optimize = optimize });
+            const util_exe = b.addExecutable(.{
+                .name = name,
+                .root_module = b.createModule(.{ .target = target, .optimize = optimize }),
+            });
             util_exe.linkLibC();
             util_exe.linkLibrary(lib);
             util_exe.addIncludePath(b.path("src"));

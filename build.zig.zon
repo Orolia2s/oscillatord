@@ -10,16 +10,16 @@
             .hash = "N-V-__8AAEmvAAD7TeH2DgeiDHcUGsXLVnnulotfATDrctsJ",
         },
         .ubloxcfg = .{
-            .url = "git+https://github.com/Orolia2s/ubloxcfg?ref=zig-old#a965486772d910b625745001bce45282ce191262",
-            .hash = "ubloxcfg-1.16.0-OcThgPikIgCIZqOvr61kt6Ted8CGDYsTFX_cj3ukg41C",
+            .url = "git+https://github.com/Orolia2s/ubloxcfg?ref=zig#5160fcaad96cffbd3565c380d28df4c0da653249",
+            .hash = "ubloxcfg-1.16.0-OcThgDSlIgCZUfLo7BtEmFp4VTefi2qXh9NCmbIt9heg",
         },
         .disciplining_minipod = .{
-            .url = "git+https://github.com/Orolia2s/disciplining-minipod?ref=zig#c0247d62458b32d3b061ad39dd1116e7b96ef4c3",
-            .hash = "disciplining_minipod-3.8.3-sAGgeDbOAQDfMPOrEyaBnmecsZ4bEI0cGEU5AtD_-VUT",
+            .url = "git+https://github.com/Orolia2s/disciplining-minipod?ref=zig#c4553c48f6aae57e0643875f20864b6e0156f46a",
+            .hash = "disciplining_minipod-3.9.0-sAGgeMbOAQCz2BdXeWL5_9TtFv58YKseicEslgSbsz9I",
         },
         .jsonc = .{
-            .url = "git+https://github.com/allyourcodebase/json-c?ref=master#59f246c658b562d4c2a10c612c1a2bc6aeb55970",
-            .hash = "jsonc-0.18.0-DbRvtkwcAAC4u29konOcuBB84MozeYQDn4JbI6haE7D5",
+            .url = "git+https://github.com/allyourcodebase/json-c?ref=master#3f38d48942f199d7065ac53b7f398352a3f9a1ef",
+            .hash = "jsonc-0.18.0-DbRvtlMdAAB6907Xw8M9RtnPkY7v4Gonf1LKMszEFZjG",
         },
         .logc = .{
             .url = "git+https://github.com/rxi/log.c?ref=master#f9ea34994bd58ed342d2245cd4110bb5c6790153",
