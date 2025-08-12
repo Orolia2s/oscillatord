@@ -123,6 +123,40 @@ const size_t answer_len = 4101;
 
 static unsigned int sa5x_oscillator_index;
 
+typedef struct {
+    int bit;
+    const char *name;
+    const char *description;
+} sa5x_alarm_info_t;
+
+// Information sourced from the Miniature Atomic Clock (MAC) SA5X User’s Guide
+static const sa5x_alarm_info_t sa5x_alarm_table[] = {
+    { 0,  "FPGA Fault",                "Hardware fault related to the internal FPGA." },
+    { 1,  "PLL Fault",                 "Hardware fault related to the internal PLL circuit." },
+    { 2,  "Flash Fault",               "Hardware fault related to flash memory." },
+    { 3,  "Acquisition Failed",        "The most recent attempt to acquire lock failed." },
+    { 4,  "No External Oscillator",    "An external oscillator was expected and not detected." },
+    { 5,  "Cell Heater Fault",         "Hardware failure within the Cell Heater." },
+    { 6,  "Incompatible Firmware",     "The loaded firmware is not compatible with the unit’s hardware." },
+    { 16, "Temperature Warning",       "The clock is unable to maintain a stable internal temperature and performance is likely degraded. This alarm is only asserted when the Locked parameter is 1." },
+    { 17, "No PPS Input",              "Disciplining is enabled but no 1PPS input is detected on the selected input." },
+    { 18, "Disciplining Range Warning","Disciplining is enabled but the digital tuning adjustment needed to discipline the clock is outside the range of DigitalTuning. The user should issue a latch command when this alarm occurs." }
+};
+
+static const int sa5x_alarm_table_size = sizeof(sa5x_alarm_table) / sizeof(sa5x_alarm_table[0]);
+
+static void sa5x_log_active_alarms(uint32_t alarms) {
+    for (int i = 0; i < sa5x_alarm_table_size; ++i) {
+        if (alarms & BIT(sa5x_alarm_table[i].bit)) {
+            log_warn("SA5x Alarm: [%s] (Bit %d, Code %u): %s",
+                sa5x_alarm_table[i].name,
+                sa5x_alarm_table[i].bit,
+                (unsigned int)BIT(sa5x_alarm_table[i].bit),
+                sa5x_alarm_table[i].description);
+        }
+    }
+}
+
 static void sa5x_oscillator_destroy(struct oscillator **oscillator)
 {
 	struct oscillator *o;
@@ -515,13 +549,13 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 	// check if we stuck with disciplining error
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	if (a.alarms) {
+		log_warn("SA5x: Alarms are raised, 0x%08X", a.alarms);
+		sa5x_log_active_alarms(a.alarms);
 		if ((a.alarms & BIT(18)) && !a.lastcorrection && !sa5x->latch_fixed) {
 			// digital correction is out of range, needs latch command
 			log_warn("SA5x: Digital tuning is out of range, adjust base frequency initiated");
 			latch = true;
 			adjust_tau = true;
-		} else {
-			log_warn("SA5x: Alarms are raised, 0x%8X", a.alarms);
 		}
 	} else if (!a.lastcorrection && !a.disciplinelocked &&
 			   (a.digitaltuning == DIGITAL_TUNING_MAX || a.digitaltuning == -DIGITAL_TUNING_MAX) &&
