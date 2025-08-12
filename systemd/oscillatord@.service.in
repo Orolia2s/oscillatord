@@ -1,0 +1,9 @@
+[Unit]
+Description=Daemon responsible of disciplining an oscillator based on a 1pps phase error device.
+
+[Service]
+Type=simple
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/oscillatord /etc/oscillatord_%i.conf
+
+[Install]
+WantedBy=multi-user.target
