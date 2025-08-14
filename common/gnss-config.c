@@ -21,6 +21,7 @@ bool check_gnss_config_in_ram(RX_t *rx, UBLOXCFG_KEYVAL_t *allKvCfg, int nAllKvC
     // Get current
     const uint32_t keys[] = { UBX_CFG_VALGET_V0_ALL_WILDCARD };
     UBLOXCFG_KEYVAL_t allKvRam[3000];
+    memset(allKvRam, 0, sizeof(allKvRam));
     const int nAllKvRam = rxGetConfig(rx, UBLOXCFG_LAYER_RAM, keys, NUMOF(keys), allKvRam, NUMOF(allKvRam));
 
     // Check all items from config file
