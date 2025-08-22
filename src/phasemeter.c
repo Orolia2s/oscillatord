@@ -12,12 +12,12 @@
 
 #define NS_PER_US 1000L
 #define US_PER_MS 1000
-#define NS_PER_MS NS_PER_US * US_PER_MS
-#define MS_PER_S 1000
-#define US_PER_S US_PER_MS * MS_PER_S
-#define NS_PER_S NS_PER_US * US_PER_S
+#define NS_PER_MS NS_PER_US* US_PER_MS
+#define MS_PER_S  1000
+#define US_PER_S  US_PER_MS* MS_PER_S
+#define NS_PER_S  NS_PER_US* US_PER_S
 
-#define ABS(x) ((x) < 0 ? -(x) : x)
+#define ABS(x)    ((x) < 0 ? -(x) : x)
 
 static void* phasemeter_thread(struct ART_phasemeter* self);
 static bool  phasemeter_read_timestamp(int file_descriptor, struct ART_timestamp* output);
@@ -54,7 +54,7 @@ void phasemeter_thread_stop(struct ART_phasemeter* self)
  */
 int64_t phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_source source)
 {
-	int64_t         result;
+	int64_t         result = 0;
 	struct timespec limit;
 
 	if (source >= PPS_MAC)
@@ -64,17 +64,22 @@ int64_t phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_
 	}
 	if (clock_gettime(CLOCK_MONOTONIC, &limit) != 0)
 	{
-		log_error("Unable to obtain computer time: %s", strerror(errno));
+		log_fatal("Unable to obtain computer time: %s", strerror(errno));
 		return INT64_MIN;
 	}
-	limit.tv_sec += 1;
+	limit.tv_sec += 2;
 	pthread_mutex_lock(&self->mutex);
 	do
 	{
 		if (pthread_cond_timedwait(&self->new_offset[source], &self->mutex, &limit) != 0)
-			return INT64_MAX;
+		{
+			log_error("Timing out waiting for a phase measurement for %s", phase_source_to_cstring(source));
+			result = INT64_MAX;
+			goto pgpo_exit;
+		}
 	} while (not self->ready[source]);
 	result = self->phase_offset[source];
+pgpo_exit:
 	pthread_mutex_unlock(&self->mutex);
 	return result;
 }
