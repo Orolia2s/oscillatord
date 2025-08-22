@@ -345,7 +345,14 @@ int main(int argc, char *argv[])
 		/* Check if program is still supposed to be running or has been requested to terminate */
 		if(loop) {
 			/* Apply initial phase jump before setting PTP clock time */
-			phase_error = phasemeter_get_reference_phase_offset(&phasemeter);
+			do {
+				phase_error = phasemeter_get_reference_phase_offset(&phasemeter);
+			} while (phase_error == INT64_MAX);
+			if (phase_error == INT64_MIN)
+			{
+				log_fatal("This version of oscillatord is flawed, report it to the developers");
+				return 1;
+			}
 			log_debug("Initial phase error to apply is %" PRIi64, phase_error);
 			log_info("Applying initial phase jump before setting PTP clock time");
 			ret = apply_phase_offset(
