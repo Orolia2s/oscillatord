@@ -47,23 +47,41 @@ void phasemeter_thread_stop(struct ART_phasemeter* self)
 	(void)phasemeter_phase_source_switch(self->file_descriptor, PPS_MAC, false);
 }
 
+/**
+ * @return
+ *  - INT64_MAX in case of timeout or interruption
+ *  - INT64_MIN if the source is invalid or if clock_gettime failed
+ */
 int64_t phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_source source)
 {
-	int64_t result;
+	int64_t         result;
+	struct timespec limit;
 
-	if (source == PPS_MAC)
+	if (source >= PPS_MAC)
 	{
 		log_fatal("offsets are computed relatively to the MAC");
-		return 0;
+		return INT64_MIN;
 	}
+	if (clock_gettime(CLOCK_MONOTONIC, &limit) != 0)
+	{
+		log_error("Unable to obtain computer time: %s", strerror(errno));
+		return INT64_MIN;
+	}
+	limit.tv_sec += 1;
 	pthread_mutex_lock(&self->mutex);
-	while (not self->ready[source])
-		pthread_cond_wait(&self->new_offset[source], &self->mutex);
+	do
+	{
+		if (pthread_cond_timedwait(&self->new_offset[source], &self->mutex, &limit) != 0)
+			return INT64_MAX;
+	} while (not self->ready[source]);
 	result = self->phase_offset[source];
 	pthread_mutex_unlock(&self->mutex);
 	return result;
 }
 
+/**
+ * @see @ref phasemeter_get_phase_offset
+ */
 int64_t phasemeter_get_reference_phase_offset(struct ART_phasemeter* self)
 {
 	enum ART_phase_source source;
@@ -85,9 +103,9 @@ bool phasemeter_set_reference(struct ART_phasemeter* self, enum ART_phase_source
 	if (new_reference != self->current_reference)
 	{
 		(void)phasemeter_phase_source_switch(self->file_descriptor, self->current_reference, false);
-		self->ready[self->current_reference] = false;                   // Those 2 lines
+		self->ready[self->current_reference]                   = false; // Those 2 lines
 		self->last_timestamp[self->current_reference].received = false; // Are not really useful
-		self->current_reference = new_reference;
+		self->current_reference                                = new_reference;
 
 		if (not phasemeter_phase_source_switch(self->file_descriptor, new_reference, true))
 		{
@@ -107,7 +125,7 @@ static inline int64_t _offset(struct ptp_clock_time mac, struct ptp_clock_time e
 
 static bool phasemeter_update_offset(struct ART_phasemeter* self, enum ART_phase_source source)
 {
-	if (not (self->last_timestamp[PPS_MAC].received and self->last_timestamp[source].received))
+	if (not(self->last_timestamp[PPS_MAC].received and self->last_timestamp[source].received))
 		return false;
 
 	int64_t offset = _offset(self->last_timestamp[PPS_MAC].time, self->last_timestamp[source].time);
@@ -119,7 +137,7 @@ static bool phasemeter_update_offset(struct ART_phasemeter* self, enum ART_phase
 	else
 	{
 		self->phase_offset[source] = offset;
-		self->ready[source] = true;
+		self->ready[source]        = true;
 		pthread_cond_broadcast(&self->new_offset[source]);
 	}
 	return true;
@@ -127,7 +145,7 @@ static bool phasemeter_update_offset(struct ART_phasemeter* self, enum ART_phase
 
 static void* phasemeter_thread(struct ART_phasemeter* self)
 {
-	struct ART_timestamp  timestamp;
+	struct ART_timestamp timestamp;
 
 	while (not self->stop)
 	{

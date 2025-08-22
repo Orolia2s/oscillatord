@@ -585,9 +585,7 @@ static struct calibration_results* mRo50_oscillator_calibrate(struct oscillator*
 	if (results->measures == NULL)
 	{
 		log_error("Could not allocate memory to create calibration measures");
-		free(results);
-		results = NULL;
-		return NULL;
+		goto clean_results;
 	}
 	log_info("Starting measure for calibration");
 	for (int i = 0; i < results->length; i++)
@@ -599,12 +597,8 @@ static struct calibration_results* mRo50_oscillator_calibrate(struct oscillator*
 		ret = mRo50_oscillator_apply_output(oscillator, &adj_fine);
 		if (ret < 0)
 		{
-			free(results->measures);
 			log_error("Could not write to mRO50");
-			results->measures = NULL;
-			free(results);
-			results = NULL;
-			return NULL;
+			goto clean_calibration;
 		}
 		sleep(SETTLING_TIME);
 
@@ -622,6 +616,8 @@ static struct calibration_results* mRo50_oscillator_calibrate(struct oscillator*
 			if (!loop)
 				goto clean_calibration;
 			float offset = phasemeter_get_phase_offset(phasemeter, reference);
+			if (offset == INT64_MAX || offset == INT64_MIN)
+				goto clean_calibration;
 
 			if (reference == PPS_GNSS)
 			{
@@ -629,11 +625,7 @@ static struct calibration_results* mRo50_oscillator_calibrate(struct oscillator*
 				if (gnss_get_epoch_data(gnss, NULL, NULL, &qErr_ps) != 0)
 				{
 					log_error("Could not get gnss data");
-					free(results->measures);
-					results->measures = NULL;
-					free(results);
-					results = NULL;
-					return NULL;
+					goto clean_calibration;
 				}
 				offset += (float)qErr_ps / 1000;
 			}
@@ -649,6 +641,7 @@ static struct calibration_results* mRo50_oscillator_calibrate(struct oscillator*
 clean_calibration:
 	free(results->measures);
 	results->measures = NULL;
+clean_results:
 	free(results);
 	results = NULL;
 	return NULL;
