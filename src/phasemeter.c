@@ -50,7 +50,7 @@ void phasemeter_thread_stop(struct ART_phasemeter* self)
 /**
  * @return
  *  - INT64_MAX in case of timeout or interruption
- *  - INT64_MIN if the source is invalid or if clock_gettime failed
+ *  - INT64_MIN if the source is invalid
  */
 int64_t phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_source source)
 {
@@ -62,12 +62,9 @@ int64_t phasemeter_get_phase_offset(struct ART_phasemeter* self, enum ART_phase_
 		log_fatal("offsets are computed relatively to the MAC");
 		return INT64_MIN;
 	}
-	if (clock_gettime(CLOCK_MONOTONIC, &limit) != 0)
-	{
-		log_fatal("Unable to obtain computer time: %s", strerror(errno));
-		return INT64_MIN;
-	}
+	time(&limit.tv_sec);
 	limit.tv_sec += 2;
+	limit.tv_nsec = 500 * NS_PER_MS;
 	pthread_mutex_lock(&self->mutex);
 	do
 	{
@@ -114,7 +111,7 @@ bool phasemeter_set_reference(struct ART_phasemeter* self, enum ART_phase_source
 
 		if (not phasemeter_phase_source_switch(self->file_descriptor, new_reference, true))
 		{
-			log_error("Unable to enable phse measurements of the desired source");
+			log_error("Unable to enable phase measurements of the desired source");
 			pthread_mutex_unlock(&self->mutex);
 			return false;
 		}
