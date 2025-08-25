@@ -208,14 +208,13 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 			gr0.qErr = 0;
 		}
 
-		log_trace("UBX-TIM-TP: towMS %lu, towSubMs %lu, qErr %ld, week %ld, flags %x; refInfo %x",
-			gr0.towMs,
-			gr0.towSubMS,
-			gr0.qErr,
-			gr0.week,
-			gr0.flags,
-			gr0.refInfo
-		);
+		log_trace("UBX-TIM-TP: towMS %u, towSubMs %u, qErr %i, week %hu, flags %#hhx; refInfo %#hhx",
+		          gr0.towMs,
+		          gr0.towSubMS,
+		          gr0.qErr,
+		          gr0.week,
+		          gr0.flags,
+		          gr0.refInfo);
 
 		int offset = 0;
 		if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_GNSS) {
@@ -275,17 +274,17 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t *session, 
 	if (msg->size == (int) UBX_TIM_SVIN_V0_SIZE) {
 		UBX_TIM_SVIN_V0_GROUP0_t gr0;
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
-		if (gr0.active || !gr0.valid) {
-			log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active %d",
-				gr0.dur,
-				gr0.meanX,
-				gr0.meanY,
-				gr0.meanZ,
-				gr0.meanV,
-				gr0.obs,
-				gr0.valid,
-				gr0.active
-			);
+		if (gr0.active || !gr0.valid)
+		{
+			log_debug("UBX-TIM-SVIN: dur: %u, meanX %i, meanZ %i, meanZ %i, meanV %u, obs %u, valid %hhu, active %hhu",
+			          gr0.dur,
+			          gr0.meanX,
+			          gr0.meanY,
+			          gr0.meanZ,
+			          gr0.meanV,
+			          gr0.obs,
+			          gr0.valid,
+			          gr0.active);
 		}
 		session->survey_in_position_error = sqrt(gr0.meanV)/1000;
 		if (!gr0.active && gr0.dur >= SVIN_MIN_DUR)
