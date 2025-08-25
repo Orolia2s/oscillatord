@@ -218,7 +218,7 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t* session, PARSER_MSG_t* ms
 			gr0.qErr = 0;
 		}
 
-		log_trace("UBX-TIM-TP: towMS %lu, towSubMs %lu, qErr %ld, week %ld, flags %x; refInfo %x",
+		log_trace("UBX-TIM-TP: towMS %u, towSubMs %u, qErr %i, week %hu, flags %#hhx; refInfo %#hhx",
 		          gr0.towMs,
 		          gr0.towSubMS,
 		          gr0.qErr,
@@ -297,8 +297,7 @@ static enum SurveyInState gnss_parse_ubx_tim_svin(struct gps_device_t* session, 
 		memcpy(&gr0, &msg->data[UBX_HEAD_SIZE], sizeof(gr0));
 		if (gr0.active || !gr0.valid)
 		{
-			log_debug("UBX-TIM-SVIN: dur: %lu, meanX %ld, meanZ %ld, meanZ %ld, meanV %lu, obs %lu, valid %d, active "
-			          "%d",
+			log_debug("UBX-TIM-SVIN: dur: %u, meanX %i, meanZ %i, meanZ %i, meanV %u, obs %u, valid %hhu, active %hhu",
 			          gr0.dur,
 			          gr0.meanX,
 			          gr0.meanY,
