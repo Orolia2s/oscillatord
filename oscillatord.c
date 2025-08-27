@@ -396,11 +396,15 @@ int main(int argc, char *argv[])
 	/* Main Loop */
 	while(loop) {
 		if (disciplining_mode) {
-			/* Get Phase error and status*/
 			pthread_mutex_lock(&phasemeter.mutex);
 			source = phasemeter.current_reference;
 			pthread_mutex_unlock(&phasemeter.mutex);
+
 			osc_attr.phase_error = phasemeter_get_phase_offset(&phasemeter, source);
+			if (osc_attr.phase_error == INT64_MAX || osc_attr.phase_error == INT64_MIN)
+				input.phasemeter_status = PHASEMETER_NO_GNSS_TIMESTAMPS;
+			else
+				input.phasemeter_status = PHASEMETER_BOTH_TIMESTAMPS;
 
 			if (source == PPS_GNSS) {
 				if (gnss_get_epoch_data(gnss, &input.valid, &input.survey_completed, &input.qErr) != 0) {
