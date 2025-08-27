@@ -189,6 +189,7 @@ int main(int argc, char *argv[])
 	char err_msg[OD_ERR_MSG_LEN];
 	struct oscillator_attributes osc_attr = { 0 };
 	int64_t phase_error;
+	enum ART_phase_source source;
 	int ret;
 	int sign = 0;
 	int log_level;
@@ -396,11 +397,20 @@ int main(int argc, char *argv[])
 	while(loop) {
 		if (disciplining_mode) {
 			/* Get Phase error and status*/
-			osc_attr.phase_error = phasemeter_get_reference_phase_offset(&phasemeter);
+			pthread_mutex_lock(&phasemeter.mutex);
+			source = phasemeter.current_reference;
+			pthread_mutex_unlock(&phasemeter.mutex);
+			osc_attr.phase_error = phasemeter_get_phase_offset(&phasemeter, source);
 
-			if (gnss_get_epoch_data(gnss, &input.valid, &input.survey_completed, &input.qErr) != 0) {
-				log_error("Error getting GNSS data, exiting");
-				break;
+			if (source == PPS_GNSS) {
+				if (gnss_get_epoch_data(gnss, &input.valid, &input.survey_completed, &input.qErr) != 0) {
+					log_error("Error getting GNSS data, exiting");
+					break;
+				}
+			} else {
+				input.valid = true;
+				input.survey_completed = false; /* This is completely ignored by disciplining */
+				input.qErr = 0;
 			}
 			/* Wait for phase error before getting oscillator control values */
 			/* This prevents control values to be read right after writing them */
@@ -451,12 +461,11 @@ int main(int argc, char *argv[])
 			}
 
 			log_info("input: phase_error = (%lds, %09ldns), "
-				"valid = %s, survey = %s, qErr = %d,lock = %s, fine = %d, "
+				"valid = %s, qErr = %d, lock = %s, fine = %d, "
 				"coarse = %d, temp = %.2f°C, calibration requested: %s",
 				input.phase_error.tv_sec,
 				input.phase_error.tv_nsec,
 				input.valid ? "true" : "false",
-				input.survey_completed ? "true" : "false",
 				input.qErr,
 				input.lock ? "true" : "false",
 				input.fine_setpoint,
