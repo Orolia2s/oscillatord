@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
 	char err_msg[OD_ERR_MSG_LEN];
 	struct oscillator_attributes osc_attr = { 0 };
 	int64_t phase_error;
-	enum ART_phase_source source;
+	enum ART_phase_source source = PPS_GNSS;
 	int ret;
 	int sign = 0;
 	int log_level;
@@ -325,7 +325,7 @@ int main(int argc, char *argv[])
 		time(&start_save_epprom_parameters);
 
 		/* Start Phasemeter Thread */
-		phasemeter = phasemeter_init(fd_clock, PPS_GNSS);
+		phasemeter = phasemeter_init(fd_clock, source);
 		phasemeter_thread_start(&phasemeter);
 
 		/* Wait for all thread to get at least one piece of data */
@@ -623,6 +623,7 @@ int main(int argc, char *argv[])
 			request = monitoring->request;
 			monitoring->request = REQUEST_NONE;
 			desired_reference = monitoring->desired_reference;
+			monitoring->current_reference = source;
 			pthread_mutex_unlock(&monitoring->mutex);
 
 			switch(request) {

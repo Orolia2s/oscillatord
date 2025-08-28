@@ -57,6 +57,7 @@ struct monitoring
 	bool                         disciplining_mode;
 	bool                         phase_error_supported;
 	enum ART_phase_source        desired_reference;
+	enum ART_phase_source        current_reference;
 };
 
 struct monitoring* monitoring_init(const struct config* config, struct devices_path* devices_path);

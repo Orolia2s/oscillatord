@@ -507,6 +507,7 @@ static void json_add_disciplining_data(struct json_object* resp, struct monitori
 	json_object_object_add(disciplining,
 	                       "ready_for_holdover",
 	                       json_object_new_boolean(monitoring->disciplining.ready_for_holdover));
+	json_object_object_add(disciplining, "reference", json_object_new_string(phase_source_to_cstring(monitoring->current_reference)));
 	json_object_object_add(resp, "disciplining", disciplining);
 }
 
@@ -694,6 +695,7 @@ struct monitoring* monitoring_init(const struct config* config, struct devices_p
 	monitoring->stop                  = false;
 	monitoring->disciplining_mode     = config_get_bool_default(config, "disciplining", false);
 	monitoring->phase_error_supported = false;
+	monitoring->current_reference     = PPS_GNSS;
 	memcpy(&monitoring->devices_path, devices_path, sizeof(struct devices_path));
 
 	monitoring->disciplining.clock_class                       = CLOCK_CLASS_UNCALIBRATED;
