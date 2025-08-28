@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const version = "3.9.0-extpps";
+
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSafe });
     const target = b.standardTargetOptions(.{});
@@ -21,7 +23,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-    mod.addCMacro("PACKAGE_VERSION", "3.8.3");
+    mod.addCMacro("PACKAGE_VERSION", version);
     mod.addCMacro("LOG_USE_COLOR", "1");
 
     const lib = b.addLibrary(.{
@@ -52,7 +54,7 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(b.path("src"));
     exe.addIncludePath(logc.path("src"));
     exe.addIncludePath(pps.path(""));
-    exe.root_module.addCMacro("PACKAGE_VERSION", "3.8.3");
+    exe.root_module.addCMacro("PACKAGE_VERSION", version);
     exe.root_module.addCMacro("LOG_USE_COLOR", "1");
     b.installArtifact(exe);
 
@@ -84,6 +86,7 @@ pub fn build(b: *std.Build) void {
             util_exe.linkLibrary(lib);
             util_exe.addIncludePath(b.path("src"));
             util_exe.addIncludePath(logc.path("src"));
+            util_exe.root_module.addCMacro("PACKAGE_VERSION", version);
             util_exe.root_module.addCMacro("LOG_USE_COLOR", "1");
             for (deps) |dep| {
                 util_exe.linkLibrary(dep);
