@@ -525,7 +525,7 @@ static void json_add_clock_data(struct json_object *resp, struct monitoring *mon
 static void json_add_disciplining_data(struct json_object *resp, struct monitoring *monitoring)
 {
 	char fix_sized[64];
-	snprintf(fix_sized, sizeof(fix_sized), "%05.2f", monitoring->disciplining.convergence_progress);
+	snprintf(fix_sized, sizeof(fix_sized), "%.2f", monitoring->disciplining.convergence_progress);
 
 	struct json_object* disciplining = json_object_new_object();
 	json_object_object_add(disciplining,
