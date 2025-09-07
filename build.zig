@@ -123,7 +123,7 @@ const SOURCES = .{
     "oscillator.c",
     "gnss.c",
     "oscillator_factory.c",
-    "common/log.c",
+    "common/odlog.c",
     "common/config.c",
     "common/f9_defvalsets.c",
     "common/utils.c",

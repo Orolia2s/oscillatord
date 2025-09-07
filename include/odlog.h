@@ -2,7 +2,9 @@
 
 #include "ppsthread.h"
 
+#include <oscillator-disciplining/oscillator-disciplining.h>
 #include <log.h>
+#include <stdint.h>
 
 void               ppsthread_log(volatile struct pps_thread_t* pps_thread, int level, const char* fmt, ...);
 
