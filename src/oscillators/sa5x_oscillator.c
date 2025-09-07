@@ -7,15 +7,6 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <termios.h>
-
-#define FACTORY_NAME         "sa5x"
-#define MAX_VER_LENGTH       20
-#define MAX_SERIALNUM_LENGTH 11
-#define DIGITAL_TUNING_MAX   20000000LL
-#define DEFAULT_PHASELIMIT   100000 // Phase limit is 100us
-#define NO_GNSS_FIX_TIMEOUT  9      // seconds after last gnss Fix befor holdover
-#define BIT(nr)              (1UL << (nr))
-
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
