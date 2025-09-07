@@ -21,10 +21,6 @@
             .url = "git+https://github.com/allyourcodebase/json-c?ref=master#3f38d48942f199d7065ac53b7f398352a3f9a1ef",
             .hash = "jsonc-0.18.0-DbRvtlMdAAB6907Xw8M9RtnPkY7v4Gonf1LKMszEFZjG",
         },
-        .logc = .{
-            .url = "git+https://github.com/rxi/log.c?ref=master#f9ea34994bd58ed342d2245cd4110bb5c6790153",
-            .hash = "N-V-__8AAJ8jAAAVkKD-RFvNLcnmi3SJZWigTFePQTb0sG-u",
-        },
     },
     .paths = .{
         "build.zig",

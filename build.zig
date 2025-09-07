@@ -10,7 +10,6 @@ pub fn build(b: *std.Build) void {
     const minipod = b.dependency("disciplining_minipod", .{ .target = target });
     const ubloxcfg = b.dependency("ubloxcfg", .{ .target = target });
     const pps = b.dependency("pps_tools", .{});
-    const logc = b.dependency("logc", .{});
 
     const deps = [_]*std.Build.Step.Compile{
         jsonc.artifact("json-c"),
@@ -37,7 +36,6 @@ pub fn build(b: *std.Build) void {
     });
     lib.addIncludePath(b.path("include"));
     lib.addIncludePath(pps.path(""));
-    lib.addIncludePath(logc.path("src"));
     lib.installHeadersDirectory(b.path("include"), "", .{});
     b.installArtifact(lib);
 
@@ -48,11 +46,9 @@ pub fn build(b: *std.Build) void {
     });
     exe.linkLibC();
     exe.addCSourceFile(.{ .file = b.path("oscillatord.c"), .flags = &CFLAGS });
-    exe.addCSourceFile(.{ .file = logc.path("src/log.c"), .flags = &CFLAGS });
     exe.addCSourceFiles(.{ .root = b.path("src"), .files = &SOURCES, .flags = &CFLAGS });
     exe.addIncludePath(b.path("include"));
     exe.addIncludePath(b.path("src"));
-    exe.addIncludePath(logc.path("src"));
     exe.addIncludePath(pps.path(""));
     exe.root_module.addCMacro("PACKAGE_VERSION", version);
     exe.root_module.addCMacro("LOG_USE_COLOR", "1");
@@ -85,14 +81,12 @@ pub fn build(b: *std.Build) void {
             util_exe.linkLibC();
             util_exe.linkLibrary(lib);
             util_exe.addIncludePath(b.path("src"));
-            util_exe.addIncludePath(logc.path("src"));
             util_exe.root_module.addCMacro("PACKAGE_VERSION", version);
             util_exe.root_module.addCMacro("LOG_USE_COLOR", "1");
             for (deps) |dep| {
                 util_exe.linkLibrary(dep);
             }
             util_exe.addCSourceFiles(.{ .root = b.path("utils"), .files = &.{ util, "eeprom.c" }, .flags = &CFLAGS });
-            util_exe.addCSourceFile(.{ .file = logc.path("src/log.c"), .flags = &CFLAGS });
             const install_util = b.addInstallArtifact(util_exe, .{});
             step.dependOn(&install_util.step);
         }
