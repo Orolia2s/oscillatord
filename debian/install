@@ -1,0 +1,2 @@
+configuration/oscillatord_default.conf		/usr/share/doc/oscillatord/
+debian/oscillatord.conf			/etc

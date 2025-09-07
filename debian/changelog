@@ -1,0 +1,5 @@
+oscillatord-skyjacker (3.9.1) unstable; urgency=medium
+
+  * add skyjacker flavor of oscillatord.
+
+ -- Nicolas Bourdaud <nicolas.bourdaud@fr.nav-timing.safrangroup.com>  Sun, 07 Sep 2025 19:20:17 +0200
