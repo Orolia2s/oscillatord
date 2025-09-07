@@ -45,7 +45,6 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{ .target = target, .optimize = optimize }),
     });
     exe.linkLibC();
-    exe.addCSourceFile(.{ .file = b.path("oscillatord.c"), .flags = &CFLAGS });
     exe.addCSourceFiles(.{ .root = b.path("src"), .files = &SOURCES, .flags = &CFLAGS });
     exe.addIncludePath(b.path("include"));
     exe.addIncludePath(b.path("src"));
@@ -115,6 +114,7 @@ const SOURCES = .{
     "monitoring.c",
     "phasemeter.c",
     "oscillator.c",
+    "oscillatord.c",
     "gnss.c",
     "oscillator_factory.c",
     "common/odlog.c",
