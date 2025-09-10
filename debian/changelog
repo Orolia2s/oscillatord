@@ -1,3 +1,10 @@
+oscillatord-skyjacker (3.9.2) unstable; urgency=medium
+
+  * Restore missing position in monitoring.
+  * Restore command to turn on/off power antenna in ublox.
+
+ -- Nicolas Bourdaud <nicolas.bourdaud@fr.nav-timing.safrangroup.com>  Fri, 12 Sep 2025 13:41:05 +0200
+
 oscillatord-skyjacker (3.9.1) unstable; urgency=medium
 
   * add skyjacker flavor of oscillatord.
