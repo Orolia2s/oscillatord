@@ -3,7 +3,7 @@ Section: misc
 Priority: optional
 Maintainer: Nicolas Bourdaud <nicolas.bourdaud@fr.nav-timing.safrangroup.com>
 Build-Depends: debhelper-compat (= 13),
- cmake, pkg-config, systemd-dev,
+ cmake, pkg-config, libsystemd-dev,
  libjson-c-dev, libubloxcfg-dev, liboscillator-disciplining-dev, pps-tools
 Standards-Version: 4.5.0
 Rules-Requires-Root: no
