@@ -1,0 +1,1 @@
+ACTION=="add", KERNEL=="ocp0", SUBSYSTEM=="timecard", ATTR{sma3}="OUT: MAC", ATTR{sma4}="IN: PPS1"
