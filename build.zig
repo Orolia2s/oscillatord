@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const version = "3.9.2-skyjacker";
+const version = "3.9.3-skyjacker";
 
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSafe });

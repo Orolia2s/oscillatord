@@ -3,7 +3,7 @@ find_package(PkgConfig)
 
 set(PROJECT_NAME "oscillatord")
 
-set(PACKAGE_VERSION "3.9.2")
+set(PACKAGE_VERSION "3.9.3")
 message("${PROJECT_NAME} version is ${PACKAGE_VERSION}")
 STRING(REGEX REPLACE "^([0-9]+)\\.[0-9]+\\.[0-9]+" "\\1" VERSION_MAJOR "${PACKAGE_VERSION}")
 STRING(REGEX REPLACE "^[0-9]+\\.([0-9])+\\.[0-9]+" "\\1" VERSION_MINOR "${PACKAGE_VERSION}")

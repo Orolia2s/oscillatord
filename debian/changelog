@@ -1,3 +1,10 @@
+oscillatord-skyjacker (3.9.3) unstable; urgency=medium
+
+  * Install udev rules to configure input/output of timecard.
+  * Increase to debug the log level in installed oscillatord.conf.
+
+ -- Nicolas Bourdaud <nicolas.bourdaud@fr.nav-timing.safrangroup.com>  Wed, 01 Oct 2025 12:30:27 +0200
+
 oscillatord-skyjacker (3.9.2) unstable; urgency=medium
 
   * Restore missing position in monitoring.

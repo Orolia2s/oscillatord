@@ -1,6 +1,6 @@
 .{
     .name = .oscillatord,
-    .version = "3.9.2",
+    .version = "3.9.3",
     .fingerprint = 0x78ed59d69ea71fce,
     .minimum_zig_vesion = "0.14.1",
 
