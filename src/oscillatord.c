@@ -200,6 +200,7 @@ int main(int argc, char *argv[])
 
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
+	signal(SIGPIPE, SIG_IGN);
 
 	if (argc != 2)
 		error(EXIT_FAILURE, 0, "usage: %s config_file_path", argv[0]);

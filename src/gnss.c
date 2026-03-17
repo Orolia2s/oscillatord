@@ -4,7 +4,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/timex.h>
+#include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -54,6 +57,8 @@
 #ifndef FLAG
 #define FLAG(field, flag) ( ((field) & (flag)) == (flag) )
 #endif
+
+#define RTCM_SOCK_PATH "/run/oscillatord/rtcm.sock"
 
 /** The resolution of our phasemeter in pico seconds */
 #define QERR_ABS_THRESHOLD_PS 5000
@@ -537,6 +542,155 @@ static bool gnss_set_configuration(RX_t* rx, const struct config* config, int ma
 }
 
 /**
+ * @brief Enable RTCM3 output on UART1 for NTRIP base station use.
+ *
+ * Enables RTCM3 output protocol and configures messages 1005, 1077,
+ * 1087, 1097, 1127, 1230 at rate=1 on UART1. The RTCM frames are
+ * multiplexed with UBX on the same port and separated by the parser.
+ */
+static bool gnss_set_rtcm_config(RX_t *rx)
+{
+	static const char *rtcm_messages[] = {
+		"RTCM-3X-TYPE1005",
+		"RTCM-3X-TYPE1077",
+		"RTCM-3X-TYPE1087",
+		"RTCM-3X-TYPE1097",
+		"RTCM-3X-TYPE1127",
+		"RTCM-3X-TYPE1230",
+	};
+	UBLOXCFG_KEYVAL_t kv[16];
+	int nKv = 0;
+
+	/* Enable RTCM3 output protocol on UART1 (in addition to UBX) */
+	kv[nKv].id = UBLOXCFG_CFG_UART1OUTPROT_RTCM3X_ID;
+	kv[nKv].val.L = true;
+	nKv++;
+
+	for (int i = 0; i < (int)ARRAY_SIZE(rtcm_messages); i++) {
+		const UBLOXCFG_MSGRATE_t *items = ubloxcfg_getMsgRateCfg(rtcm_messages[i]);
+		if (items != NULL && items->itemUart1 != NULL) {
+			kv[nKv].id = items->itemUart1->id;
+			kv[nKv].val.U1 = 1;
+			nKv++;
+		} else {
+			log_warn("RTCM message %s not supported by receiver, skipping",
+				rtcm_messages[i]);
+		}
+	}
+
+	if (!rxSetConfig(rx, kv, nKv, true, true, true)) {
+		log_error("Failed to apply RTCM configuration");
+		return false;
+	}
+
+	log_info("RTCM3 output enabled on UART1 (%d messages configured)", nKv - 1);
+	return true;
+}
+
+/**
+ * @brief Create a Unix domain socket for RTCM output.
+ *
+ * Creates a listening socket at RTCM_SOCK_PATH. Clients connect to
+ * receive raw RTCM3 frames. Only one client is served at a time;
+ * a new connection replaces the previous one.
+ *
+ * @return listening socket fd, or -1 on error
+ */
+static int rtcm_sock_create(void)
+{
+	struct sockaddr_un addr = {
+		.sun_family = AF_UNIX,
+		.sun_path = RTCM_SOCK_PATH,
+	};
+	int fd;
+
+	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd < 0) {
+		log_warn("RTCM socket create failed: %s", strerror(errno));
+		return -1;
+	}
+
+	unlink(RTCM_SOCK_PATH);
+	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		log_warn("RTCM socket bind failed: %s", strerror(errno));
+		close(fd);
+		return -1;
+	}
+
+	if (listen(fd, 1) < 0) {
+		log_warn("RTCM socket listen failed: %s", strerror(errno));
+		close(fd);
+		unlink(RTCM_SOCK_PATH);
+		return -1;
+	}
+
+	log_info("RTCM socket listening at %s", RTCM_SOCK_PATH);
+	return fd;
+}
+
+/**
+ * @brief Background thread that accepts RTCM client connections.
+ *
+ * Blocks on accept(). When a new client connects, it replaces the
+ * previous client fd (closing the old one). The gnss_thread writes
+ * RTCM frames to rtcm_client_fd without blocking.
+ */
+static void *rtcm_accept_thread_fn(void *p_data)
+{
+	struct gnss *gnss = (struct gnss *)p_data;
+
+	while (gnss->rtcm_accept_running) {
+		int client_fd = accept(gnss->rtcm_listen_fd, NULL, NULL);
+		if (client_fd < 0) {
+			if (errno == EINVAL || errno == EBADF)
+				break; /* socket closed, shutting down */
+			log_warn("RTCM accept failed: %s", strerror(errno));
+			continue;
+		}
+
+		/* Swap in the new client fd under mutex */
+		pthread_mutex_lock(&gnss->mutex_data);
+		int old_fd = gnss->rtcm_client_fd;
+		gnss->rtcm_client_fd = client_fd;
+		pthread_mutex_unlock(&gnss->mutex_data);
+
+		if (old_fd >= 0)
+			close(old_fd);
+
+		log_info("RTCM client connected (fd %d)", client_fd);
+	}
+
+	return NULL;
+}
+
+/**
+ * @brief Clean up RTCM socket resources.
+ */
+static void rtcm_sock_cleanup(struct gnss *gnss)
+{
+	gnss->rtcm_accept_running = false;
+
+	/* Close listening socket to unblock accept() */
+	if (gnss->rtcm_listen_fd >= 0) {
+		shutdown(gnss->rtcm_listen_fd, SHUT_RDWR);
+		close(gnss->rtcm_listen_fd);
+		gnss->rtcm_listen_fd = -1;
+	}
+
+	pthread_join(gnss->rtcm_accept_thread, NULL);
+
+	pthread_mutex_lock(&gnss->mutex_data);
+	int cfd = gnss->rtcm_client_fd;
+	gnss->rtcm_client_fd = -1;
+	pthread_mutex_unlock(&gnss->mutex_data);
+
+	if (cfd >= 0)
+		close(cfd);
+
+	unlink(RTCM_SOCK_PATH);
+}
+
+/**
  * @brief Create gnss struct handler for thread
  *
  * @param config config structure of the program
@@ -599,6 +753,32 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 
 	if (!gnss_set_configuration(gnss->rx, config, gnss->receiver_version_major, gnss->receiver_version_minor))
 		goto err_gnss_connect;
+
+	/* Enable RTCM3 output on UART1 if configured */
+	gnss->rtcm_enabled = false;
+	gnss->rtcm_listen_fd = -1;
+	gnss->rtcm_client_fd = -1;
+	gnss->rtcm_accept_running = false;
+	if (config_get_bool_default(config, "gnss-rtcm-enabled", false)) {
+		if (gnss_set_rtcm_config(gnss->rx)) {
+			gnss->rtcm_enabled = true;
+			mkdir("/run/oscillatord", 0755);
+			gnss->rtcm_listen_fd = rtcm_sock_create();
+			if (gnss->rtcm_listen_fd >= 0) {
+				gnss->rtcm_accept_running = true;
+				if (pthread_create(&gnss->rtcm_accept_thread, NULL,
+					rtcm_accept_thread_fn, gnss) != 0) {
+					log_warn("Failed to create RTCM accept thread");
+					gnss->rtcm_accept_running = false;
+					close(gnss->rtcm_listen_fd);
+					gnss->rtcm_listen_fd = -1;
+					unlink(RTCM_SOCK_PATH);
+				}
+			}
+		} else {
+			log_warn("Failed to enable RTCM output");
+		}
+	}
 
 	gnss->stop = false;
 
@@ -849,6 +1029,9 @@ static void * gnss_thread(void * p_data)
 	struct gps_device_t * session;
 	enum gnss_action action = GNSS_ACTION_NONE;
 	bool stop;
+	int rtcm_log_counter = 0;
+	int rtcm_msg_count = 0;
+	int rtcm_byte_count = 0;
 
 	epochInit(&coll);
 
@@ -861,6 +1044,30 @@ static void * gnss_thread(void * p_data)
 		PARSER_MSG_t *msg = rxGetNextMessageTimeout(gnss->rx, GNSS_TIMEOUT_MS);
 		if (msg != NULL)
 		{
+			/* Forward RTCM3 frames to socket client if connected */
+			if (gnss->rtcm_enabled && msg->type == PARSER_MSGTYPE_RTCM3) {
+				rtcm_msg_count++;
+				rtcm_byte_count += msg->size;
+				pthread_mutex_lock(&gnss->mutex_data);
+				int cfd = gnss->rtcm_client_fd;
+				pthread_mutex_unlock(&gnss->mutex_data);
+				if (cfd >= 0) {
+					ssize_t ret = send(cfd, msg->data, msg->size,
+						MSG_NOSIGNAL);
+					if (ret < 0) {
+						log_info("RTCM client disconnected");
+						pthread_mutex_lock(&gnss->mutex_data);
+						if (gnss->rtcm_client_fd == cfd) {
+							gnss->rtcm_client_fd = -1;
+							pthread_mutex_unlock(&gnss->mutex_data);
+							close(cfd);
+						} else {
+							pthread_mutex_unlock(&gnss->mutex_data);
+						}
+					}
+				}
+			}
+
 			pthread_mutex_lock(&gnss->mutex_data);
 			session = gnss->session;
 			// Epoch collect is used to fetch navigation data such as time and leap seconds
@@ -901,6 +1108,20 @@ static void * gnss_thread(void * p_data)
 					pthread_cond_signal(&gnss->cond_time);
 				else
 					log_warn("Could not tai time from gnss, please check GNSS Configuration if this message keeps appearing more than 25 minutes");
+
+				/* Log RTCM status periodically (every 60 epochs / ~60s) */
+				if (gnss->rtcm_enabled) {
+					rtcm_log_counter++;
+					if (rtcm_log_counter >= 60) {
+						log_info("RTCM: %d frames, %d bytes in last %ds (client %s)",
+							rtcm_msg_count, rtcm_byte_count, rtcm_log_counter,
+							gnss->rtcm_client_fd >= 0 ?
+								"connected" : "waiting");
+						rtcm_msg_count = 0;
+						rtcm_byte_count = 0;
+						rtcm_log_counter = 0;
+					}
+				}
 
 			} else {
 				// Analyze msg to parse UBX-MON-RF to get antenna status
@@ -1037,7 +1258,9 @@ void gnss_stop(struct gnss *gnss)
 	pthread_mutex_unlock(&gnss->mutex_data);
 
 	pthread_join(gnss->thread, NULL);
-	return;
+
+	if (gnss->rtcm_enabled)
+		rtcm_sock_cleanup(gnss);
 }
 
 void gnss_set_action(struct gnss *gnss, enum gnss_action action)
