@@ -1,4 +1,6 @@
 # TIM 2.20 (ZED-F9T), layer Flash
+# Note: When gnss-rtcm-enabled=true, UART1 output protocol becomes UBX,RTCM3
+# and RTCM messages below are enabled at rate=1 on UART1.
 UART1     115200  UBX                  UBX                 # default:    38400  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3
 UART2      38400  RTCM3                RTCM3               # default:    38400  RTCM3                RTCM3
 SPI            -  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3      # default:        -  UBX,NMEA,RTCM3       UBX,NMEA,RTCM3

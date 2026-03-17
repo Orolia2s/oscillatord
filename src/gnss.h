@@ -202,6 +202,11 @@ struct gnss {
 	int receiver_version_major;
 	int receiver_version_minor;
 	struct gnss_state *gnss_info;
+	bool rtcm_enabled;
+	int rtcm_listen_fd;
+	int rtcm_client_fd;
+	pthread_t rtcm_accept_thread;
+	bool rtcm_accept_running;
 };
 
 struct gnss* gnss_init(const struct config *config, char *gnss_device_tty, struct gps_device_t *session, int fd_clock);
