@@ -579,19 +579,36 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 	}
 	holdover = (!sa5x->gnss_fix_status && (ts.tv_sec - sa5x->gnss_last_fix.tv_sec) >= NO_GNSS_FIX_TIMEOUT);
 	holdover |= (a.ppsindetected == 0 || a.alarms & BIT(17));
-	if (holdover || latch || !a.disciplinelocked) {
+	if (holdover) {
 		// we are out of GNSS sync, have to restart disciplining
 		// or change state to UNCALIBRATED if we are in HOLDOVER more than 24h
-		adjust_tau = (sa5x->disciplining_phase != 0) ||
-					ts.tv_sec - sa5x->gnss_last_fix.tv_sec > 24 * 3600;
-		sa5x->disciplining_phase = 0;
-		sa5x->disciplining_start = ts;
+		sa5x->status.clock_class = ((sa5x->status.clock_class == SA5X_CLOCK_CLASS_CALIBRATING) ||
+									(ts.tv_sec - sa5x->gnss_last_fix.tv_sec > 24 * 3600)) ?
+									SA5X_CLOCK_CLASS_UNCALIBRATED : SA5X_CLOCK_CLASS_HOLDOVER;
+		sa5x->status.status = SA5X_HOLDOVER;
+		// keep TAU unchanged to keep holdover performance
+	} else if (latch) {
+		sa5x->status.clock_class = SA5X_CLOCK_CLASS_UNCALIBRATED;
+		sa5x->status.status = SA5X_HOLDOVER;
 	} else {
 		if (sa5x->status.clock_class == SA5X_CLOCK_CLASS_HOLDOVER ||
 			sa5x->status.clock_class == SA5X_CLOCK_CLASS_UNCALIBRATED) {
 			// indicate that we are not in holdover anymore
+			// but we have to restart disciplining with the smallest TAU
 			sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
 			sa5x->status.status = SA5X_TRACKING;
+			sa5x->disciplining_phase = 0;
+			sa5x->disciplining_start = ts;
+			adjust_tau = true;
+		}
+		if (!a.disciplinelocked) {
+			sa5x->disciplining_start = ts;
+			if (sa5x->status.clock_class != SA5X_CLOCK_CLASS_CALIBRATING) {
+				sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
+				sa5x->status.status = SA5X_TRACKING;
+				sa5x->disciplining_phase = 0;
+				adjust_tau = true;
+			}
 		}
 	}
 	if (sa5x->disciplining_phase < (DISCIPLINING_PHASES - 1) &&
@@ -605,15 +622,7 @@ static int sa5x_oscillator_get_ctrl(struct oscillator *oscillator, struct oscill
 		if (sa5x_oscillator_cmd(sa5x, answer_str, cmd_len) == -1) {
 			log_debug("couldn't set TAU to %d", tau_values[sa5x->disciplining_phase]);
 		}
-		if (!sa5x->gnss_fix_status) {
-			sa5x->status.clock_class = ((sa5x->status.clock_class == SA5X_CLOCK_CLASS_CALIBRATING) ||
-										(ts.tv_sec - sa5x->gnss_last_fix.tv_sec > 24 * 3600)) ?
-										SA5X_CLOCK_CLASS_UNCALIBRATED : SA5X_CLOCK_CLASS_HOLDOVER;
-			sa5x->status.status = SA5X_HOLDOVER;
-		} else if (!a.disciplinelocked) {
-			sa5x->status.clock_class = SA5X_CLOCK_CLASS_UNCALIBRATED;
-			sa5x->status.status = SA5X_HOLDOVER;
-		} else if (sa5x->disciplining_phase == 0) {
+		if (sa5x->disciplining_phase == 0) {
 			sa5x->status.clock_class = SA5X_CLOCK_CLASS_CALIBRATING;
 			sa5x->status.status = SA5X_TRACKING;
 		} else {
