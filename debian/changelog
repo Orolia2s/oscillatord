@@ -1,3 +1,11 @@
+oscillatord (3.9.0) unstable; urgency=medium
+
+  * Add RTCM socket.
+  * Adjust SA5x performance holdover.
+  * Improve JSON monitoring output.
+
+ -- Nicolas BOURDAUD <nicolas.bourdaud@fr.nav-timing.safrangroup.com>  Mon, 06 Apr 2026 18:55:05 +0200
+
 oscillatord (3.8.4) unstable; urgency=medium
 
   * Initial release.
