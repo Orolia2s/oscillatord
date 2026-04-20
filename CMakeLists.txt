@@ -20,7 +20,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 pkg_check_modules(oscillator-disciplining REQUIRED liboscillator-disciplining)
-pkg_check_modules(ubloxcfg REQUIRED libubloxcfg)
+pkg_check_modules(ubloxcfg REQUIRED ubloxcfg ff)
 pkg_check_modules(json-c REQUIRED json-c)
 
 ADD_DEFINITIONS( -DPACKAGE_VERSION=\"${PACKAGE_VERSION}\" )

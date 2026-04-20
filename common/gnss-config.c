@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <ubloxcfg/ff_ubx.h>
+#include <ff/ff_ubx.h>
 
 #include "gnss-config.h"
 
