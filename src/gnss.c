@@ -215,7 +215,7 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 
 		log_trace("UBX-TIM-TP: towMS %u, towSubMs %u, qErr %i, week %hu, flags %#hhx; refInfo %#hhx",
 		          gr0.towMs,
-		          gr0.towSubMS,
+		          gr0.towSubMs,
 		          gr0.qErr,
 		          gr0.week,
 		          gr0.flags,
@@ -223,17 +223,17 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 
 		int offset = 0;
 		if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_GNSS) {
-			switch(UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo)) {
-				case UBX_TIM_TP_V0_REFINFO_GPS:
+			switch(UBX_TIM_TP_V0_REFINFO_TIMEREFGNSS_GET(gr0.refInfo)) {
+				case UBX_TIM_TP_V0_REFINFO_TIMEREFGNSS_GPS:
 					offset = GPS_EPOCH_TO_TAI;
 					break;
-				case UBX_TIM_TP_V0_REFINFO_BDS:
+				case UBX_TIM_TP_V0_REFINFO_TIMEREFGNSS_BDS:
 					offset = BDS_EPOCH_TO_TAI;
 					break;
-				case UBX_TIM_TP_V0_REFINFO_GAL:
+				case UBX_TIM_TP_V0_REFINFO_TIMEREFGNSS_GAL:
 					offset = GAL_EPOCH_TO_TAI;
 					break;
-				case UBX_TIM_TP_V0_REFINFO_GLO:
+				case UBX_TIM_TP_V0_REFINFO_TIMEREFGNSS_GLO:
 					if (session->context->lsset) {
 						offset = GLO_EPOCH_TO_TAI + session->context->leap_seconds;
 					} else {
@@ -242,7 +242,7 @@ static void gnss_parse_ubx_tim_tp(struct gps_device_t *session, PARSER_MSG_t *ms
 					}
 					break;
 				default:
-					log_error("Unhandled Constellations %d", UBX_TIM_TP_V0_REFINFO_GET(gr0.refInfo));
+					log_error("Unhandled Constellations %d", UBX_TIM_TP_V0_REFINFO_TIMEREFGNSS_GET(gr0.refInfo));
 					return;
 			}
 		} else if (UBX_TIM_TP_V0_FLAGS_TIMEBASE_GET(gr0.flags) == UBX_TIM_TP_V0_FLAGS_TIMEBASE_UTC) {
@@ -702,12 +702,12 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 {
 	struct gnss* gnss;
 	int          ret  = -1;
-	RX_ARGS_t    args = RX_ARGS_DEFAULT();
-	args.autobaud     = true;
-	args.detect       = true;
+	RX_OPTS_t    opts = RX_OPTS_DEFAULT();
+	opts.autobaud     = true;
+	opts.detect       = RX_DET_UBX;
 
 	if (strchr(gnss_device_tty, '@')) {
-		args.autobaud = false;
+		opts.autobaud = false;
 	}
 
 	if (session == NULL) {
@@ -727,7 +727,7 @@ struct gnss * gnss_init(const struct config *config, char *gnss_device_tty, stru
 	/* Init Antenna Status and Power to undefined values according to UBX Protocol */
 	gnss->session->antenna_status = ANT_STATUS_UNDEFINED;
 	gnss->session->antenna_power = ANT_POWER_UNDEFINED;
-	gnss->rx = rxInit(gnss_device_tty, &args);
+	gnss->rx = rxInit(gnss_device_tty, &opts);
 	gnss->action = GNSS_ACTION_NONE;
 	/* Init Survey In Error to undefined values */
 	gnss->session->survey_in_position_error =-1.0;
