@@ -31,11 +31,11 @@ bool test_gnss_serial(char* path) {
         log_error("\t- GNSS Path does not exists");
         return false;
     }
-    RX_ARGS_t args = RX_ARGS_DEFAULT();
-    args.autobaud  = true;
-    args.detect    = true;
+    RX_OPTS_t opts = RX_OPTS_DEFAULT();
+    opts.autobaud  = true;
+    opts.detect    = RX_DET_UBX;
     log_info("Path is %s", path);
-    RX_t* rx = rxInit(path, &args);
+    RX_t* rx = rxInit(path, &opts);
 
     if (!rxOpen(rx)) {
         free(rx);

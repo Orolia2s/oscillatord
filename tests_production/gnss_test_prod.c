@@ -69,11 +69,11 @@ int main(int argc, char *argv[])
 
     if (gnss_path_valid)
     {
-        RX_ARGS_t args = RX_ARGS_DEFAULT();
-        args.autobaud = true;
-        args.detect = true;
+        RX_OPTS_t opts = RX_OPTS_DEFAULT();
+        opts.autobaud = true;
+        opts.detect = RX_DET_UBX;
         log_info("Path is %s", gnss_path);
-        RX_t * rx = rxInit(gnss_path, &args);
+        RX_t * rx = rxInit(gnss_path, &opts);
 
         if (!rxOpen(rx)) {
             free(rx);
