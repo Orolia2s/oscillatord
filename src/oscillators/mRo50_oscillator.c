@@ -110,6 +110,8 @@ static int set_serial_attributes(int fd)
 	tty.c_oflag = 0;			// no remapping, no delays
 
 	tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
+	tty.c_iflag &= ~(INLCR | IGNCR); // no CR/LF translation on input
+	tty.c_iflag |= ICRNL;
 
 	tty.c_cflag |= (CLOCAL | CREAD);	// ignore modem controls,
 						// enable reading
