@@ -489,6 +489,50 @@ static bool set_cable_delay(UBLOXCFG_KEYVAL_t* keyValuePairs, size_t length, con
 }
 
 /**
+ * @brief Patch RTCM message rates and UART1 output protocol in the config array.
+ *
+ * When gnss-rtcm-enabled=true, sets RTCM UART1 message rates to 1 and enables
+ * the RTCM3 output protocol on UART1 in the reference config array so the
+ * comparison against the receiver's current config will match.
+ */
+static bool set_rtcm_output(UBLOXCFG_KEYVAL_t* keyValuePairs, size_t length, const struct config* config)
+{
+	if (!config_get_bool_default(config, "gnss-rtcm-enabled", false))
+		return false;
+
+	static const uint32_t rtcm_uart1_ids[] = {
+		UBLOXCFG_CFG_MSGOUT_RTCM_3X_TYPE1005_UART1_ID,
+		UBLOXCFG_CFG_MSGOUT_RTCM_3X_TYPE1077_UART1_ID,
+		UBLOXCFG_CFG_MSGOUT_RTCM_3X_TYPE1087_UART1_ID,
+		UBLOXCFG_CFG_MSGOUT_RTCM_3X_TYPE1097_UART1_ID,
+		UBLOXCFG_CFG_MSGOUT_RTCM_3X_TYPE1127_UART1_ID,
+		UBLOXCFG_CFG_MSGOUT_RTCM_3X_TYPE1230_UART1_ID,
+	};
+
+	for (int i = 0; i < (int)(sizeof(rtcm_uart1_ids) / sizeof(rtcm_uart1_ids[0])); i++) {
+		UBLOXCFG_KEYVAL_t* pair = keyValuePairs + length;
+		while (pair --> keyValuePairs) {
+			if (pair->id == rtcm_uart1_ids[i]) {
+				pair->val.U1 = 1;
+				break;
+			}
+		}
+	}
+
+	/* Also enable RTCM3 output protocol on UART1 */
+	UBLOXCFG_KEYVAL_t* pair = keyValuePairs + length;
+	while (pair --> keyValuePairs) {
+		if (pair->id == UBLOXCFG_CFG_UART1OUTPROT_RTCM3X_ID) {
+			pair->val.L = true;
+			break;
+		}
+	}
+
+	log_info("RTCM output enabled in base configuration for comparison");
+	return true;
+}
+
+/**
  * @brief Send configuration from f9_defvalsets.h to GNSS receiver
  *
  * @param rx pointer to serial communication handler
@@ -505,6 +549,7 @@ static bool gnss_set_configuration(RX_t* rx, const struct config* config, int ma
 
 	set_preferred_time_scale(allKvCfg, nAllKvCfg, config);
 	set_cable_delay(allKvCfg, nAllKvCfg, config);
+	set_rtcm_output(allKvCfg, nAllKvCfg, config);
 
 	/* Check if receiver is already configured */
 	receiver_configured = check_gnss_config_in_ram(rx, allKvCfg, nAllKvCfg);
