@@ -16,6 +16,8 @@ jobs:
       with:
           repository: orolia2s/ubloxcfg
           ref: main
+    - name: Install perl modules for ubloxcfg code-gen
+      run: sudo apt-get update && sudo apt-get install -y libpath-tiny-perl libdata-float-perl
     - name: Compile Ublox configuration shared library
       run: |
         cmake -S . -B build
