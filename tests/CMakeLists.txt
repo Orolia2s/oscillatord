@@ -34,6 +34,11 @@ if(BUILD_TESTS)
 	)
 	file(GLOB EXTTS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts_test.c)
 	file(GLOB EXTTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/extts.[ch])
+	file(GLOB SA5X_OSCILLATOR_TEST_SOURCES
+		${CMAKE_CURRENT_SOURCE_DIR}/sa5x_oscillator_test.c
+		${PROJECT_SOURCE_DIR}/src/oscillator.[ch]
+		${PROJECT_SOURCE_DIR}/src/oscillator_factory.[ch]
+		${PROJECT_SOURCE_DIR}/src/oscillators/sa5x_oscillator.c)
 
 
 	pkg_check_modules(SYSTEMD REQUIRED libsystemd)
@@ -54,6 +59,9 @@ if(BUILD_TESTS)
 		${COMMON_GNSS_SOURCES}
 	)
 	add_executable(extts_test ${EXTTS_TEST_SOURCES} ${COMMON_SOURCES} ${EXTTS_SOURCES})
+	add_executable(sa5x_oscillator_test
+		${SA5X_OSCILLATOR_TEST_SOURCES}
+		${COMMON_SOURCES})
 
 	target_link_libraries(oscillator_sim PRIVATE m)
 	target_link_libraries(mro50_ctrl PRIVATE m)
@@ -69,6 +77,9 @@ if(BUILD_TESTS)
 		${SYSTEMD_LIBRARIES})
 	target_link_libraries(extts_test PRIVATE
 		m)
+	target_link_libraries(sa5x_oscillator_test PRIVATE m Threads::Threads)
+
+	add_test(NAME sa5x_oscillator COMMAND sa5x_oscillator_test)
 
 	install(TARGETS oscillator_sim RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 	install(TARGETS mro50_ctrl RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
